@@ -2,6 +2,17 @@
 
 A powerful Node.js tool for scraping business leads from Google Maps with AI-powered marketing automation capabilities. Generate personalized marketing templates efficiently with just one AI call per campaign.
 
+## ⚖️ Legal Notice
+
+**IMPORTANT**: This tool is for **educational and legitimate business purposes only**. Users are responsible for ensuring compliance with all applicable laws, including:
+
+- Local data protection laws (GDPR, CCPA, etc.)
+- Anti-spam regulations (CAN-SPAM, CASL, etc.)
+- Google Maps Platform Terms of Service
+- OpenAI Terms of Service
+
+**Please read our [Legal Disclaimer](DISCLAIMER.md) before using this tool.**
+
 ## 🚀 Features
 
 - **Google Maps Scraping**: Extract business information (name, address, phone, website, rating)
@@ -204,6 +215,9 @@ business-scrap-tools/
 │   └── marketing.js             # AI marketing automation
 ├── .env                         # Environment variables
 ├── env.example                  # Environment template
+├── LICENSE                      # MIT License
+├── DISCLAIMER.md               # Legal disclaimer & ethical guidelines
+├── CONTRIBUTING.md             # Contribution guidelines
 ├── package.json
 └── README.md
 ```
@@ -348,15 +362,11 @@ cat marketing_log.json
 
 ## 📝 License
 
-MIT License - see LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) and [Legal Disclaimer](DISCLAIMER.md) before contributing.
 
 ### Development Setup
 
@@ -379,6 +389,7 @@ For issues and questions:
 - **Documentation**: Check this README and code comments
 - **Troubleshooting**: See the troubleshooting section above
 - **Feature Requests**: Open a GitHub issue with detailed description
+- **Legal Questions**: Review [DISCLAIMER.md](DISCLAIMER.md) and consult legal professionals
 
 ### Getting Help
 
@@ -387,6 +398,7 @@ For issues and questions:
 3. Check your `.env` configuration
 4. Test with small datasets first
 5. Monitor OpenAI API usage
+6. Review legal compliance requirements
 
 ---
 
@@ -420,3 +432,5 @@ For issues and questions:
 ---
 
 **Happy Scraping & Marketing! 🚀**
+
+**Remember**: Use this tool responsibly and ethically. Always comply with applicable laws and terms of service.
