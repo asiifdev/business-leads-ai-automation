@@ -1,486 +1,249 @@
-<div align="center">
-  <h1>🚀 Business Leads AI Automation</h1>
-  <p><strong>Free AI-powered lead generation for Indonesian businesses</strong></p>
-  
-  <p>
-    <a href="#quick-start">Quick Start</a> •
-    <a href="#features">Features</a> •
-    <a href="#examples">Examples</a> •
-    <a href="#demo">Live Demo</a>
-  </p>
-  
-  <img src="https://img.shields.io/github/stars/asiifdev/business-leads-ai-automation?style=social" alt="GitHub stars">
-  <img src="https://img.shields.io/github/forks/asiifdev/business-leads-ai-automation?style=social" alt="GitHub forks">
-  <img src="https://img.shields.io/github/license/asiifdev/business-leads-ai-automation" alt="License">
-  <img src="https://img.shields.io/npm/v/business-leads-ai-automation" alt="npm version">
-</div>
+# 🚀 Business Leads AI Automation
 
-## 🎯 What This Tool Does
+**Open-source lead generation tool with AI-powered content creation**
 
-**In 5 minutes, you can:**
-- 📊 Scrape 1000+ business leads from Google Maps
-- 🤖 Generate personalized email & WhatsApp templates with AI
-- 💰 Save $299/month on expensive lead generation tools
-- 🎯 Target Indonesian businesses with local market understanding
+Generate business leads from Google Maps and create personalized marketing content using OpenAI.
 
-## 🔥 Why Choose This Tool?
+[![GitHub stars](https://img.shields.io/github/stars/asiifdev/business-leads-ai-automation?style=social)](https://github.com/asiifdev/business-leads-ai-automation/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/asiifdev/business-leads-ai-automation?style=social)](https://github.com/asiifdev/business-leads-ai-automation/fork)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-| Feature | This Tool | Expensive SaaS | Other Open Source |
-|---------|-----------|----------------|-------------------|
-| Cost | FREE | $99-299/month | FREE |
-| AI Integration | ✅ OpenAI | ✅ Limited | ❌ None |
-| Indonesian Focus | ✅ Perfect | ❌ Generic | ❌ Generic |
-| WhatsApp Marketing | ✅ Built-in | ❌ Extra Cost | ❌ Manual |
-| Full Control | ✅ Open Source | ❌ Black Box | ✅ Open Source |
+---
 
-## 🚀 Quick Start (2 minutes)
+## 🎯 What it does
+
+This tool helps you:
+- **Scrape business information** from Google Maps (name, address, phone, rating)
+- **Generate AI marketing content** personalized for each business
+- **Export results** in CSV and JSON formats
+- **Create email and WhatsApp templates** automatically
+
+**Perfect for:** Digital agencies, freelance marketers, SME consultants, and business developers looking for an affordable lead generation solution.
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 16+
+- OpenAI API key ([get one here](https://platform.openai.com/))
+
+### Installation
 
 ```bash
-# 1. Clone & install
-git clone https://github.com/asiifdev/business-leads-ai-automation
-cd business-leads-ai-automation && npm install
+git clone https://github.com/asiifdev/business-leads-ai-automation.git
+cd business-leads-ai-automation
+npm install
+```
 
-# 2. Add your OpenAI key
-echo "OPENAI_API_KEY=your-key-here" > .env
+### Setup
 
-# 3. Get 50 rental car leads + AI marketing templates
-node index.js -q "Rental Mobil Jakarta" -l 50 -m "Your marketing message"
+```bash
+# Copy environment template
+cp .env.example .env
 
-# ✅ Done! Check output/ folder for results
+# Add your OpenAI API key to .env
+OPENAI_API_KEY=your-openai-key-here
+```
 
-# Business Scraping Tools
+### Usage
 
-A powerful Node.js tool for scraping business leads from Google Maps with AI-powered marketing automation capabilities. Generate personalized marketing templates efficiently with just one AI call per campaign.
+```bash
+# Basic usage
+node index.js -q "Restaurant Jakarta" -l 20 -m "Increase your restaurant sales with digital marketing"
 
-## ⚖️ Legal Notice
+# Results will be saved in the output/ folder
+```
 
-**IMPORTANT**: This tool is for **educational and legitimate business purposes only**. Users are responsible for ensuring compliance with all applicable laws, including:
+---
 
-- Local data protection laws (GDPR, CCPA, etc.)
-- Anti-spam regulations (CAN-SPAM, CASL, etc.)
-- Google Maps Platform Terms of Service
-- OpenAI Terms of Service
+## 📊 Example Output
 
-**Please read our [Legal Disclaimer](DISCLAIMER.md) before using this tool.**
+### Input:
+```bash
+node index.js -q "Coffee Shop Jakarta" -l 5 -m "Boost your coffee shop with online ordering system"
+```
 
-## 🚀 Features
+### Generated Files:
 
-- **Google Maps Scraping**: Extract business information (name, address, phone, website, rating)
-- **Smart Scrolling**: Automatically scroll to load more results based on target count
-- **AI-Powered Marketing**: Generate personalized email and WhatsApp templates using OpenAI
-- **Efficient Token Usage**: Generate base template once, then personalize for each lead
-- **Custom Marketing Content**: Define your own marketing message and call-to-action
-- **Bulk Outreach**: Automated lead nurturing with customizable templates
-- **Multiple Output Formats**: CSV and JSON export
-- **Command Line Interface**: Easy-to-use CLI with flexible parameters
+**📄 leads_[timestamp].csv**
+```csv
+ID,Name,Address,Phone,Website,Rating
+1,"Kopi Tuku","Jl. Kemang Raya No.1","+6281234567890","kopituku.com","4.5"
+2,"Filosofi Kopi","Jl. Senopati No.5","+6281234567891","filosofikopi.com","4.3"
+```
 
-## 📋 Requirements
+**📧 email_template.txt**
+```
+Subject: Tingkatkan Penjualan Coffee Shop dengan Sistem Online
 
-- Node.js >= 20.0.0
-- npm or yarn
-- OpenAI API key (for AI template generation)
+Halo Tim Kopi Tuku,
 
-## 🛠️ Installation
+Saya melihat coffee shop Anda di Kemang dengan rating 4.5 stars - impressive!
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd business-leads-ai-automation
-   ```
+Apakah Anda tertarik meningkatkan penjualan dengan sistem online ordering yang terbukti efektif untuk coffee shop?
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+[Your personalized message continues...]
+```
 
-3. **Copy environment template**
-   ```bash
-   cp env.example .env
-   ```
+**📱 whatsapp_template.txt**
+```
+Halo Kopi Tuku! ☕
 
-4. **Configure your environment variables**
-   ```bash
-   # Edit .env file with your details
-   nano .env
-   ```
+Lihat coffee shop Anda di Kemang rating 4.5⭐ - keren!
 
-## ⚙️ Configuration
+Mau boost penjualan pakai sistem online ordering? 📱
 
-### Environment Variables (.env)
+[Continues with personalized content...]
+```
 
-Create a `.env` file in the root directory with the following variables:
+---
+
+## ⚙️ Current Features
+
+### ✅ Working Features
+- **Google Maps scraping** with auto-scroll
+- **Basic business data extraction** (name, address, phone, rating, website)
+- **AI content generation** using OpenAI GPT
+- **Dual template creation** (email + WhatsApp)
+- **CSV and JSON export**
+- **Indonesian market optimization**
+- **Rate limiting** to avoid blocking
+
+### 🚧 Known Limitations
+- **Email finding** returns empty array (work in progress)
+- **Phone number validation** could be improved
+- **Error handling** needs enhancement for edge cases
+- **No web interface** (CLI only for now)
+
+### 🎯 Planned Features
+- [ ] Fix email discovery functionality
+- [ ] Better phone number validation for Indonesian numbers
+- [ ] Web dashboard interface
+- [ ] Multiple search engine support
+- [ ] Advanced AI prompt customization
+- [ ] Batch processing for multiple queries
+
+---
+
+## 📖 Command Line Options
+
+```bash
+node index.js [options]
+
+Required:
+  -q, --query <query>     Google Maps search query
+  -l, --limit <number>    Number of results to scrape
+  -m, --message <text>    Your marketing message for AI templates
+
+Optional:
+  -o, --output <format>   Output format: csv or json (default: csv)
+  -h, --help             Show help information
+
+Examples:
+  node index.js -q "Restaurant Bandung" -l 50 -m "Digital marketing for restaurants"
+  node index.js -q "Salon Jakarta" -l 30 -m "Online booking system" -o json
+```
+
+---
+
+## 🔧 Configuration
+
+Edit `.env` file for customization:
 
 ```env
-# OpenAI Configuration
-OPENAI_API_KEY=your-openai-api-key-here
-OPENAI_MODEL=gpt-4.1-nano
+# Required
+OPENAI_API_KEY=your-openai-key-here
 
-# Business Information
-BUSINESS_NAME=Your Business Name
-BUSINESS_PHONE=+6281234567890
-BUSINESS_EMAIL=your@business.com
-
-# Owner Information
-OWNER_NAME=Your Name
-OWNER_PHONE=+6281234567890
-OWNER_EMAIL=your@email.com
-
-# Business Type for AI Context
-BUSINESS_TYPE=rental_mobil
+# Optional
+DELAY_BETWEEN_SCRAPES=2000    # Milliseconds between requests
+MAX_RETRIES=3                 # Retry failed requests
+OUTPUT_FORMAT=csv             # Default output format
 ```
 
-### OpenAI API Setup
-
-1. **Get OpenAI API Key**
-   - Sign up at [OpenAI](https://platform.openai.com/)
-   - Create an API key in your dashboard
-   - Add your key to the `.env` file
-
-2. **Choose Model** (optional)
-   - Default: `gpt-4.1-nano` (cost-effective)
-   - Alternative: `gpt-4` (more powerful, higher cost)
-
-## 📖 Usage
-
-### Basic Scraping
-
-```bash
-# Scrape rental mobil businesses (default: 20 results)
-node index.js
-
-# Scrape with custom query and length
-node index.js -q "Rental Mobil Jakarta" -l 50
-
-# Scrape catering businesses
-node index.js --query "Catering Jakarta" --length 30
-```
-
-### Scraping with AI Marketing
-
-```bash
-# Scrape + Generate marketing templates with custom content
-node index.js -q "Rental Mobil Jakarta" -l 10 \
-  -m "Penawaran Sistem Rental Mobil Include Landing Page dengan Harga Promo untuk pendaftar pertama 2.000.000/Tahun sudah termasuk server dan custom domain. fitur2 utema ada Manajemen Garasi, Manajemen Mobil, Manajemen Driver, Manajemen Booking, Report Lengkap, dan masih banyak lagi" \
-  -c "Jadwalkan Demo Gratis Sekarang"
-
-# Scrape + Generate marketing templates with auto CTA
-node index.js -q "Catering Jakarta" -l 15 \
-  -m "Sistem manajemen catering terintegrasi dengan fitur order management, inventory tracking, dan delivery management"
-```
-
-### Command Line Options
-
-| Option | Description | Default | Required |
-|--------|-------------|---------|----------|
-| `-q, --query <string>` | Search query | "rental mobil" | No |
-| `-l, --length <number>` | Number of results to scrape | 20 | No |
-| `-m, --marketing <text>` | Marketing content + Generate AI templates | - | Yes (if using marketing) |
-| `-c, --cta <text>` | Call to action | Auto-generated | No |
-| `-h, --help` | Show help message | - | No |
-
-**Note**: 
-- `-m` is required when using marketing feature
-- `-c` is optional; if not provided, AI will generate appropriate call-to-action
-- Maximum results: 100 per query
-
-### Examples
-
-#### Basic Scraping
-```bash
-# Scrape 50 rental car businesses in Jakarta
-node index.js -q "Rental Mobil Jakarta" -l 50
-
-# Scrape 30 catering businesses
-node index.js --query "Catering Bandung" --length 30
-
-# Scrape 10 hotel businesses
-node index.js -q "Hotel Jakarta" -l 10
-```
-
-#### Marketing Campaigns
-```bash
-# Rental car system promotion
-node index.js -q "Rental Mobil Jakarta" -l 20 \
-  -m "Sistem rental mobil terintegrasi dengan harga promo 2.000.000/tahun. Fitur: manajemen armada, booking online, laporan real-time, payment gateway" \
-  -c "Demo gratis 15 menit"
-
-# Catering management system
-node index.js -q "Catering Jakarta" -l 15 \
-  -m "Sistem manajemen catering dengan order management, inventory tracking, delivery management, dan sales reporting" \
-  -c "Konsultasi gratis"
-
-# Auto-generated CTA
-node index.js -q "Hotel Jakarta" -l 10 \
-  -m "Sistem manajemen hotel dengan booking engine, room management, dan guest services"
-```
-
-## 🤖 AI Marketing Features
-
-### How It Works
-
-1. **Single AI Call**: Generate base marketing template once using your content
-2. **Template Personalization**: Apply the base template to each lead with personal details
-3. **Token Efficiency**: Save costs by not calling AI for each individual lead
-
-### Marketing Content Structure
-
-The AI generates three types of content for each lead:
-
-1. **Email Subject Line**: Professional, attention-grabbing subject
-2. **Email Content**: Formal business email with your marketing message
-3. **WhatsApp Content**: Casual, friendly message with emojis
-
-### Personalization Variables
-
-The system automatically replaces these placeholders in templates:
-- `[BUSINESS_NAME]` → Target business name
-- `[ADDRESS]` → Target business address  
-- `[PHONE]` → Target business phone number
-
-### Output Format
-
-Marketing templates are saved in `output/marketing-template/` with columns:
-- **Nama Bisnis**: Target business name
-- **Nomor HP**: Target business phone
-- **Subyek**: Email subject line
-- **Tipe Bisnis**: Your business type
-- **Konten Email**: Complete email content
-- **Konten Whatsapp**: Complete WhatsApp message
-
-## 📁 Project Structure
-
-```
-business-leads-ai-automation/
-├── output/
-│   ├── leads/                    # Scraped business data
-│   │   ├── rental_mobil_jakarta_leads_2025-07-05.csv
-│   │   └── rental_mobil_jakarta_leads_2025-07-05.json
-│   └── marketing-template/       # AI-generated marketing content
-│       ├── rental_mobil_jakarta_marketing_2025-07-05.csv
-│       └── rental_mobil_jakarta_marketing_2025-07-05.json
-├── src/
-│   ├── scraper.js               # Google Maps scraping logic
-│   ├── cli.js                   # Command line interface
-│   ├── fileUtils.js             # File handling utilities
-│   └── marketing.js             # AI marketing automation
-├── .env                         # Environment variables
-├── env.example                  # Environment template
-├── LICENSE                      # MIT License
-├── DISCLAIMER.md               # Legal disclaimer & ethical guidelines
-├── CONTRIBUTING.md             # Contribution guidelines
-├── package.json
-└── README.md
-```
-
-## 📊 Output Formats
-
-### Business Leads (CSV)
-```csv
-ID,Name,Address,Phone,Website,Reference Link,Possible Emails,Rating,Source,Scraped At
-1,"Rental Mobil Jakarta","Jl. Example No.123","08123456789","https://example.com","https://maps.google.com/...","","4.5","Google Maps","2025-07-05T10:00:00.000Z"
-```
-
-### Business Leads (JSON)
-```json
-{
-  "id": 1,
-  "name": "Rental Mobil Jakarta",
-  "address": "Jl. Example No.123",
-  "phone": "08123456789",
-  "website": "https://example.com",
-  "referenceLink": "https://maps.google.com/...",
-  "possibleEmails": [],
-  "rating": "4.5",
-  "source": "Google Maps",
-  "scrapedAt": "2025-07-05T10:00:00.000Z"
-}
-```
-
-### Marketing Templates (CSV)
-```csv
-Nama Bisnis,Nomor HP,Subyek,Tipe Bisnis,Konten Email,Konten Whatsapp
-"Rental Mobil Jakarta","08123456789","Solusi Digital untuk Rental Mobil Jakarta","rental_mobil","Halo Rental Mobil Jakarta,...","Halo Rental Mobil Jakarta! 👋..."
-```
-
-## 🔧 Advanced Usage
-
-### Custom Scraping Scripts
-
-```javascript
-const BusinessScraper = require('./src/scraper');
-
-const scraper = new BusinessScraper();
-
-// Scrape multiple queries
-await scraper.scrapeGoogleMaps('rental mobil', 30);
-await scraper.scrapeGoogleMaps('catering', 20);
-
-// Process and save results
-const processedData = await scraper.processResults();
-await scraper.saveToFile(processedData, 'combined_leads');
-```
-
-### Custom Marketing Automation
-
-```javascript
-const MarketingAutomation = require('./src/marketing');
-
-const marketing = new MarketingAutomation();
-
-// Load leads and generate marketing templates
-const leads = marketing.loadLeads('output/leads.json');
-const marketingData = await marketing.generateMarketingTemplatesWithContent(
-  leads,
-  "Your marketing message here",
-  "Your call to action here"
-);
-```
-
-## ⚠️ Important Notes
-
-### Rate Limiting & Ethics
-- Google Maps may rate limit excessive requests
-- Use reasonable delays between scraping sessions
-- Respect robots.txt and terms of service
-- This tool is for educational and legitimate business purposes
-- Ensure compliance with local laws and Google's terms of service
-
-### AI Usage & Costs
-- OpenAI API usage incurs costs based on token usage
-- Monitor your API usage in OpenAI dashboard
-- Base template generation uses ~500-1000 tokens
-- Personalization is free (no additional API calls)
-- Test with small datasets first
-
-### Performance Tips
-- Start with small `-l` values (5-10) for testing
-- Use `gpt-4.1-nano` for cost efficiency
-- Monitor API usage in OpenAI dashboard
-- Keep marketing content concise for better results
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-#### 1. "Browser not found"
-```bash
-# Install Chromium dependencies (Ubuntu/Debian)
-sudo apt-get install chromium-browser
-
-# Or use headless mode (already enabled by default)
-```
-
-#### 2. "OpenAI not configured"
-```bash
-# Check your .env file
-cat .env
-
-# Ensure OPENAI_API_KEY is set
-export OPENAI_API_KEY="your-key-here"
-```
-
-#### 3. "No results found"
-- Check your internet connection
-- Try different search queries
-- Google Maps structure may have changed
-- Increase timeout in `src/scraper.js`
-
-#### 4. "Marketing content required"
-```bash
-# Always provide marketing content with -m
-node index.js -q "query" -l 10 -m "Your marketing message here"
-```
-
-#### 5. "Timeout error"
-- Increase timeout in `src/scraper.js` line 32
-- Check internet connection
-- Try again later (Google Maps may be slow)
-
-### Debug Mode
-
-Enable detailed logging:
-```bash
-DEBUG=* node index.js -q "test query" -l 5
-```
-
-### Check Logs
-
-Marketing logs are saved to `marketing_log.json`:
-```bash
-cat marketing_log.json
-```
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+---
+
+## 🌟 Why Use This Tool?
+
+### 💰 Cost Effective
+- **Free to use** vs $99-299/month for SaaS alternatives
+- **Open source** - modify as needed
+- **No monthly subscriptions**
+
+### 🎯 Indonesian Market Focus
+- **Local business understanding** in AI prompts
+- **WhatsApp marketing** integration (popular in Indonesia)
+- **Indonesian language** optimization
+
+### 🛠️ Developer Friendly
+- **Full source code access**
+- **Easy to customize and extend**
+- **Well-documented codebase**
+- **Active community support**
+
+---
 
 ## 🤝 Contributing
 
-We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) and [Legal Disclaimer](DISCLAIMER.md) before contributing.
+We welcome contributions! Here's how you can help:
+
+1. **Report bugs** via GitHub Issues
+2. **Suggest features** you'd like to see
+3. **Submit pull requests** for improvements
+4. **Share your use cases** and success stories
 
 ### Development Setup
 
 ```bash
-# Install dependencies
+# Fork the repo, then clone your fork
+git clone https://github.com/YOUR_USERNAME/business-leads-ai-automation.git
+cd business-leads-ai-automation
 npm install
 
-# Run in development mode
-npm run dev
+# Create a feature branch
+git checkout -b feature/your-feature-name
 
-# Run tests
+# Make your changes and test
 npm test
+
+# Submit a pull request
 ```
+
+---
+
+## ⚖️ Legal & Ethics
+
+- **Public data only** - scrapes publicly available information
+- **Respectful scraping** - includes rate limiting
+- **No spam** - use for legitimate business outreach only
+- **MIT License** - free for commercial use
+
+Please read our [DISCLAIMER.md](DISCLAIMER.md) for full legal information.
+
+---
 
 ## 📞 Support
 
-For issues and questions:
-
-- **GitHub Issues**: Create an issue on GitHub
-- **Documentation**: Check this README and code comments
-- **Troubleshooting**: See the troubleshooting section above
-- **Feature Requests**: Open a GitHub issue with detailed description
-- **Legal Questions**: Review [DISCLAIMER.md](DISCLAIMER.md) and consult legal professionals
-
-### Getting Help
-
-1. Check the troubleshooting section
-2. Review the code comments for implementation details
-3. Check your `.env` configuration
-4. Test with small datasets first
-5. Monitor OpenAI API usage
-6. Review legal compliance requirements
+- **GitHub Issues**: For bug reports and feature requests
+- **Discussions**: For questions and community chat
+- **Email**: [your-email] for urgent matters
 
 ---
 
-## 🎯 Quick Start Guide
+## 🙏 Acknowledgments
 
-1. **Setup Environment**
-   ```bash
-   npm install
-   cp env.example .env
-   # Edit .env with your OpenAI API key and business info
-   ```
-
-2. **Test Basic Scraping**
-   ```bash
-   node index.js -q "Rental Mobil Jakarta" -l 5
-   ```
-
-3. **Test Marketing Generation**
-   ```bash
-   node index.js -q "Rental Mobil Jakarta" -l 3 \
-     -m "Sistem rental mobil terintegrasi dengan harga promo" \
-     -c "Demo gratis sekarang"
-   ```
-
-4. **Check Results**
-   ```bash
-   ls output/
-   ls output/marketing-template/
-   ```
+- Built with [Puppeteer](https://pptr.dev/) for web scraping
+- Powered by [OpenAI](https://openai.com/) for AI content generation
+- Inspired by the need for affordable lead generation tools in Indonesia
 
 ---
 
-**Happy Scraping & Marketing! 🚀**
+## 📄 License
 
-**Remember**: Use this tool responsibly and ethically. Always comply with applicable laws and terms of service.
+MIT License - see [LICENSE](LICENSE) file for details.
+
+---
+
+**⭐ Star this repo if you find it useful!**
+
+Made with ❤️ for Indonesian businesses
