@@ -1,3 +1,53 @@
+<div align="center">
+  <h1>🚀 Business Leads AI Automation</h1>
+  <p><strong>Free AI-powered lead generation for Indonesian businesses</strong></p>
+  
+  <p>
+    <a href="#quick-start">Quick Start</a> •
+    <a href="#features">Features</a> •
+    <a href="#examples">Examples</a> •
+    <a href="#demo">Live Demo</a>
+  </p>
+  
+  <img src="https://img.shields.io/github/stars/asiifdev/business-scrap-tools?style=social" alt="GitHub stars">
+  <img src="https://img.shields.io/github/forks/asiifdev/business-scrap-tools?style=social" alt="GitHub forks">
+  <img src="https://img.shields.io/github/license/asiifdev/business-scrap-tools" alt="License">
+  <img src="https://img.shields.io/npm/v/business-scrap-tools" alt="npm version">
+</div>
+
+## 🎯 What This Tool Does
+
+**In 5 minutes, you can:**
+- 📊 Scrape 1000+ business leads from Google Maps
+- 🤖 Generate personalized email & WhatsApp templates with AI
+- 💰 Save $299/month on expensive lead generation tools
+- 🎯 Target Indonesian businesses with local market understanding
+
+## 🔥 Why Choose This Tool?
+
+| Feature | This Tool | Expensive SaaS | Other Open Source |
+|---------|-----------|----------------|-------------------|
+| Cost | FREE | $99-299/month | FREE |
+| AI Integration | ✅ OpenAI | ✅ Limited | ❌ None |
+| Indonesian Focus | ✅ Perfect | ❌ Generic | ❌ Generic |
+| WhatsApp Marketing | ✅ Built-in | ❌ Extra Cost | ❌ Manual |
+| Full Control | ✅ Open Source | ❌ Black Box | ✅ Open Source |
+
+## 🚀 Quick Start (2 minutes)
+
+```bash
+# 1. Clone & install
+git clone https://github.com/asiifdev/business-scrap-tools
+cd business-scrap-tools && npm install
+
+# 2. Add your OpenAI key
+echo "OPENAI_API_KEY=your-key-here" > .env
+
+# 3. Get 50 rental car leads + AI marketing templates
+node index.js -q "Rental Mobil Jakarta" -l 50 -m "Your marketing message"
+
+# ✅ Done! Check output/ folder for results
+
 # Business Scraping Tools
 
 A powerful Node.js tool for scraping business leads from Google Maps with AI-powered marketing automation capabilities. Generate personalized marketing templates efficiently with just one AI call per campaign.
