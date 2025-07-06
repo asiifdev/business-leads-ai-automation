@@ -1,0 +1,31 @@
+{
+    "name": "business-scrape-tool",
+    "version": "1.0.0",
+    "description": "Tool untuk scraping nomor bisnis tanpa website untuk B2B lead generation",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js",
+        "dev": "nodemon index.js",
+        "test": "node test.js"
+    },
+    "keywords": [
+        "scraping",
+        "business",
+        "leads",
+        "b2b",
+        "rental-mobil"
+    ],
+    "author": "Your Name",
+    "license": "MIT",
+    "dependencies": {
+        "dotenv": "^17.0.1",
+        "openai": "^4.104.0",
+        "puppeteer": "^22.8.2"
+    },
+    "devDependencies": {
+        "nodemon": "^3.0.1"
+    },
+    "engines": {
+        "node": ">=14.0.0"
+    }
+}
