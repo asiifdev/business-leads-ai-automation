@@ -9,10 +9,10 @@
     <a href="#demo">Live Demo</a>
   </p>
   
-  <img src="https://img.shields.io/github/stars/asiifdev/business-scrap-tools?style=social" alt="GitHub stars">
-  <img src="https://img.shields.io/github/forks/asiifdev/business-scrap-tools?style=social" alt="GitHub forks">
-  <img src="https://img.shields.io/github/license/asiifdev/business-scrap-tools" alt="License">
-  <img src="https://img.shields.io/npm/v/business-scrap-tools" alt="npm version">
+  <img src="https://img.shields.io/github/stars/asiifdev/business-leads-ai-automation?style=social" alt="GitHub stars">
+  <img src="https://img.shields.io/github/forks/asiifdev/business-leads-ai-automation?style=social" alt="GitHub forks">
+  <img src="https://img.shields.io/github/license/asiifdev/business-leads-ai-automation" alt="License">
+  <img src="https://img.shields.io/npm/v/business-leads-ai-automation" alt="npm version">
 </div>
 
 ## 🎯 What This Tool Does
@@ -37,8 +37,8 @@
 
 ```bash
 # 1. Clone & install
-git clone https://github.com/asiifdev/business-scrap-tools
-cd business-scrap-tools && npm install
+git clone https://github.com/asiifdev/business-leads-ai-automation
+cd business-leads-ai-automation && npm install
 
 # 2. Add your OpenAI key
 echo "OPENAI_API_KEY=your-key-here" > .env
@@ -85,7 +85,7 @@ A powerful Node.js tool for scraping business leads from Google Maps with AI-pow
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd business-scrap-tools
+   cd business-leads-ai-automation
    ```
 
 2. **Install dependencies**
@@ -250,7 +250,7 @@ Marketing templates are saved in `output/marketing-template/` with columns:
 ## 📁 Project Structure
 
 ```
-business-scrap-tools/
+business-leads-ai-automation/
 ├── output/
 │   ├── leads/                    # Scraped business data
 │   │   ├── rental_mobil_jakarta_leads_2025-07-05.csv
