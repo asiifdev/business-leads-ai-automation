@@ -4,9 +4,12 @@
     "description": "Tool untuk scraping nomor bisnis tanpa website untuk B2B lead generation",
     "main": "index.js",
     "scripts": {
+        "setup": "node src/setup.js",
+        "campaign": "node src/campaign.js",
         "start": "node index.js",
         "dev": "nodemon index.js",
-        "test": "node test.js"
+        "test": "node test.js",
+        "help": "echo 'Available commands:\n  npm run setup     - Interactive setup wizard\n  npm run campaign  - Create and run campaigns\n  npm start         - Run with CLI arguments\n  npm run dev       - Development mode with auto-reload'"
     },
     "keywords": [
         "scraping",
