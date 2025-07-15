@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Leads AI Dashboard</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <h1>🚀 Business Leads AI</h1>
+                <span class="version">v2.0 Dashboard</span>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" id="newCampaignBtn">
+                    ➕ New Campaign
+                </button>
+                <div class="user-info">
+                    <span id="userIndustry">Professional</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Navigation -->
+        <nav class="sidebar">
+            <ul class="nav-menu">
+                <li class="nav-item active" data-section="dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text">Dashboard</span>
+                </li>
+                <li class="nav-item" data-section="campaigns">
+                    <span class="nav-icon">🎯</span>
+                    <span class="nav-text">Campaigns</span>
+                </li>
+                <li class="nav-item" data-section="leads">
+                    <span class="nav-icon">👥</span>
+                    <span class="nav-text">Leads</span>
+                </li>
+                <li class="nav-item" data-section="analytics">
+                    <span class="nav-icon">📈</span>
+                    <span class="nav-text">Analytics</span>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Dashboard Section -->
+            <section id="dashboard-section" class="content-section active">
+                <div class="section-header">
+                    <h2>Dashboard Overview</h2>
+                    <p>Monitor your lead generation performance</p>
+                </div>
+
+                <!-- Overview Cards -->
+                <div class="overview-cards">
+                    <div class="card stat-card">
+                        <div class="stat-icon">🎯</div>
+                        <div class="stat-content">
+                            <h3 id="totalCampaigns">0</h3>
+                            <p>Total Campaigns</p>
+                        </div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-content">
+                            <h3 id="totalLeads">0</h3>
+                            <p>Total Leads</p>
+                        </div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-icon">⭐</div>
+                        <div class="stat-content">
+                            <h3 id="priorityLeads">0</h3>
+                            <p>Priority Leads</p>
+                        </div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-content">
+                            <h3 id="averageScore">0</h3>
+                            <p>Avg Quality Score</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Recent Campaigns</h3>
+                            <button class="btn btn-secondary btn-sm" onclick="showSection('campaigns')">View All</button>
+                        </div>
+                        <div class="card-content">
+                            <div id="recentActivity" class="activity-list">
+                                <div class="loading">Loading recent activity...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Quick Actions</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="quick-actions">
+                                <button class="action-btn" onclick="openNewCampaignModal()">
+                                    <span class="action-icon">🎯</span>
+                                    <span class="action-text">Create Campaign</span>
+                                </button>
+                                <button class="action-btn" onclick="showSection('analytics')">
+                                    <span class="action-icon">📈</span>
+                                    <span class="action-text">View Analytics</span>
+                                </button>
+                                <button class="action-btn" onclick="exportData()">
+                                    <span class="action-icon">📥</span>
+                                    <span class="action-text">Export Data</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Campaigns Section -->
+            <section id="campaigns-section" class="content-section">
+                <div class="section-header">
+                    <h2>Campaign Management</h2>
+                    <p>Manage and monitor your lead generation campaigns</p>
+                </div>
+
+                <div class="campaigns-container">
+                    <div class="campaigns-filters">
+                        <input type="text" id="campaignSearch" placeholder="Search campaigns..." class="search-input">
+                        <select id="industryFilter" class="filter-select">
+                            <option value="">All Industries</option>
+                            <option value="restaurant">Restaurant</option>
+                            <option value="automotive">Automotive</option>
+                            <option value="retail">Retail</option>
+                            <option value="professional">Professional</option>
+                            <option value="healthcare">Healthcare</option>
+                            <option value="education">Education</option>
+                            <option value="realestate">Real Estate</option>
+                        </select>
+                    </div>
+
+                    <div id="campaignsList" class="campaigns-list">
+                        <div class="loading">Loading campaigns...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Leads Section -->
+            <section id="leads-section" class="content-section">
+                <div class="section-header">
+                    <h2>Lead Management</h2>
+                    <p>View and manage your generated leads</p>
+                </div>
+
+                <div class="leads-container">
+                    <div class="leads-filters">
+                        <select id="campaignSelect" class="filter-select">
+                            <option value="">Select Campaign</option>
+                        </select>
+                        <select id="priorityFilter" class="filter-select">
+                            <option value="">All Priorities</option>
+                            <option value="HIGH">High Priority</option>
+                            <option value="MEDIUM">Medium Priority</option>
+                            <option value="LOW">Low Priority</option>
+                        </select>
+                        <input type="number" id="minScoreFilter" placeholder="Min Score" class="score-input" min="0" max="100">
+                    </div>
+
+                    <div id="leadsTable" class="leads-table-container">
+                        <div class="loading">Select a campaign to view leads</div>
+                    </div>
+
+                    <div id="leadsPagination" class="pagination"></div>
+                </div>
+            </section>
+
+            <!-- Analytics Section -->
+            <section id="analytics-section" class="content-section">
+                <div class="section-header">
+                    <h2>Analytics & Insights</h2>
+                    <p>Analyze your lead generation performance</p>
+                </div>
+
+                <div class="analytics-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Industry Performance</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="industryChart" class="chart-container">
+                                <div class="loading">Loading industry data...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Lead Quality Distribution</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="qualityChart" class="chart-container">
+                                <div class="loading">Loading quality data...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card full-width">
+                        <div class="card-header">
+                            <h3>Campaign Trends</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="trendsChart" class="chart-container">
+                                <div class="loading">Loading trends data...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- New Campaign Modal -->
+    <div id="newCampaignModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Campaign</h3>
+                <button class="modal-close" onclick="closeNewCampaignModal()">&times;</button>
+            </div>
+            <form id="newCampaignForm" class="modal-body">
+                <div class="form-group">
+                    <label for="campaignName">Campaign Name</label>
+                    <input type="text" id="campaignName" name="name" required placeholder="e.g., Jakarta Restaurant Q1 2024">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="campaignIndustry">Industry</label>
+                        <select id="campaignIndustry" name="industry" required>
+                            <option value="">Select Industry</option>
+                            <option value="restaurant">🍽️ Restaurant & Food Service</option>
+                            <option value="automotive">🚗 Automotive</option>
+                            <option value="retail">🛍️ Retail & E-commerce</option>
+                            <option value="professional">💼 Professional Services</option>
+                            <option value="healthcare">🏥 Healthcare</option>
+                            <option value="education">🎓 Education</option>
+                            <option value="realestate">🏠 Real Estate</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="campaignLocation">Location</label>
+                        <input type="text" id="campaignLocation" name="location" required placeholder="e.g., Jakarta, Bandung">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="searchQuery">Search Query</label>
+                    <input type="text" id="searchQuery" name="searchQuery" required placeholder="e.g., Restaurant Jakarta">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="maxResults">Number of Leads</label>
+                        <input type="number" id="maxResults" name="maxResults" value="20" min="5" max="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="contentStyle">Campaign Style</label>
+                        <select id="contentStyle" name="contentStyle">
+                            <option value="conservative">🤝 Conservative</option>
+                            <option value="balanced" selected>⚖️ Balanced</option>
+                            <option value="aggressive">🚀 Aggressive</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="yourService">Your Service/Product</label>
+                    <textarea id="yourService" name="yourService" required placeholder="Describe your service or product briefly..."></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeNewCampaignModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Campaign</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Campaign Progress Modal -->
+    <div id="campaignProgressModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Campaign Progress</h3>
+            </div>
+            <div class="modal-body">
+                <div id="campaignProgressContent">
+                    <div class="progress-info">
+                        <h4 id="progressCampaignName">Campaign Name</h4>
+                        <p id="progressStatus">Starting campaign...</p>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar">
+                            <div id="progressBar" class="progress-fill"></div>
+                        </div>
+                        <span id="progressPercent">0%</span>
+                    </div>
+                    <div id="progressMessages" class="progress-messages"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="progressCloseBtn" class="btn btn-secondary" onclick="closeCampaignProgressModal()" disabled>Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notifications" class="notifications-container"></div>
+
+    <!-- Scripts -->
+    <script src="js/api.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

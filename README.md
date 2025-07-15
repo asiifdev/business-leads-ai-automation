@@ -1,8 +1,8 @@
-# 🚀 Business Leads AI Automation
+# 🚀 Business Leads AI Automation v2.0
 
-**Open-source lead generation tool with AI-powered content creation**
+**Open-source lead generation tool with AI-powered content creation and web dashboard**
 
-Generate business leads from Google Maps and create personalized marketing content using OpenAI.
+Generate business leads from Google Maps, create personalized marketing content using OpenAI, and manage everything through a modern web interface.
 
 [![GitHub stars](https://img.shields.io/github/stars/asiifdev/business-leads-ai-automation?style=social)](https://github.com/asiifdev/business-leads-ai-automation/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/asiifdev/business-leads-ai-automation?style=social)](https://github.com/asiifdev/business-leads-ai-automation/fork)
@@ -15,10 +15,13 @@ Generate business leads from Google Maps and create personalized marketing conte
 This tool helps you:
 - **Scrape business information** from Google Maps (name, address, phone, rating)
 - **Generate AI marketing content** personalized for each business
+- **Manage campaigns** through a modern web dashboard
+- **Track lead quality** with AI-powered scoring
 - **Export results** in CSV and JSON formats
 - **Create email and WhatsApp templates** automatically
+- **Monitor performance** with real-time analytics
 
-**Perfect for:** Digital agencies, freelance marketers, SME consultants, and business developers looking for an affordable lead generation solution.
+**Perfect for:** Digital agencies, freelance marketers, SME consultants, and business developers looking for an affordable lead generation solution with professional management tools.
 
 ---
 
@@ -46,10 +49,20 @@ cp .env.example .env
 OPENAI_API_KEY=your-openai-key-here
 ```
 
-### Usage
+### Usage Options
 
+#### 🌐 Web Dashboard (Recommended)
 ```bash
-# Basic usage
+# Start the web dashboard
+npm run web
+
+# Open your browser to http://localhost:3000
+# Create campaigns, manage leads, and view analytics through the web interface
+```
+
+#### 💻 Command Line Interface
+```bash
+# Basic CLI usage
 node index.js -q "Restaurant Jakarta" -l 20 -m "Increase your restaurant sales with digital marketing"
 
 # Results will be saved in the output/ folder
@@ -101,32 +114,59 @@ Mau boost penjualan pakai sistem online ordering? 📱
 
 ## ⚙️ Current Features
 
-### ✅ Working Features
+### ✅ Core Features
 - **Google Maps scraping** with auto-scroll
-- **Basic business data extraction** (name, address, phone, rating, website)
+- **Business data extraction** (name, address, phone, rating, website)
 - **AI content generation** using OpenAI GPT
+- **Lead quality scoring** with AI intelligence
 - **Dual template creation** (email + WhatsApp)
 - **CSV and JSON export**
 - **Indonesian market optimization**
 - **Rate limiting** to avoid blocking
 
+### 🌐 Web Dashboard Features
+- **Modern web interface** for non-technical users
+- **Campaign management** with real-time progress tracking
+- **Lead management** with filtering and sorting
+- **Analytics dashboard** with performance insights
+- **Responsive design** for mobile and desktop
+- **Real-time notifications** via Server-Sent Events
+- **Data export** functionality (CSV/JSON)
+- **Campaign templates** for different industries
+
 ### 🚧 Known Limitations
 - **Email finding** returns empty array (work in progress)
 - **Phone number validation** could be improved
 - **Error handling** needs enhancement for edge cases
-- **No web interface** (CLI only for now)
 
 ### 🎯 Planned Features
 - [ ] Fix email discovery functionality
 - [ ] Better phone number validation for Indonesian numbers
-- [ ] Web dashboard interface
 - [ ] Multiple search engine support
 - [ ] Advanced AI prompt customization
 - [ ] Batch processing for multiple queries
+- [ ] API integrations (CRM, email marketing)
 
 ---
 
-## 📖 Command Line Options
+## 📖 Usage Guide
+
+### 🌐 Web Dashboard
+For the best experience, use the web dashboard:
+
+```bash
+npm run web
+```
+
+Then open http://localhost:3000 in your browser. The web interface provides:
+- **Campaign Creation**: Easy form-based campaign setup
+- **Real-time Monitoring**: Live progress tracking
+- **Lead Management**: Filter, sort, and export leads
+- **Analytics**: Performance insights and reporting
+
+📚 **Full Web Dashboard Guide**: [docs/WEB_DASHBOARD_GUIDE.md](docs/WEB_DASHBOARD_GUIDE.md)
+
+### 💻 Command Line Options
 
 ```bash
 node index.js [options]
@@ -145,6 +185,15 @@ Examples:
   node index.js -q "Salon Jakarta" -l 30 -m "Online booking system" -o json
 ```
 
+### 🚀 Available Scripts
+
+```bash
+npm run web          # Start web dashboard (recommended)
+npm run web:dev      # Start web dashboard in development mode
+npm run cli          # Run CLI version
+npm test             # Run tests
+```
+
 ---
 
 ## 🔧 Configuration
@@ -155,10 +204,17 @@ Edit `.env` file for customization:
 # Required
 OPENAI_API_KEY=your-openai-key-here
 
-# Optional
+# Web Dashboard (optional)
+PORT=3000                     # Web dashboard port
+HOST=localhost                # Web dashboard host
+
+# Scraping Configuration (optional)
 DELAY_BETWEEN_SCRAPES=2000    # Milliseconds between requests
 MAX_RETRIES=3                 # Retry failed requests
 OUTPUT_FORMAT=csv             # Default output format
+
+# Database (optional)
+DB_PATH=./data/leads.db       # SQLite database path
 ```
 
 ---
@@ -222,11 +278,27 @@ Please read our [DISCLAIMER.md](DISCLAIMER.md) for full legal information.
 
 ---
 
-## 📞 Support
+## 📞 Support & Documentation
 
+### 📚 Documentation
+- **[Web Dashboard Guide](docs/WEB_DASHBOARD_GUIDE.md)**: Complete user guide for the web interface
+- **[Deployment Guide](docs/DEPLOYMENT_GUIDE.md)**: Production deployment instructions
+- **[API Documentation](docs/API.md)**: REST API reference (coming soon)
+
+### 🆘 Getting Help
 - **GitHub Issues**: For bug reports and feature requests
 - **Discussions**: For questions and community chat
 - **Email**: [your-email] for urgent matters
+
+### 🚀 Deployment
+Ready for production? Check our comprehensive deployment guide:
+- VPS/Server deployment
+- Docker containerization
+- Cloud platform deployment (Heroku, AWS, etc.)
+- SSL/HTTPS setup
+- Monitoring and maintenance
+
+📚 **Full Deployment Guide**: [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md)
 
 ---
 

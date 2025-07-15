@@ -8,8 +8,10 @@
         "campaign": "node src/campaign.js",
         "start": "node index.js",
         "dev": "nodemon index.js",
+        "web": "node src/web/server.js",
+        "web:dev": "nodemon src/web/server.js",
         "test": "node test.js",
-        "help": "echo 'Available commands:\n  npm run setup     - Interactive setup wizard\n  npm run campaign  - Create and run campaigns\n  npm start         - Run with CLI arguments\n  npm run dev       - Development mode with auto-reload'"
+        "help": "echo 'Available commands:\n  npm run setup     - Interactive setup wizard\n  npm run campaign  - Create and run campaigns\n  npm run web       - Start web dashboard\n  npm run web:dev   - Web dashboard development mode\n  npm start         - Run with CLI arguments\n  npm run dev       - Development mode with auto-reload'"
     },
     "keywords": [
         "scraping",
@@ -22,8 +24,10 @@
     "license": "MIT",
     "dependencies": {
         "dotenv": "^17.0.1",
+        "express": "^4.18.2",
         "openai": "^4.104.0",
-        "puppeteer": "^22.8.2"
+        "puppeteer": "^22.8.2",
+        "sqlite3": "^5.1.6"
     },
     "devDependencies": {
         "nodemon": "^3.0.1"
