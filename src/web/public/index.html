@@ -228,6 +228,148 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Campaign Detail Section -->
+            <section id="campaign-detail" class="content-section campaign-detail">
+                <!-- Campaign Detail Header -->
+                <div class="campaign-detail-header">
+                    <div class="campaign-detail-info">
+                        <h2 id="campaignDetailName">Campaign Name</h2>
+                        <div class="campaign-detail-meta">
+                            <span id="campaignDetailIndustry">Industry</span>
+                            <span id="campaignDetailLocation">Location</span>
+                            <span id="campaignDetailDate">Date</span>
+                        </div>
+                    </div>
+                    <div class="campaign-detail-actions">
+                        <a href="#" class="back-btn" onclick="backToCampaigns()">Back to Campaigns</a>
+                    </div>
+                </div>
+
+                <!-- Campaign Stats Grid -->
+                <div class="campaign-stats-grid">
+                    <div class="campaign-stat-card">
+                        <div class="campaign-stat-icon">👥</div>
+                        <div class="campaign-stat-value" id="detailTotalLeads">0</div>
+                        <div class="campaign-stat-label">Total Leads</div>
+                    </div>
+                    <div class="campaign-stat-card">
+                        <div class="campaign-stat-icon">⭐</div>
+                        <div class="campaign-stat-value" id="detailPriorityLeads">0</div>
+                        <div class="campaign-stat-label">Priority Leads</div>
+                    </div>
+                    <div class="campaign-stat-card">
+                        <div class="campaign-stat-icon">📊</div>
+                        <div class="campaign-stat-value" id="detailAverageScore">0</div>
+                        <div class="campaign-stat-label">Average Score</div>
+                    </div>
+                    <div class="campaign-stat-card">
+                        <div class="campaign-stat-icon">⭐</div>
+                        <div class="campaign-stat-value" id="detailAverageRating">0</div>
+                        <div class="campaign-stat-label">Average Rating</div>
+                    </div>
+                </div>
+
+                <!-- Campaign Content Grid -->
+                <div class="campaign-content-grid">
+                    <!-- Campaign Leads Section -->
+                    <div class="campaign-leads-section">
+                        <div class="campaign-leads-header">
+                            <h3>Campaign Leads</h3>
+                            <p>Detailed view of all generated leads</p>
+                        </div>
+                        <div class="campaign-leads-content">
+                            <div id="campaignLeadsTable"></div>
+                        </div>
+                    </div>
+
+                    <!-- Campaign Insights -->
+                    <div class="campaign-insights">
+                        <h3>Campaign Insights</h3>
+                        
+                        <div class="insight-item">
+                            <div class="insight-label">Conversion Rate</div>
+                            <div class="insight-value" id="insightConversionRate">0%</div>
+                            <div class="insight-bar">
+                                <div class="insight-bar-fill" id="conversionRateBar"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="insight-item">
+                            <div class="insight-label">Quality Score</div>
+                            <div class="insight-value" id="insightQualityScore">0%</div>
+                            <div class="insight-bar">
+                                <div class="insight-bar-fill" id="qualityScoreBar"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="insight-item">
+                            <div class="insight-label">High Priority Leads</div>
+                            <div class="insight-value" id="insightHighPriority">0</div>
+                        </div>
+
+                        <!-- Priority Distribution -->
+                        <div class="priority-distribution">
+                            <h4>Priority Distribution</h4>
+                            <div class="priority-item">
+                                <div class="priority-item-label">
+                                    <div class="priority-dot high"></div>
+                                    High Priority
+                                </div>
+                                <div class="priority-item-count" id="priorityHigh">0</div>
+                            </div>
+                            <div class="priority-item">
+                                <div class="priority-item-label">
+                                    <div class="priority-dot medium"></div>
+                                    Medium Priority
+                                </div>
+                                <div class="priority-item-count" id="priorityMedium">0</div>
+                            </div>
+                            <div class="priority-item">
+                                <div class="priority-item-label">
+                                    <div class="priority-dot low"></div>
+                                    Low Priority
+                                </div>
+                                <div class="priority-item-count" id="priorityLow">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Marketing Content Section -->
+                <div class="marketing-content-section">
+                    <div class="marketing-content-header">
+                        <h3>AI-Generated Marketing Content</h3>
+                        <p>Sample marketing messages for your leads</p>
+                    </div>
+                    <div class="marketing-content-grid">
+                        <div class="marketing-content-item">
+                            <h4 class="whatsapp">WhatsApp Message</h4>
+                            <div class="marketing-message" id="whatsappContent">Loading WhatsApp content...</div>
+                            <div class="marketing-actions">
+                                <button class="action-btn-sm whatsapp" onclick="sendWhatsApp(document.getElementById('whatsappContent').textContent)">
+                                    Send WhatsApp
+                                </button>
+                                <button class="action-btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('whatsappContent').textContent)">
+                                    Copy
+                                </button>
+                            </div>
+                        </div>
+                        <div class="marketing-content-item">
+                            <h4 class="email">Email Message</h4>
+                            <div class="marketing-message" id="emailContent">Loading email content...</div>
+                            <div class="marketing-actions">
+                                <button class="action-btn-sm email" onclick="sendEmail(document.getElementById('emailContent').textContent)">
+                                    Send Email
+                                </button>
+                                <button class="action-btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('emailContent').textContent)">
+                                    Copy
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -270,21 +412,6 @@
                     <input type="text" id="searchQuery" name="searchQuery" required placeholder="e.g., Restaurant Jakarta">
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="maxResults">Number of Leads</label>
-                        <input type="number" id="maxResults" name="maxResults" value="20" min="5" max="100">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="contentStyle">Campaign Style</label>
-                        <select id="contentStyle" name="contentStyle">
-                            <option value="conservative">🤝 Conservative</option>
-                            <option value="balanced" selected>⚖️ Balanced</option>
-                            <option value="aggressive">🚀 Aggressive</option>
-                        </select>
-                    </div>
-                </div>
 
                 <div class="form-group">
                     <label for="yourService">Your Service/Product</label>

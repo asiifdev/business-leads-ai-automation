@@ -253,9 +253,15 @@ class DataTable {
                 <tbody>
                     ${pageData.length > 0 ? pageData.map((row, index) => `
                         <tr>
-                            ${this.options.columns.map(col => `
-                                <td>${this.formatCellValue(row[col.key], col, row, index)}</td>
-                            `).join('')}
+                            ${this.options.columns.map(col => {
+                                // Get the actual value from nested properties if needed
+                                let cellValue = row[col.key];
+                                if (col.key && col.key.includes('.')) {
+                                    const keys = col.key.split('.');
+                                    cellValue = keys.reduce((obj, key) => obj?.[key], row);
+                                }
+                                return `<td>${this.formatCellValue(cellValue, col, row, index)}</td>`;
+                            }).join('')}
                         </tr>
                     `).join('') : `
                         <tr>
@@ -276,10 +282,18 @@ class DataTable {
             return column.formatter(value, rowData, rowIndex);
         }
 
+        // Get the actual value from nested properties if needed
+        let actualValue = value;
+        if (column.key && column.key.includes('.')) {
+            const keys = column.key.split('.');
+            actualValue = keys.reduce((obj, key) => obj?.[key], rowData);
+        }
+
         if (column.type === 'actions') {
+            const safeName = (rowData.name || 'Unknown').replace(/'/g, "\\'");
             return `
                 <div class="action-buttons">
-                    <button class="btn-vcard" onclick="exportLeadVCard('${this.options.campaignId}', ${rowIndex}, '${rowData.name}')" title="Export to Phone Contacts">
+                    <button class="btn-vcard" onclick="exportLeadVCard('${this.options.campaignId}', ${rowIndex}, '${safeName}')" title="Export to Phone Contacts">
                         📱 vCard
                     </button>
                 </div>
@@ -287,25 +301,33 @@ class DataTable {
         }
 
         if (column.type === 'score') {
-            const category = api.getScoreCategory(value);
-            const color = api.getScoreColor(value);
-            return `<span class="score-badge" style="background: ${color}20; color: ${color};">${value} - ${category}</span>`;
+            const numericValue = api.parseNumericValue(actualValue);
+            if (numericValue === null) {
+                return '<span class="score-badge score-unknown" style="background: #f3f4f6; color: #6b7280;">No Score</span>';
+            }
+            const category = api.getScoreCategory(numericValue);
+            const color = api.getScoreColor(numericValue);
+            return `<span class="score-badge" style="background: ${color}20; color: ${color};">${numericValue} - ${category}</span>`;
         }
 
         if (column.type === 'priority') {
-            const color = api.getPriorityColor(value);
-            return `<span class="priority-badge priority-${value.toLowerCase()}" style="background: ${color};">${value}</span>`;
+            const safeValue = api.safeString(actualValue, 'UNKNOWN');
+            const normalizedValue = safeValue.toUpperCase();
+            const color = api.getPriorityColor(normalizedValue);
+            const displayValue = normalizedValue === 'UNKNOWN' ? 'Unknown' : normalizedValue;
+            return `<span class="priority-badge priority-${normalizedValue.toLowerCase()}" style="background: ${color};">${displayValue}</span>`;
         }
 
         if (column.type === 'date') {
-            return api.formatDate(value);
+            return api.formatDateSafe(actualValue);
         }
 
         if (column.type === 'number') {
-            return api.formatNumber(value);
+            return api.formatNumber(actualValue);
         }
 
-        return value || '-';
+        // Handle general value formatting
+        return api.safeString(actualValue);
     }
 
     generatePagination() {

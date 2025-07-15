@@ -36,7 +36,7 @@ function loadUserPreferences() {
 
 // Utility function to get campaign data from output directory
 function getCampaignData() {
-    const outputDir = 'output';
+    const outputDir = path.join(__dirname, '../../output');
     if (!fs.existsSync(outputDir)) {
         return [];
     }
@@ -69,7 +69,7 @@ function getCampaignData() {
 
 // Utility function to get leads data from a campaign
 function getLeadsData(campaignId) {
-    const campaignPath = path.join('output', campaignId);
+    const campaignPath = path.join(__dirname, '../../output', campaignId);
     const leadsPath = path.join(campaignPath, 'leads_with_intelligence.json');
     
     if (fs.existsSync(leadsPath)) {
@@ -372,7 +372,7 @@ app.get('/api/campaigns/:id/export/vcard', (req, res) => {
 // Create new campaign endpoint
 app.post('/api/campaigns', async (req, res) => {
     try {
-        const { name, industry, location, searchQuery, maxResults, yourService, contentStyle } = req.body;
+        const { name, industry, location, searchQuery, maxResults, yourService, contentStyle, language } = req.body;
         
         // Validate required fields
         if (!name || !industry || !location || !searchQuery || !yourService) {
@@ -391,6 +391,7 @@ app.post('/api/campaigns', async (req, res) => {
             maxResults: parseInt(maxResults) || 20,
             yourService,
             contentStyle: contentStyle || 'balanced',
+            language: language || 'indonesian',
             status: 'starting',
             progress: 0,
             startedAt: new Date().toISOString()
@@ -476,12 +477,18 @@ async function executeCampaignAsync(campaignId) {
         
         for (let i = 0; i < Math.min(highPriorityLeads.length, 5); i++) {
             try {
-                await marketingAI.generateIndustrySpecificContent(
+                const content = await marketingAI.generateIndustrySpecificContent(
                     highPriorityLeads[i],
                     campaign.industry,
                     campaign.yourService,
-                    campaign.contentStyle
+                    campaign.contentStyle,
+                    campaign.language
                 );
+                
+                // Store the generated content in the lead
+                if (content) {
+                    highPriorityLeads[i].intelligence.marketingContent = content;
+                }
             } catch (error) {
                 console.log(`Failed to generate content for lead ${i + 1}:`, error.message);
             }
@@ -497,10 +504,11 @@ async function executeCampaignAsync(campaignId) {
 
         // Phase 4: Save Results
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const outputDir = `output/${campaignId}`;
+        const outputDir = path.join(__dirname, '../../output', campaignId);
+        const rootOutputDir = path.join(__dirname, '../../output');
         
-        if (!fs.existsSync('output')) {
-            fs.mkdirSync('output');
+        if (!fs.existsSync(rootOutputDir)) {
+            fs.mkdirSync(rootOutputDir);
         }
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });

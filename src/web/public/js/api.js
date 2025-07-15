@@ -181,7 +181,11 @@ class API {
     }
 
     formatNumber(number) {
-        return new Intl.NumberFormat('id-ID').format(number);
+        const numericValue = this.parseNumericValue(number);
+        if (numericValue === null) {
+            return '-';
+        }
+        return new Intl.NumberFormat('id-ID').format(numericValue);
     }
 
     getIndustryIcon(industry) {
@@ -211,28 +215,89 @@ class API {
     }
 
     getPriorityColor(priority) {
+        if (!priority || priority === 'undefined' || priority === 'null') {
+            return '#6b7280'; // Gray for unknown
+        }
+        
+        const normalizedPriority = String(priority).toUpperCase();
         const colors = {
             HIGH: '#ef4444',
             MEDIUM: '#f59e0b',
-            LOW: '#64748b'
+            LOW: '#64748b',
+            UNKNOWN: '#6b7280'
         };
-        return colors[priority] || '#64748b';
+        return colors[normalizedPriority] || '#6b7280';
     }
 
     getScoreColor(score) {
-        if (score >= 85) return '#10b981';
-        if (score >= 75) return '#3b82f6';
-        if (score >= 65) return '#f59e0b';
-        if (score >= 55) return '#f97316';
+        const numericScore = this.parseNumericValue(score);
+        if (numericScore === null) return '#6b7280';
+        
+        if (numericScore >= 85) return '#10b981';
+        if (numericScore >= 75) return '#3b82f6';
+        if (numericScore >= 65) return '#f59e0b';
+        if (numericScore >= 55) return '#f97316';
         return '#ef4444';
     }
 
     getScoreCategory(score) {
-        if (score >= 85) return 'A+ (Excellent)';
-        if (score >= 75) return 'A (High Quality)';
-        if (score >= 65) return 'B (Good)';
-        if (score >= 55) return 'C (Average)';
+        const numericScore = this.parseNumericValue(score);
+        if (numericScore === null) return 'No Score';
+        
+        if (numericScore >= 85) return 'A+ (Excellent)';
+        if (numericScore >= 75) return 'A (High Quality)';
+        if (numericScore >= 65) return 'B (Good)';
+        if (numericScore >= 55) return 'C (Average)';
         return 'D (Low Priority)';
+    }
+
+    // Helper method to safely parse numeric values (supports Indonesian comma format)
+    parseNumericValue(value) {
+        if (value === null || value === undefined || value === '' || value === 'undefined' || value === 'null') {
+            return null;
+        }
+        
+        // Convert Indonesian comma format to standard dot format
+        let normalizedValue = String(value).replace(',', '.');
+        
+        const parsed = parseFloat(normalizedValue);
+        if (isNaN(parsed)) {
+            return null;
+        }
+        
+        return parsed;
+    }
+
+    // Safe string formatting
+    safeString(value, defaultValue = '-') {
+        if (value === null || value === undefined || value === 'undefined' || value === 'null' || value === '') {
+            return defaultValue;
+        }
+        return String(value);
+    }
+
+    // Safe date formatting
+    formatDateSafe(dateString) {
+        if (!dateString || dateString === 'undefined' || dateString === 'null') {
+            return '-';
+        }
+        
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) {
+                return 'Invalid Date';
+            }
+            
+            return date.toLocaleDateString('id-ID', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (error) {
+            return 'Invalid Date';
+        }
     }
 
     // Export functionality
