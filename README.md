@@ -13,6 +13,7 @@ Generate business leads from Google Maps, create personalized marketing content 
 ## 🎯 What it does
 
 This tool helps you:
+
 - **Scrape business information** from Google Maps (name, address, phone, rating)
 - **Generate AI marketing content** personalized for each business
 - **Manage campaigns** through a modern web dashboard
@@ -28,6 +29,7 @@ This tool helps you:
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Node.js 16+
 - OpenAI API key ([get one here](https://platform.openai.com/))
 
@@ -42,16 +44,31 @@ npm install
 ### Setup
 
 ```bash
-# Copy environment template
-cp .env.example .env
+# Run the interactive setup wizard (recommended)
+npm run setup
 
-# Add your OpenAI API key to .env
-OPENAI_API_KEY=your-openai-key-here
+# The wizard will guide you through:
+# 1. OpenAI API key configuration
+# 2. Business profile (name, phone, email, services, value propositions)
+# 3. Owner/contact person info
+# 4. Language & preferences (Indonesian/English)
+# 5. Industry focus & campaign style
+#
+# All settings are saved to .env and business-profile.json
+```
+
+**Or manually:**
+
+```bash
+cp .env.example .env
+# Edit .env with your API key
+# Edit business-profile.json with your business data
 ```
 
 ### Usage Options
 
 #### 🌐 Web Dashboard (Recommended)
+
 ```bash
 # Start the web dashboard
 npm run web
@@ -61,9 +78,16 @@ npm run web
 ```
 
 #### 💻 Command Line Interface
+
 ```bash
 # Basic CLI usage
+node index.js -q "Restaurant Jakarta" -l 20
+
+# With marketing content generation
 node index.js -q "Restaurant Jakarta" -l 20 -m "Increase your restaurant sales with digital marketing"
+
+# With language override
+node index.js -q "Coffee Shop Sydney" -l 10 -L english
 
 # Results will be saved in the output/ folder
 ```
@@ -73,13 +97,15 @@ node index.js -q "Restaurant Jakarta" -l 20 -m "Increase your restaurant sales w
 ## 📊 Example Output
 
 ### Input:
+
 ```bash
 node index.js -q "Coffee Shop Jakarta" -l 5 -m "Boost your coffee shop with online ordering system"
 ```
 
 ### Generated Files:
 
-**📄 leads_[timestamp].csv**
+**📄 leads\_[timestamp].csv**
+
 ```csv
 ID,Name,Address,Phone,Website,Rating
 1,"Kopi Tuku","Jl. Kemang Raya No.1","+6281234567890","kopituku.com","4.5"
@@ -87,6 +113,7 @@ ID,Name,Address,Phone,Website,Rating
 ```
 
 **📧 email_template.txt**
+
 ```
 Subject: Tingkatkan Penjualan Coffee Shop dengan Sistem Online
 
@@ -100,6 +127,7 @@ Apakah Anda tertarik meningkatkan penjualan dengan sistem online ordering yang t
 ```
 
 **📱 whatsapp_template.txt**
+
 ```
 Halo Kopi Tuku! ☕
 
@@ -115,16 +143,19 @@ Mau boost penjualan pakai sistem online ordering? 📱
 ## ⚙️ Current Features
 
 ### ✅ Core Features
+
 - **Google Maps scraping** with auto-scroll
 - **Business data extraction** (name, address, phone, rating, website)
 - **AI content generation** using OpenAI GPT
 - **Lead quality scoring** with AI intelligence
 - **Dual template creation** (email + WhatsApp)
 - **CSV and JSON export**
-- **Indonesian market optimization**
+- **Bilingual support** (Indonesian & English)
+- **Configurable business profile** — no hardcoded business data
 - **Rate limiting** to avoid blocking
 
 ### 🌐 Web Dashboard Features
+
 - **Modern web interface** for non-technical users
 - **Campaign management** with real-time progress tracking
 - **Lead management** with filtering and sorting
@@ -135,15 +166,17 @@ Mau boost penjualan pakai sistem online ordering? 📱
 - **Campaign templates** for different industries
 
 ### 🚧 Known Limitations
+
 - **Email finding** returns empty array (work in progress)
 - **Phone number validation** could be improved
 - **Error handling** needs enhancement for edge cases
 
 ### 🎯 Planned Features
+
 - [ ] Fix email discovery functionality
-- [ ] Better phone number validation for Indonesian numbers
+- [ ] Better phone number validation for international numbers
 - [ ] Multiple search engine support
-- [ ] Advanced AI prompt customization
+- [x] ~~Advanced AI prompt customization~~ ✅ (via business profile)
 - [ ] Batch processing for multiple queries
 - [ ] API integrations (CRM, email marketing)
 
@@ -152,6 +185,7 @@ Mau boost penjualan pakai sistem online ordering? 📱
 ## 📖 Usage Guide
 
 ### 🌐 Web Dashboard
+
 For the best experience, use the web dashboard:
 
 ```bash
@@ -159,6 +193,7 @@ npm run web
 ```
 
 Then open http://localhost:3000 in your browser. The web interface provides:
+
 - **Campaign Creation**: Easy form-based campaign setup
 - **Real-time Monitoring**: Live progress tracking
 - **Lead Management**: Filter, sort, and export leads
@@ -171,50 +206,85 @@ Then open http://localhost:3000 in your browser. The web interface provides:
 ```bash
 node index.js [options]
 
-Required:
-  -q, --query <query>     Google Maps search query
-  -l, --limit <number>    Number of results to scrape
-  -m, --message <text>    Your marketing message for AI templates
-
-Optional:
-  -o, --output <format>   Output format: csv or json (default: csv)
-  -h, --help             Show help information
+Options:
+  -q, --query <query>       Google Maps search query
+  -l, --length <number>     Number of results to scrape (max: 100)
+  -m, --marketing <text>    Your marketing message for AI templates
+  -c, --cta <text>          Call to action text
+  -L, --language <lang>     Output language: indonesian / english
+  -h, --help                Show help information
 
 Examples:
   node index.js -q "Restaurant Bandung" -l 50 -m "Digital marketing for restaurants"
-  node index.js -q "Salon Jakarta" -l 30 -m "Online booking system" -o json
+  node index.js -q "Salon Jakarta" -l 30 -m "Online booking system"
+  node index.js -q "Coffee Shop Sydney" -l 10 -L english
 ```
 
 ### 🚀 Available Scripts
 
 ```bash
+npm run setup        # Interactive setup wizard (first-time configuration)
 npm run web          # Start web dashboard (recommended)
 npm run web:dev      # Start web dashboard in development mode
+npm run campaign     # Run interactive campaign builder
 npm run cli          # Run CLI version
-npm test             # Run tests
+npm test             # Run tests (50 tests)
 ```
 
 ---
 
 ## 🔧 Configuration
 
-Edit `.env` file for customization:
+Configuration is split into two files:
+
+### `business-profile.json` — Business Data (created by `npm run setup`)
+
+This file is the **single source of truth** for all your business information:
+
+```json
+{
+  "business": {
+    "name": "Your Business Name",
+    "type": "technology",
+    "phone": "+628xxx",
+    "email": "contact@yourbiz.com",
+    "website": "https://yourbiz.com",
+    "description": "Your service/product description",
+    "valuePropositions": ["Fast delivery", "24/7 support"],
+    "targetIndustries": ["restaurant", "retail"]
+  },
+  "owner": {
+    "name": "Your Name",
+    "phone": "+628xxx",
+    "email": "you@email.com"
+  },
+  "preferences": {
+    "language": "indonesian",
+    "campaignStyle": "balanced",
+    "defaultSearchQuery": "",
+    "defaultLocation": "Jakarta",
+    "outputFormat": "csv"
+  }
+}
+```
+
+### `.env` — API Keys & System Settings
 
 ```env
 # Required
 OPENAI_API_KEY=your-openai-key-here
 
-# Web Dashboard (optional)
-PORT=3000                     # Web dashboard port
-HOST=localhost                # Web dashboard host
+# Optional: Custom OpenAI endpoint (Azure, OpenRouter, local LLMs, etc.)
+OPENAI_BASE_URL=https://your-custom-endpoint.com/v1
+OPENAI_MODEL=gpt-4o-mini
 
-# Scraping Configuration (optional)
-DELAY_BETWEEN_SCRAPES=2000    # Milliseconds between requests
-MAX_RETRIES=3                 # Retry failed requests
-OUTPUT_FORMAT=csv             # Default output format
+# Output language (indonesian / english)
+OUTPUT_LANGUAGE=indonesian
 
-# Database (optional)
-DB_PATH=./data/leads.db       # SQLite database path
+# Scraping Configuration
+DELAY_BETWEEN_SCRAPES=2000
+MAX_RETRIES=3
+OUTPUT_FORMAT=csv
 ```
 
 ---
@@ -222,16 +292,20 @@ DB_PATH=./data/leads.db       # SQLite database path
 ## 🌟 Why Use This Tool?
 
 ### 💰 Cost Effective
+
 - **Free to use** vs $99-299/month for SaaS alternatives
 - **Open source** - modify as needed
 - **No monthly subscriptions**
 
-### 🎯 Indonesian Market Focus
-- **Local business understanding** in AI prompts
-- **WhatsApp marketing** integration (popular in Indonesia)
-- **Indonesian language** optimization
+### 🎯 Multi-Market Focus
+
+- **Bilingual AI prompts** — Indonesian & English
+- **WhatsApp marketing** integration
+- **Configurable for any market** — set your business profile once
+- **Language-aware content** — all outputs match your chosen language
 
 ### 🛠️ Developer Friendly
+
 - **Full source code access**
 - **Easy to customize and extend**
 - **Well-documented codebase**
@@ -281,17 +355,21 @@ Please read our [DISCLAIMER.md](DISCLAIMER.md) for full legal information.
 ## 📞 Support & Documentation
 
 ### 📚 Documentation
+
 - **[Web Dashboard Guide](docs/WEB_DASHBOARD_GUIDE.md)**: Complete user guide for the web interface
 - **[Deployment Guide](docs/DEPLOYMENT_GUIDE.md)**: Production deployment instructions
 - **[API Documentation](docs/API.md)**: REST API reference (coming soon)
 
 ### 🆘 Getting Help
+
 - **GitHub Issues**: For bug reports and feature requests
 - **Discussions**: For questions and community chat
 - **Email**: [your-email] for urgent matters
 
 ### 🚀 Deployment
+
 Ready for production? Check our comprehensive deployment guide:
+
 - VPS/Server deployment
 - Docker containerization
 - Cloud platform deployment (Heroku, AWS, etc.)
@@ -318,4 +396,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 **⭐ Star this repo if you find it useful!**
 
-Made with ❤️ for Indonesian businesses
+Made with ❤️ for businesses worldwide

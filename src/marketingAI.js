@@ -1,26 +1,16 @@
 require('dotenv').config();
+const { getClient, getModel } = require('./openaiClient');
+const { getBusinessInfoForPrompt, getProfile } = require('./businessProfile');
 
 class MarketingAI {
     constructor() {
-        this.openai = null;
-        this.initOpenAI();
+        this.openai = getClient();
         this.industryTemplates = this.loadIndustryTemplates();
         this.indonesianContext = this.loadIndonesianContext();
         this.englishContext = this.loadEnglishContext();
         this.marketData = this.loadRealMarketData();
     }
 
-    initOpenAI() {
-        try {
-            const OpenAI = require('openai');
-            this.openai = new OpenAI({
-                apiKey: process.env.OPENAI_API_KEY,
-            });
-            console.log('✅ Enhanced Marketing AI initialized');
-        } catch (error) {
-            console.error('❌ Error initializing OpenAI:', error.message);
-        }
-    }
 
     loadIndustryTemplates() {
         return {
@@ -306,9 +296,15 @@ class MarketingAI {
         };
     }
 
-    async generateIndustrySpecificContent(lead, industry, yourService, campaignStyle = 'balanced', language = 'indonesian') {
+    async generateIndustrySpecificContent(lead, industry, yourService, campaignStyle = 'balanced', language = null) {
         if (!this.openai) {
             throw new Error('OpenAI not configured');
+        }
+
+        // Use profile language if not explicitly passed
+        if (!language) {
+            const profile = getProfile();
+            language = profile.preferences.language || 'indonesian';
         }
 
         const template = this.industryTemplates[industry];
@@ -320,7 +316,7 @@ class MarketingAI {
         
         try {
             const completion = await this.openai.chat.completions.create({
-                model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+                model: getModel(),
                 messages: [
                     {
                         role: "system",
@@ -437,18 +433,40 @@ Generate both EMAIL and WHATSAPP templates with:
     buildIndustryPrompt(lead, template, yourService, campaignStyle, language = 'indonesian') {
         const marketData = this.marketData[language === 'indonesian' ? 'indonesia' : 'global'];
         const context = language === 'indonesian' ? this.indonesianContext : this.englishContext;
+        const biz = getBusinessInfoForPrompt();
         
+        // Build "your business" section dynamically from profile
+        const bizInfoSection = language === 'indonesian'
+            ? `INFORMASI BISNIS ANDA:
+- Nama Bisnis: ${biz.name}
+- Tipe Bisnis: ${biz.type}
+- Deskripsi: ${biz.description}
+- Telepon: ${biz.phone}
+- Email: ${biz.email}
+- Website: ${biz.website}
+${biz.valuePropositions.length > 0 ? `- Value Propositions: ${biz.valuePropositions.join(', ')}` : ''}`
+            : `YOUR BUSINESS INFO:
+- Business Name: ${biz.name}
+- Business Type: ${biz.type}
+- Description: ${biz.description}
+- Phone: ${biz.phone}
+- Email: ${biz.email}
+- Website: ${biz.website}
+${biz.valuePropositions.length > 0 ? `- Value Propositions: ${biz.valuePropositions.join(', ')}` : ''}`;
+
         if (language === 'indonesian') {
             return `Buat konten marketing yang dipersonalisasi untuk bisnis ${template.localContext} ini:
 
-DETAIL BISNIS:
+DETAIL BISNIS TARGET:
 - Nama: ${lead.name}
 - Alamat: ${lead.address}
 - Telepon: ${lead.phone}
 - Rating: ${lead.rating || 'N/A'}
 - Website: ${lead.website || 'Belum ada website'}
 
-LAYANAN ANDA: ${yourService}
+LAYANAN YANG DITAWARKAN: ${yourService || biz.description}
+
+${bizInfoSection}
 
 KONTEKS INDUSTRI:
 Pain Points: ${template.painPoints.join(', ')}
@@ -479,14 +497,16 @@ Buat spesifik untuk bisnis mereka, sertakan konteks Indonesia dengan data real, 
         } else {
             return `Create personalized marketing content for this ${template.localContext} business:
 
-BUSINESS DETAILS:
+TARGET BUSINESS DETAILS:
 - Name: ${lead.name}
 - Address: ${lead.address}
 - Phone: ${lead.phone}
 - Rating: ${lead.rating || 'N/A'}
 - Website: ${lead.website || 'No website'}
 
-YOUR SERVICE: ${yourService}
+SERVICE OFFERED: ${yourService || biz.description}
+
+${bizInfoSection}
 
 INDUSTRY CONTEXT:
 Pain Points: ${template.painPoints.join(', ')}
@@ -564,7 +584,11 @@ Make it specific to their business, include relevant market data, and create urg
             .trim();
     }
 
-    async generateMultiTouchSequence(lead, industry, yourService, language = 'indonesian') {
+    async generateMultiTouchSequence(lead, industry, yourService, language = null) {
+        if (!language) {
+            const profile = getProfile();
+            language = profile.preferences.language || 'indonesian';
+        }
         const sequences = {
             email1: await this.generateIndustrySpecificContent(lead, industry, yourService, 'conservative', language),
             email2: await this.generateFollowUpContent(lead, industry, yourService, 'balanced', language),
@@ -575,7 +599,11 @@ Make it specific to their business, include relevant market data, and create urg
         return sequences;
     }
 
-    async generateFollowUpContent(lead, industry, yourService, style, language = 'indonesian') {
+    async generateFollowUpContent(lead, industry, yourService, style, language = null) {
+        if (!language) {
+            const profile = getProfile();
+            language = profile.preferences.language || 'indonesian';
+        }
         if (!this.openai) {
             throw new Error('OpenAI not configured');
         }
@@ -603,7 +631,7 @@ Make it specific to their business, include relevant market data, and create urg
 
         try {
             const completion = await this.openai.chat.completions.create({
-                model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+                model: getModel(),
                 messages: [
                     {
                         role: "system",
@@ -626,7 +654,11 @@ Make it specific to their business, include relevant market data, and create urg
         }
     }
 
-    async generateClosingContent(lead, industry, yourService, style, language = 'indonesian') {
+    async generateClosingContent(lead, industry, yourService, style, language = null) {
+        if (!language) {
+            const profile = getProfile();
+            language = profile.preferences.language || 'indonesian';
+        }
         if (!this.openai) {
             throw new Error('OpenAI not configured');
         }
@@ -654,7 +686,7 @@ Make it specific to their business, include relevant market data, and create urg
 
         try {
             const completion = await this.openai.chat.completions.create({
-                model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+                model: getModel(),
                 messages: [
                     {
                         role: "system",

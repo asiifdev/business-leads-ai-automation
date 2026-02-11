@@ -243,7 +243,6 @@ class BusinessScraper {
       console.log(`Successfully extracted ${businesses.length} businesses`);
       
       this.results = [...this.results, ...businesses];
-      return businesses;
 
       await page.close();
       return businesses;

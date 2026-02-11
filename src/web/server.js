@@ -568,6 +568,23 @@ async function executeCampaignAsync(campaignId) {
     }
 }
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    const { isConfigured, getModel } = require('../openaiClient');
+    res.json({
+        status: 'ok',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+        openai: {
+            configured: isConfigured(),
+            model: getModel(),
+            baseUrl: process.env.OPENAI_BASE_URL || 'default'
+        },
+        activeCampaigns: activeCampaigns.size,
+        sseConnections: sseConnections.size
+    });
+});
+
 // Serve main dashboard
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -580,10 +597,36 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`🚀 Business Leads AI Web Dashboard running on http://localhost:${PORT}`);
     console.log(`📊 Dashboard: http://localhost:${PORT}`);
     console.log(`🔌 API: http://localhost:${PORT}/api`);
+    console.log(`❤️  Health: http://localhost:${PORT}/api/health`);
 });
+
+// Graceful shutdown
+function gracefulShutdown(signal) {
+    console.log(`\n⏹️  ${signal} received. Shutting down gracefully...`);
+    
+    // Close SSE connections
+    sseConnections.forEach(res => {
+        try { res.end(); } catch (e) { /* ignore */ }
+    });
+    sseConnections.clear();
+
+    server.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+    });
+
+    // Force shutdown after 10 seconds
+    setTimeout(() => {
+        console.error('❌ Forced shutdown after timeout');
+        process.exit(1);
+    }, 10000);
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 module.exports = app;

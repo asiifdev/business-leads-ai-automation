@@ -1,10 +1,17 @@
 class LeadIntelligence {
-    constructor() {
-        this.industryScores = this.loadIndustryScores();
-        this.locationScores = this.loadLocationScores();
+    constructor(options = {}) {
+        // Accept custom overrides, but keep defaults
+        this.industryScores = {
+            ...this._getDefaultIndustryScores(),
+            ...(options.industryScores || {})
+        };
+        this.locationScores = {
+            ...this._getDefaultLocationScores(),
+            ...(options.locationScores || {})
+        };
     }
 
-    loadIndustryScores() {
+    _getDefaultIndustryScores() {
         return {
             restaurant: { potential: 85, digitalReadiness: 75, urgency: 90 },
             automotive: { potential: 90, digitalReadiness: 70, urgency: 85 },
@@ -16,7 +23,7 @@ class LeadIntelligence {
         };
     }
 
-    loadLocationScores() {
+    _getDefaultLocationScores() {
         return {
             jakarta: { economy: 95, digital: 90, competition: 85 },
             bandung: { economy: 80, digital: 75, competition: 70 },

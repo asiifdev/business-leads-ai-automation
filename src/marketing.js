@@ -1,28 +1,16 @@
 require('dotenv').config();
 const FileUtils = require('./fileUtils');
+const { getClient, getModel } = require('./openaiClient');
+const { getBusinessInfoForPrompt, getProfile } = require('./businessProfile');
 
 class MarketingAutomation {
     constructor() {
         this.leads = [];
         this.messagesSent = 0;
         this.responses = 0;
-        this.openai = null;
-        
-        this.initOpenAI();
+        this.openai = getClient();
     }
 
-    initOpenAI() {
-        try {
-            const OpenAI = require('openai');
-            this.openai = new OpenAI({
-                apiKey: process.env.OPENAI_API_KEY,
-            });
-            console.log('✅ OpenAI initialized successfully');
-        } catch (error) {
-            console.error('❌ Error initializing OpenAI:', error.message);
-            console.log('💡 Make sure to install: npm install openai');
-        }
-    }
 
     async loadLeads(jsonFile) {
         try {
@@ -45,13 +33,19 @@ class MarketingAutomation {
 
         try {
             const prompt = this.buildMarketingPrompt(lead);
+            const profile = getProfile();
+            const language = profile.preferences.language || 'indonesian';
+            
+            const systemContent = language === 'indonesian'
+                ? "Anda adalah ahli pemasaran profesional yang berspesialisasi dalam penawaran bisnis. Buat konten pemasaran yang dipersonalisasi, menarik, dan berfokus pada konversi."
+                : "You are a professional marketing expert specializing in business outreach. Create personalized, engaging, and conversion-focused marketing content.";
             
             const completion = await this.openai.chat.completions.create({
-                model: process.env.OPENAI_MODEL || "gpt-4.1-nano",
+                model: getModel(),
                 messages: [
                     {
                         role: "system",
-                        content: "You are a professional marketing expert specializing in Indonesian business outreach. Create personalized, engaging, and conversion-focused marketing content."
+                        content: systemContent
                     },
                     {
                         role: "user",
@@ -72,18 +66,49 @@ class MarketingAutomation {
     }
 
     buildMarketingPrompt(lead) {
-        const businessInfo = {
-            name: process.env.BUSINESS_NAME || "Your Business",
-            phone: process.env.BUSINESS_PHONE || "+6281234567890",
-            email: process.env.BUSINESS_EMAIL || "your@business.com",
-            ownerName: process.env.OWNER_NAME || "Your Name",
-            ownerPhone: process.env.OWNER_PHONE || "+6281234567890",
-            ownerEmail: process.env.OWNER_EMAIL || "your@email.com"
-        };
+        const biz = getBusinessInfoForPrompt();
+        const language = biz.language;
 
-        const businessType = process.env.BUSINESS_TYPE || "rental_mobil";
-        
-        return `
+        if (language === 'indonesian') {
+            return `
+Buat konten pemasaran yang dipersonalisasi untuk lead bisnis ini:
+
+TARGET BISNIS:
+- Nama: ${lead.name}
+- Alamat: ${lead.address}
+- Telepon: ${lead.phone || 'Tidak tersedia'}
+- Rating: ${lead.rating || 'Tidak tersedia'}
+- Website: ${lead.website ? 'Punya website' : 'Belum punya website'}
+
+INFORMASI BISNIS ANDA:
+- Nama Bisnis: ${biz.name}
+- Telepon Bisnis: ${biz.phone}
+- Email Bisnis: ${biz.email}
+- Website: ${biz.website}
+- Nama Pemilik: ${biz.ownerName}
+- Telepon Pemilik: ${biz.ownerPhone}
+- Email Pemilik: ${biz.ownerEmail}
+- Tipe Bisnis: ${biz.type}
+- Deskripsi: ${biz.description}
+${biz.valuePropositions.length > 0 ? `- Value Propositions: ${biz.valuePropositions.join(', ')}` : ''}
+
+PERSYARATAN:
+1. Buat SUBJECT EMAIL (maks 60 karakter)
+2. Buat KONTEN EMAIL (profesional, personal, sertakan call-to-action)
+3. Buat KONTEN WHATSAPP (casual, nada ramah dengan emoji, sertakan call-to-action)
+4. Gunakan Bahasa Indonesia
+5. Sebutkan nama dan lokasi bisnis mereka
+6. Sertakan informasi kontak bisnis Anda
+7. Fokus pada value proposition dan manfaat
+
+FORMAT RESPONSE:
+SUBJECT: [subject email]
+EMAIL: [konten email]
+WHATSAPP: [konten whatsapp]
+
+Buat konten pemasaran:`;
+        } else {
+            return `
 Create personalized marketing content for this business lead:
 
 TARGET BUSINESS:
@@ -94,19 +119,22 @@ TARGET BUSINESS:
 - Website: ${lead.website ? 'Has website' : 'No website'}
 
 YOUR BUSINESS INFO:
-- Business Name: ${businessInfo.name}
-- Business Phone: ${businessInfo.phone}
-- Business Email: ${businessInfo.email}
-- Owner Name: ${businessInfo.ownerName}
-- Owner Phone: ${businessInfo.ownerPhone}
-- Owner Email: ${businessInfo.ownerEmail}
-- Business Type: ${businessType}
+- Business Name: ${biz.name}
+- Business Phone: ${biz.phone}
+- Business Email: ${biz.email}
+- Website: ${biz.website}
+- Owner Name: ${biz.ownerName}
+- Owner Phone: ${biz.ownerPhone}
+- Owner Email: ${biz.ownerEmail}
+- Business Type: ${biz.type}
+- Description: ${biz.description}
+${biz.valuePropositions.length > 0 ? `- Value Propositions: ${biz.valuePropositions.join(', ')}` : ''}
 
 REQUIREMENTS:
 1. Create an EMAIL SUBJECT LINE (max 60 characters)
 2. Create EMAIL CONTENT (professional, personalized, include call-to-action)
 3. Create WHATSAPP CONTENT (casual, friendly tone with emojis, include call-to-action)
-4. Use Indonesian language
+4. Use English
 5. Make it personal by mentioning their business name and location
 6. Include your business contact information
 7. Focus on value proposition and benefits
@@ -117,6 +145,7 @@ EMAIL: [email content]
 WHATSAPP: [whatsapp content]
 
 Generate the marketing content:`;
+        }
     }
 
     parseMarketingResponse(response) {
@@ -142,8 +171,13 @@ Generate the marketing content:`;
             }
         }
 
+        const profile = getProfile();
+        const defaultSubject = profile.preferences.language === 'indonesian'
+            ? 'Solusi Digital untuk Bisnis Anda'
+            : 'Digital Solutions for Your Business';
+
         return {
-            subject: subject || 'Solusi Digital untuk Bisnis Anda',
+            subject: subject || defaultSubject,
             email: email || 'Email content not generated',
             whatsapp: whatsapp || 'WhatsApp content not generated'
         };
@@ -164,6 +198,7 @@ Generate the marketing content:`;
         console.log('✅ Base template generated successfully');
         
         const marketingData = [];
+        const biz = getBusinessInfoForPrompt();
         
         // Apply base template to each lead with personalization
         for (let i = 0; i < leads.length; i++) {
@@ -177,7 +212,7 @@ Generate the marketing content:`;
                     namaBisnis: lead.name,
                     nomorHP: lead.phone || '',
                     subyek: personalizedContent.subject,
-                    tipeBisnis: process.env.BUSINESS_TYPE || 'rental_mobil',
+                    tipeBisnis: biz.type || 'general',
                     kontenEmail: personalizedContent.email,
                     kontenWhatsapp: personalizedContent.whatsapp
                 });
@@ -198,13 +233,19 @@ Generate the marketing content:`;
 
         try {
             const prompt = this.buildBaseTemplatePrompt(marketingContent, callToAction);
+            const profile = getProfile();
+            const language = profile.preferences.language || 'indonesian';
             
+            const systemContent = language === 'indonesian'
+                ? "Anda adalah ahli pemasaran profesional yang berspesialisasi dalam penawaran bisnis. Buat template pemasaran yang menarik dan berfokus pada konversi."
+                : "You are a professional marketing expert specializing in business outreach. Create engaging and conversion-focused marketing templates.";
+
             const completion = await this.openai.chat.completions.create({
-                model: process.env.OPENAI_MODEL || "gpt-4.1-nano",
+                model: getModel(),
                 messages: [
                     {
                         role: "system",
-                        content: "You are a professional marketing expert specializing in Indonesian business outreach. Create engaging and conversion-focused marketing templates."
+                        content: systemContent
                     },
                     {
                         role: "user",
@@ -225,18 +266,48 @@ Generate the marketing content:`;
     }
 
     buildBaseTemplatePrompt(marketingContent, callToAction) {
-        const businessInfo = {
-            name: process.env.BUSINESS_NAME || "Your Business",
-            phone: process.env.BUSINESS_PHONE || "+6281234567890",
-            email: process.env.BUSINESS_EMAIL || "your@business.com",
-            ownerName: process.env.OWNER_NAME || "Your Name",
-            ownerPhone: process.env.OWNER_PHONE || "+6281234567890",
-            ownerEmail: process.env.OWNER_EMAIL || "your@email.com"
-        };
+        const biz = getBusinessInfoForPrompt();
+        const language = biz.language;
 
-        const businessType = process.env.BUSINESS_TYPE || "rental_mobil";
-        
-        return `
+        if (language === 'indonesian') {
+            return `
+Buat template pemasaran dasar yang akan dipersonalisasi untuk berbagai bisnis:
+
+KONTEN PEMASARAN:
+${marketingContent}
+
+CALL TO ACTION:
+${callToAction || "Buat call to action yang sesuai secara otomatis"}
+
+INFORMASI BISNIS ANDA:
+- Nama Bisnis: ${biz.name}
+- Telepon Bisnis: ${biz.phone}
+- Email Bisnis: ${biz.email}
+- Website: ${biz.website}
+- Nama Pemilik: ${biz.ownerName}
+- Telepon Pemilik: ${biz.ownerPhone}
+- Email Pemilik: ${biz.ownerEmail}
+- Tipe Bisnis: ${biz.type}
+- Deskripsi: ${biz.description}
+${biz.valuePropositions.length > 0 ? `- Value Propositions: ${biz.valuePropositions.join(', ')}` : ''}
+
+PERSYARATAN:
+1. Buat SUBJECT EMAIL template (maks 60 karakter, gunakan placeholder [BUSINESS_NAME])
+2. Buat KONTEN EMAIL template (profesional, sertakan placeholder [BUSINESS_NAME], [ADDRESS], [PHONE])
+3. Buat KONTEN WHATSAPP template (casual, nada ramah dengan emoji, sertakan placeholder [BUSINESS_NAME], [ADDRESS], [PHONE])
+4. Gunakan Bahasa Indonesia
+5. Masukkan konten pemasaran dan call to action secara natural
+6. Sertakan informasi kontak bisnis Anda
+7. Buat personal tapi reusable untuk bisnis berbeda
+
+FORMAT RESPONSE:
+SUBJECT: [template subject email]
+EMAIL: [template konten email]
+WHATSAPP: [template konten whatsapp]
+
+Buat template pemasaran dasar:`;
+        } else {
+            return `
 Create a base marketing template that will be personalized for different businesses:
 
 MARKETING CONTENT:
@@ -246,19 +317,22 @@ CALL TO ACTION:
 ${callToAction || "Auto-generate appropriate call to action"}
 
 YOUR BUSINESS INFO:
-- Business Name: ${businessInfo.name}
-- Business Phone: ${businessInfo.phone}
-- Business Email: ${businessInfo.email}
-- Owner Name: ${businessInfo.ownerName}
-- Owner Phone: ${businessInfo.ownerPhone}
-- Owner Email: ${businessInfo.ownerEmail}
-- Business Type: ${businessType}
+- Business Name: ${biz.name}
+- Business Phone: ${biz.phone}
+- Business Email: ${biz.email}
+- Website: ${biz.website}
+- Owner Name: ${biz.ownerName}
+- Owner Phone: ${biz.ownerPhone}
+- Owner Email: ${biz.ownerEmail}
+- Business Type: ${biz.type}
+- Description: ${biz.description}
+${biz.valuePropositions.length > 0 ? `- Value Propositions: ${biz.valuePropositions.join(', ')}` : ''}
 
 REQUIREMENTS:
 1. Create an EMAIL SUBJECT LINE template (max 60 characters, use [BUSINESS_NAME] placeholder)
 2. Create EMAIL CONTENT template (professional, include [BUSINESS_NAME], [ADDRESS], [PHONE] placeholders)
 3. Create WHATSAPP CONTENT template (casual, friendly tone with emojis, include [BUSINESS_NAME], [ADDRESS], [PHONE] placeholders)
-4. Use Indonesian language
+4. Use English
 5. Include the marketing content and call to action naturally
 6. Include your business contact information
 7. Make it personal but reusable for different businesses
@@ -269,6 +343,7 @@ EMAIL: [email content template]
 WHATSAPP: [whatsapp content template]
 
 Generate the base marketing template:`;
+        }
     }
 
     personalizeTemplate(baseTemplate, lead) {
@@ -290,6 +365,7 @@ Generate the base marketing template:`;
         console.log(`🤖 Generating AI marketing templates for ${leads.length} leads...`);
         
         const marketingData = [];
+        const biz = getBusinessInfoForPrompt();
         
         for (let i = 0; i < leads.length; i++) {
             const lead = leads[i];
@@ -303,7 +379,7 @@ Generate the base marketing template:`;
                         namaBisnis: lead.name,
                         nomorHP: lead.phone || '',
                         subyek: content.subject,
-                        tipeBisnis: process.env.BUSINESS_TYPE || 'rental_mobil',
+                        tipeBisnis: biz.type || 'general',
                         kontenEmail: content.email,
                         kontenWhatsapp: content.whatsapp
                     });
@@ -348,7 +424,7 @@ Generate the base marketing template:`;
     }
 
     // Legacy methods for backward compatibility
-    async generateAITemplate(lead, templateType = 'email', businessType = 'rental_mobil') {
+    async generateAITemplate(lead, templateType = 'email') {
         const content = await this.generateAIMarketingContent(lead);
         if (!content) return null;
         
@@ -515,4 +591,4 @@ Generate the base marketing template:`;
     }
 }
 
-module.exports = MarketingAutomation; 
+module.exports = MarketingAutomation;

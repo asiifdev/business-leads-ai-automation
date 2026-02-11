@@ -5,6 +5,7 @@ const MarketingAutomation = require('./marketing');
 const MarketingAI = require('./marketingAI');
 const LeadIntelligence = require('./leadIntelligence');
 const FileUtils = require('./fileUtils');
+const { getProfile, isConfigured } = require('./businessProfile');
 
 class CampaignBuilder {
     constructor() {
@@ -14,6 +15,7 @@ class CampaignBuilder {
         });
         this.campaign = {};
         this.userPrefs = this.loadUserPreferences();
+        this.profile = getProfile();
     }
 
     loadUserPreferences() {
@@ -95,7 +97,8 @@ class CampaignBuilder {
         }
 
         // Location targeting
-        this.campaign.location = await this.question('🗺️  Target location (e.g., Jakarta, Bandung): ') || 'Jakarta';
+        const defaultLoc = this.profile.preferences.defaultLocation || 'Jakarta';
+        this.campaign.location = await this.question(`🗺️  Target location (e.g., ${defaultLoc}): `) || defaultLoc;
         
         // Search query
         const defaultQueries = {
@@ -147,7 +150,8 @@ class CampaignBuilder {
         console.log('✍️  Step 4: Content Strategy');
         console.log('─'.repeat(50));
         
-        this.campaign.yourService = await this.question('💼 Describe your service/product briefly: ');
+        const defaultService = this.profile.business.description || '';
+        this.campaign.yourService = await this.question(`💼 Describe your service/product briefly${defaultService ? ` [${defaultService.substring(0, 60)}...]` : ''}: `) || defaultService;
         
         console.log('\nContent approach:');
         console.log('1. 🤝 Conservative (respectful, slow build)');
@@ -463,7 +467,9 @@ class CampaignBuilder {
     }
 
     getIndustrySpecificCTA() {
-        const ctas = {
+        const language = this.profile.preferences.language || 'indonesian';
+        
+        const ctas = language === 'indonesian' ? {
             restaurant: "Tingkatkan pesanan online dan customer retention dengan sistem digital terintegrasi",
             automotive: "Otomatisasi booking dan manajemen armada untuk efisiensi maksimal",
             retail: "Boost penjualan online dengan e-commerce dan digital marketing strategy",
@@ -471,9 +477,21 @@ class CampaignBuilder {
             healthcare: "Sistem appointment online dan manajemen pasien yang lebih efisien",
             education: "Platform pembelajaran online dan manajemen siswa modern",
             realestate: "Digital marketing dan CRM khusus property untuk closing lebih cepat"
+        } : {
+            restaurant: "Increase online orders and customer retention with integrated digital systems",
+            automotive: "Automate bookings and fleet management for maximum efficiency",
+            retail: "Boost online sales with e-commerce and digital marketing strategy",
+            professional: "Digitalize professional services to reach a wider client base",
+            healthcare: "Online appointment system and more efficient patient management",
+            education: "Online learning platform and modern student management",
+            realestate: "Digital marketing and property-specific CRM for faster closings"
         };
         
-        return ctas[this.campaign.industry] || "Tingkatkan bisnis dengan solusi digital terintegrasi";
+        const defaultCTA = language === 'indonesian'
+            ? "Tingkatkan bisnis dengan solusi digital terintegrasi"
+            : "Grow your business with integrated digital solutions";
+        
+        return ctas[this.campaign.industry] || defaultCTA;
     }
 
     showProgress(task, percentage) {

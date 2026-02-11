@@ -46,6 +46,33 @@ class FileUtils {
     }
   }
 
+  static async saveLeads(data, filename) {
+    // Ensure parent directory exists
+    const dir = require('path').dirname(filename);
+    if (dir && !fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    if (filename.endsWith('.json')) {
+      fs.writeFileSync(filename, JSON.stringify(data, null, 2));
+      console.log(`Leads saved to ${filename}`);
+    } else if (filename.endsWith('.csv')) {
+      const headers = ['ID', 'Name', 'Address', 'Phone', 'Website', 'Rating', 'Source', 'Score', 'Priority', 'Category'];
+      const csvHeader = headers.join(',') + '\n';
+      const csvRows = data
+        .map((lead, index) =>
+          `${index + 1},"${(lead.name || '').replace(/"/g, '""')}","${(lead.address || '').replace(/"/g, '""')}","${lead.phone || ''}","${lead.website || ''}","${lead.rating || 'N/A'}","${lead.source || 'Google Maps'}","${lead.intelligence?.score || 'N/A'}","${lead.intelligence?.priority || 'N/A'}","${lead.intelligence?.category || 'N/A'}"`
+        )
+        .join('\n');
+      fs.writeFileSync(filename, csvHeader + csvRows);
+      console.log(`Leads saved to ${filename}`);
+    } else {
+      // Default to JSON
+      fs.writeFileSync(filename + '.json', JSON.stringify(data, null, 2));
+      console.log(`Leads saved to ${filename}.json`);
+    }
+  }
+
   static logActivity(activity, logFile = 'marketing_log.json') {
     let logs = [];
     

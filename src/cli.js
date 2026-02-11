@@ -1,15 +1,20 @@
 const BusinessScraper = require('./scraper');
 const FileUtils = require('./fileUtils');
+const { getProfile, isConfigured } = require('./businessProfile');
 
 // Parse command line arguments
 function parseArguments() {
+  const profile = getProfile();
+  const defaultQuery = profile.preferences.defaultSearchQuery || '';
+
   const args = process.argv.slice(2);
   const options = {
-    query: "rental mobil",
+    query: defaultQuery,
     maxResults: 20,
     generateMarketing: false,
     marketingContent: "",
-    callToAction: ""
+    callToAction: "",
+    language: profile.preferences.language || 'indonesian'
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -35,21 +40,33 @@ function parseArguments() {
       case '--cta':
         options.callToAction = args[i + 1] || "";
         break;
+      case '-L':
+      case '--language':
+        options.language = args[i + 1] || 'indonesian';
+        i++;
+        break;
       case '-h':
       case '--help':
+        const profileStatus = isConfigured()
+          ? `✅ Business profile loaded: ${profile.business.name || '(name not set)'}`
+          : '⚠️  No business profile found. Run: npm run setup';
         console.log(`
 Usage: node src/cli.js [options]
 
+${profileStatus}
+
 Options:
-  -q, --query <string>     Search query (default: "rental mobil")
+  -q, --query <string>     Search query${defaultQuery ? ` (default: "${defaultQuery}")` : ' (set via npm run setup)'}
   -l, --length <number>    Number of results to scrape (default: 20, max: 100)
   -m, --marketing <text>   Marketing content + Generate AI marketing templates
-  -c, --cta <text>        Call to action (required if -m is used)
-  -h, --help              Show this help message
+  -c, --cta <text>         Call to action (required if -m is used)
+  -L, --language <lang>    Output language: indonesian / english (default: ${options.language})
+  -h, --help               Show this help message
 
 Examples:
-  node index.js -q "Rental Mobil Jakarta" -l 50
-  node index.js -q "Rental Mobil Jakarta" -l 10 -m "Penawaran Sistem Rental Mobil Include Landing Page dengan Harga Promo untuk pendaftar pertama 2.000.000/Tahun sudah termasuk server dan custom domain. fitur2 utema ada Manajemen Garasi, Manajemen Mobil, Manajemen Driver, Manajemen Booking, Report Lengkap, dan masih banyak lagi" -c "Jadwalkan Demo Gratis Sekarang"
+  node index.js -q "Restaurant Jakarta" -l 50
+  node index.js -q "Rental Mobil Jakarta" -l 10 -m "Your marketing content here" -c "Schedule a Free Demo"
+  node index.js -q "Klinik Bandung" -l 20 -L english
         `);
         process.exit(0);
         break;
@@ -62,12 +79,21 @@ Examples:
 // Main CLI function
 async function main() {
   const options = parseArguments();
+
+  if (!options.query) {
+    console.log('❌ No search query specified.');
+    console.log('   Use: node index.js -q "Your Search Query"');
+    console.log('   Or run: npm run setup to configure default search query.');
+    process.exit(1);
+  }
+
   const scraper = new BusinessScraper();
 
   try {
     console.log(`Starting business scraper...`);
     console.log(`Query: "${options.query}"`);
     console.log(`Max Results: ${options.maxResults}`);
+    console.log(`Language: ${options.language}`);
     console.log(`Generate Marketing: ${options.generateMarketing ? 'Yes' : 'No'}`);
 
     // Scrape with parameters
@@ -142,4 +168,4 @@ module.exports = { main, parseArguments };
 // Run if this file is executed directly
 if (require.main === module) {
   main().catch(console.error);
-} 
+}

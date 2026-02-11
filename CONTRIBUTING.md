@@ -42,23 +42,46 @@ node --version
 # Install dependencies
 npm install
 
-# Copy environment template
-cp env.example .env
+# Run interactive setup
+npm run setup
 ```
 
 ### Environment Configuration
 
-Edit `.env` file with your test credentials:
+Run `npm run setup` to configure everything interactively, or manually edit:
+
+**`.env`** — API keys and system settings:
 
 ```env
 OPENAI_API_KEY=your-test-api-key
-BUSINESS_NAME=Test Business
-BUSINESS_PHONE=+6281234567890
-BUSINESS_EMAIL=test@business.com
-OWNER_NAME=Test Owner
-OWNER_PHONE=+6281234567890
-OWNER_EMAIL=owner@business.com
-BUSINESS_TYPE=test_business
+OPENAI_MODEL=gpt-4o-mini
+# OPENAI_BASE_URL=https://your-custom-endpoint.com/v1
+OUTPUT_LANGUAGE=indonesian
+```
+
+**`business-profile.json`** — Business data (created by setup wizard):
+
+```json
+{
+  "business": {
+    "name": "Test Business",
+    "type": "test_business",
+    "phone": "+6281234567890",
+    "email": "test@business.com",
+    "description": "Test products",
+    "valuePropositions": [],
+    "targetIndustries": []
+  },
+  "owner": {
+    "name": "Test Owner",
+    "phone": "+6281234567890",
+    "email": "owner@business.com"
+  },
+  "preferences": {
+    "language": "indonesian",
+    "campaignStyle": "balanced"
+  }
+}
 ```
 
 ## 🧪 Testing Your Changes
@@ -102,10 +125,15 @@ node index.js -q "Hotel Jakarta" -l 3 \
 
 ```
 src/
-├── scraper.js      # Google Maps scraping logic
-├── cli.js          # Command line interface
-├── fileUtils.js    # File handling utilities
-└── marketing.js    # AI marketing automation
+├── businessProfile.js  # Centralized business config (NEW)
+├── scraper.js          # Google Maps scraping logic
+├── cli.js              # Command line interface
+├── fileUtils.js        # File handling utilities
+├── marketing.js        # AI marketing automation
+├── marketingAI.js      # Industry-specific AI content
+├── leadIntelligence.js # Lead scoring & analysis
+├── campaign.js         # Campaign builder
+└── setup.js            # Interactive setup wizard
 ```
 
 ### Code Style
@@ -117,8 +145,8 @@ async function scrapeBusinessData(query, maxResults) {
     const results = await performScraping(query, maxResults);
     return processResults(results);
   } catch (error) {
-    console.error('Scraping failed:', error.message);
-    throw new Error('Failed to scrape business data');
+    console.error("Scraping failed:", error.message);
+    throw new Error("Failed to scrape business data");
   }
 }
 
@@ -141,6 +169,7 @@ function scrape(q, l) {
 ### Required Disclaimers
 
 If your contribution involves:
+
 - **New data sources**: Add appropriate terms of service compliance
 - **Marketing features**: Include anti-spam law considerations
 - **AI integration**: Ensure OpenAI terms compliance
@@ -160,9 +189,11 @@ If your contribution involves:
 
 ```markdown
 ## Description
+
 Brief description of your changes
 
 ## Type of Change
+
 - [ ] Bug fix
 - [ ] New feature
 - [ ] Documentation update
@@ -170,18 +201,21 @@ Brief description of your changes
 - [ ] Security fix
 
 ## Testing
+
 - [ ] Tested with small dataset
 - [ ] Verified legal compliance
 - [ ] Updated documentation
 - [ ] No breaking changes
 
 ## Legal Considerations
+
 - [ ] Follows terms of service
 - [ ] Respects privacy laws
 - [ ] No spam/harmful features
 - [ ] Ethical use only
 
 ## Additional Notes
+
 Any additional context or considerations
 ```
 
@@ -253,23 +287,28 @@ When adding new features:
 
 ```markdown
 ## Issue Description
+
 Clear description of your problem
 
 ## Environment
+
 - Node.js version: X.X.X
 - OS: Windows/Mac/Linux
 - Dependencies: List relevant packages
 
 ## Steps to Reproduce
+
 1. Step one
 2. Step two
 3. Step three
 
 ## Expected vs Actual
+
 Expected: What should happen
 Actual: What actually happens
 
 ## Additional Context
+
 Any other relevant information
 ```
 
@@ -293,4 +332,4 @@ Any other relevant information
 
 **Thank you for contributing to a more ethical and responsible open source community! 🌟**
 
-Remember: With great power comes great responsibility. Let's build tools that help businesses grow while respecting legal and ethical boundaries. 
+Remember: With great power comes great responsibility. Let's build tools that help businesses grow while respecting legal and ethical boundaries.
