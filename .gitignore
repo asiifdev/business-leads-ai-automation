@@ -3,3 +3,4 @@ node_modules
 *.csv
 output/*
 user-preferences.json
+business-profile.json

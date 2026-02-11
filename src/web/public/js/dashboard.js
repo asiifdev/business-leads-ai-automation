@@ -1,4 +1,7 @@
+// ═══════════════════════════════════════════════════════════
 // Main Dashboard Application
+// ═══════════════════════════════════════════════════════════
+
 class Dashboard {
     constructor() {
         this.currentSection = 'dashboard';
@@ -13,921 +16,693 @@ class Dashboard {
     }
 
     async init() {
+        this.initTheme();
         this.setupEventListeners();
+        this.setupMobileNav();
         this.setupRealTimeUpdates();
         this.progressManager = new ProgressManager('campaignProgressModal');
         
-        // Load initial data
-        await this.loadDashboardData();
+        await this.loadDashboard();
         await this.loadCampaigns();
-        
-        // Show dashboard section by default
-        this.showSection('dashboard');
     }
 
-    setupEventListeners() {
-        // Navigation
-        document.querySelectorAll('.nav-item').forEach(item => {
+    // ─── Theme Management ───────────────────────────────────
+    initTheme() {
+        const saved = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = saved || (prefersDark ? 'dark' : 'dark'); // default dark
+        this.setTheme(theme);
+
+        const toggle = document.getElementById('themeToggle');
+        if (toggle) {
+            toggle.addEventListener('click', () => {
+                const current = document.documentElement.getAttribute('data-theme');
+                this.setTheme(current === 'light' ? 'dark' : 'light');
+            });
+        }
+    }
+
+    setTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+
+        // Update theme-color meta
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) {
+            meta.content = theme === 'dark' ? '#0f1117' : '#f0f2f5';
+        }
+
+        // Toggle sun/moon icons
+        const moon = document.querySelector('.icon-moon');
+        const sun = document.querySelector('.icon-sun');
+        if (moon && sun) {
+            if (theme === 'light') {
+                moon.style.display = 'none';
+                sun.style.display = 'block';
+            } else {
+                moon.style.display = 'block';
+                sun.style.display = 'none';
+            }
+        }
+    }
+
+    // ─── Mobile Navigation ──────────────────────────────────
+    setupMobileNav() {
+        const hamburger = document.getElementById('hamburgerBtn');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+
+        if (hamburger) {
+            hamburger.addEventListener('click', () => {
+                sidebar.classList.toggle('open');
+                overlay.classList.toggle('active');
+            });
+        }
+
+        if (overlay) {
+            overlay.addEventListener('click', () => {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('active');
+            });
+        }
+
+        // Bottom nav items
+        document.querySelectorAll('.bottom-nav-item').forEach(item => {
             item.addEventListener('click', () => {
                 const section = item.dataset.section;
-                this.showSection(section);
+                if (section) this.showSection(section);
             });
         });
+    }
 
-        // New campaign button
-        document.getElementById('newCampaignBtn').addEventListener('click', () => {
-            this.openNewCampaignModal();
+    closeMobileMenu() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        if (sidebar) sidebar.classList.remove('open');
+        if (overlay) overlay.classList.remove('active');
+    }
+
+    // ─── Event Listeners ────────────────────────────────────
+    setupEventListeners() {
+        // Sidebar navigation
+        document.querySelectorAll('.sidebar .nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const section = item.dataset.section;
+                if (section) this.showSection(section);
+            });
+        });
+    }
+
+    // ─── Section Navigation ─────────────────────────────────
+    showSection(sectionName) {
+        this.currentSection = sectionName;
+
+        // Update sidebar active state
+        document.querySelectorAll('.sidebar .nav-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.section === sectionName);
         });
 
-        // Campaign form submission
-        document.getElementById('newCampaignForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.createCampaign();
+        // Update bottom nav active state
+        document.querySelectorAll('.bottom-nav-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.section === sectionName);
         });
 
-        // Campaign search and filters
-        document.getElementById('campaignSearch')?.addEventListener('input', 
-            api.debounce(() => this.filterCampaigns(), 300)
-        );
-        
-        document.getElementById('industryFilter')?.addEventListener('change', () => {
-            this.filterCampaigns();
-        });
-
-        // Leads filters
-        document.getElementById('campaignSelect')?.addEventListener('change', (e) => {
-            if (e.target.value) {
-                this.loadCampaignLeads(e.target.value);
+        // Show/hide sections with animation
+        document.querySelectorAll('.section').forEach(section => {
+            const isTarget = section.id === `section-${sectionName}`;
+            section.classList.toggle('active', isTarget);
+            if (isTarget) {
+                // Re-trigger animation
+                section.style.animation = 'none';
+                section.offsetHeight; // force reflow
+                section.style.animation = '';
             }
         });
 
-        document.getElementById('priorityFilter')?.addEventListener('change', () => {
-            this.filterLeads();
-        });
+        // Close mobile menu
+        this.closeMobileMenu();
 
-        document.getElementById('minScoreFilter')?.addEventListener('input', 
-            api.debounce(() => this.filterLeads(), 500)
-        );
-
-        // Industry selection auto-fill in campaign form
-        document.getElementById('campaignIndustry')?.addEventListener('change', (e) => {
-            this.updateCampaignFormDefaults(e.target.value);
-        });
+        // Load section data
+        if (sectionName === 'analytics') this.loadAnalytics();
+        if (sectionName === 'leads') this.loadLeadsSection();
+        if (sectionName === 'campaigns') this.loadCampaigns();
     }
 
+    // ─── Real-Time Updates (SSE) ────────────────────────────
     setupRealTimeUpdates() {
-        this.eventSource = api.connectToEvents(
-            (data) => this.handleRealTimeUpdate(data),
-            (error) => console.error('Real-time connection error:', error)
-        );
+        try {
+            this.eventSource = new EventSource('/api/events');
+
+            this.eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    this.handleSSEEvent(data);
+                } catch (e) { /* ignore parse errors */ }
+            };
+
+            this.eventSource.onerror = () => {
+                setTimeout(() => this.setupRealTimeUpdates(), 5000);
+            };
+        } catch (e) {
+            console.log('SSE not available');
+        }
     }
 
-    handleRealTimeUpdate(data) {
+    handleSSEEvent(data) {
         switch (data.type) {
             case 'campaign_started':
                 showNotification('Campaign Started', data.message, 'info');
                 break;
-                
             case 'campaign_progress':
                 if (this.progressManager) {
                     this.progressManager.updateProgress(data.progress, data.message);
                 }
                 break;
-                
             case 'campaign_completed':
+                showNotification('Campaign Complete', data.message, 'success');
                 if (this.progressManager) {
                     this.progressManager.complete(data.results);
                 }
-                showNotification('Campaign Complete', data.message, 'success');
-                // Refresh data
-                setTimeout(() => {
-                    this.loadDashboardData();
-                    this.loadCampaigns();
-                }, 2000);
+                this.loadDashboard();
+                this.loadCampaigns();
                 break;
-                
             case 'campaign_failed':
+                showNotification('Campaign Failed', data.message, 'error');
                 if (this.progressManager) {
                     this.progressManager.error(data.message);
                 }
-                showNotification('Campaign Failed', data.message, 'error');
                 break;
         }
     }
 
-    showSection(sectionName) {
-        // Update navigation
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.classList.remove('active');
-        });
-        document.querySelector(`[data-section="${sectionName}"]`).classList.add('active');
+    // ═══════════════════════════════════════════════════════
+    // DATA LOADING
+    // ═══════════════════════════════════════════════════════
 
-        // Update content sections
-        document.querySelectorAll('.content-section').forEach(section => {
-            section.classList.remove('active');
-        });
-        document.getElementById(`${sectionName}-section`).classList.add('active');
-
-        this.currentSection = sectionName;
-
-        // Load section-specific data
-        switch (sectionName) {
-            case 'dashboard':
-                this.renderDashboard();
-                break;
-            case 'campaigns':
-                this.renderCampaigns();
-                break;
-            case 'leads':
-                this.renderLeads();
-                break;
-            case 'analytics':
-                this.renderAnalytics();
-                break;
-        }
-    }
-
-    async loadDashboardData() {
+    async loadDashboard() {
         try {
-            this.dashboardData = await api.getDashboard();
-            this.updateUserInfo();
+            const data = await api.getDashboard();
+            this.dashboardData = data;
+            this.renderDashboard(data);
         } catch (error) {
-            api.handleError(error, 'loading dashboard data');
+            api.handleError(error, 'loading dashboard');
         }
     }
 
     async loadCampaigns() {
         try {
-            this.campaigns = await api.getCampaigns();
-            this.populateCampaignSelect();
+            const campaigns = await api.getCampaigns();
+            this.campaigns = campaigns;
+            this.renderCampaigns(campaigns);
+            this.updateCampaignSelect(campaigns);
+            
+            // Update campaign count badge
+            const badge = document.getElementById('campaignCount');
+            if (badge) badge.textContent = campaigns.length;
         } catch (error) {
             api.handleError(error, 'loading campaigns');
         }
     }
 
-    updateUserInfo() {
-        if (this.dashboardData?.userPreferences) {
-            const industryElement = document.getElementById('userIndustry');
-            if (industryElement) {
-                const industry = this.dashboardData.userPreferences.industry;
-                industryElement.textContent = api.getIndustryName(industry);
-            }
+    async loadLeadsSection() {
+        // Just make sure the campaign select is populated
+        if (this.campaigns.length === 0) {
+            await this.loadCampaigns();
         }
     }
 
-    populateCampaignSelect() {
-        const select = document.getElementById('campaignSelect');
-        if (select && this.campaigns) {
-            select.innerHTML = '<option value="">Select Campaign</option>';
-            this.campaigns.forEach(campaign => {
-                const option = document.createElement('option');
-                option.value = campaign.id;
-                option.textContent = `${campaign.name} (${campaign.results?.totalLeads || 0} leads)`;
-                select.appendChild(option);
-            });
-        }
-    }
-
-    renderDashboard() {
-        if (!this.dashboardData) return;
-
-        const { overview, recentActivity } = this.dashboardData;
-
-        // Update overview cards with safe formatting
-        document.getElementById('totalCampaigns').textContent = api.formatNumber(overview.totalCampaigns || 0);
-        document.getElementById('totalLeads').textContent = api.formatNumber(overview.totalLeads || 0);
-        document.getElementById('priorityLeads').textContent = api.formatNumber(overview.totalPriorityLeads || 0);
-        document.getElementById('averageScore').textContent = api.parseNumericValue(overview.averageScore) || '0';
-
-        // Render recent activity
-        this.renderRecentActivity(recentActivity);
-    }
-
-    renderRecentActivity(activities) {
-        const container = document.getElementById('recentActivity');
+    async loadLeadsForCampaign(campaignId) {
+        if (!campaignId) return;
         
-        if (!activities || activities.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">📭</div>
-                    <div class="empty-title">No recent activity</div>
-                    <div class="empty-message">Create your first campaign to get started</div>
-                </div>
-            `;
-            return;
-        }
+        const container = document.getElementById('leadsTableContainer');
+        container.innerHTML = '<div class="loading">Loading leads...</div>';
 
-        container.innerHTML = activities.map(activity => `
-            <div class="activity-item" onclick="dashboard.viewCampaign('${activity.id || ''}')">
-                <div class="activity-info">
-                    <h4>${api.getIndustryIcon(activity.industry)} ${api.safeString(activity.name, 'Unnamed Campaign')}</h4>
-                    <p>${api.formatDateSafe(activity.executedAt)} • ${api.getIndustryName(activity.industry)}</p>
-                </div>
-                <div class="activity-stats">
-                    <div class="leads-count">${api.formatNumber(activity.totalLeads || 0)} leads</div>
-                    <div class="priority-count">${api.formatNumber(activity.priorityLeads || 0)} priority</div>
-                </div>
-            </div>
-        `).join('');
+        try {
+            const data = await api.getLeads(campaignId);
+            this.currentCampaign = campaignId;
+            this.renderLeadsTable(data.leads || [], campaignId);
+            
+            // Show export button
+            const exportBtn = document.getElementById('exportVCardBtn');
+            if (exportBtn) exportBtn.style.display = '';
+        } catch (error) {
+            api.handleError(error, 'loading leads');
+            container.innerHTML = '<div class="card" style="text-align:center;padding:2rem"><p class="empty-title">Failed to load leads</p></div>';
+        }
     }
 
-    renderCampaigns() {
-        const container = document.getElementById('campaignsList');
-        
-        if (!this.campaigns || this.campaigns.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">🎯</div>
-                    <div class="empty-title">No campaigns yet</div>
-                    <div class="empty-message">Create your first campaign to start generating leads</div>
-                    <button class="btn btn-primary" onclick="dashboard.openNewCampaignModal()">Create Campaign</button>
-                </div>
-            `;
-            return;
+    async loadAnalytics() {
+        try {
+            const data = await api.getAnalytics();
+            this.renderAnalytics(data);
+        } catch (error) {
+            api.handleError(error, 'loading analytics');
         }
-
-        container.innerHTML = this.campaigns.map(campaign => `
-            <div class="campaign-card" onclick="dashboard.viewCampaign('${campaign.id || ''}')">
-                <div class="campaign-header">
-                    <div>
-                        <div class="campaign-title">
-                            ${api.getIndustryIcon(campaign.industry)} ${api.safeString(campaign.name, 'Unnamed Campaign')}
-                        </div>
-                        <div class="campaign-meta">
-                            ${api.formatDateSafe(campaign.executedAt)} • ${api.getIndustryName(campaign.industry)}
-                        </div>
-                    </div>
-                    <div class="campaign-status status-completed">Completed</div>
-                </div>
-                <div class="campaign-stats">
-                    <div class="stat-item">
-                        <div class="stat-value">${api.formatNumber(campaign.results?.totalLeads || 0)}</div>
-                        <div class="stat-label">Total Leads</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">${api.formatNumber(campaign.results?.priorityLeads || 0)}</div>
-                        <div class="stat-label">Priority</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">${api.parseNumericValue(campaign.results?.averageScore) || '0'}</div>
-                        <div class="stat-label">Avg Score</div>
-                    </div>
-                </div>
-            </div>
-        `).join('');
     }
 
-    filterCampaigns() {
-        const searchTerm = document.getElementById('campaignSearch')?.value.toLowerCase() || '';
-        const industryFilter = document.getElementById('industryFilter')?.value || '';
+    // ═══════════════════════════════════════════════════════
+    // RENDERING
+    // ═══════════════════════════════════════════════════════
 
-        let filteredCampaigns = this.campaigns;
+    renderDashboard(data) {
+        const { overview, recentActivity } = data;
 
-        if (searchTerm) {
-            filteredCampaigns = filteredCampaigns.filter(campaign =>
-                campaign.name.toLowerCase().includes(searchTerm) ||
-                campaign.industry.toLowerCase().includes(searchTerm)
-            );
-        }
-
-        if (industryFilter) {
-            filteredCampaigns = filteredCampaigns.filter(campaign =>
-                campaign.industry === industryFilter
-            );
-        }
-
-        // Re-render with filtered data
-        const container = document.getElementById('campaignsList');
-        if (filteredCampaigns.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">🔍</div>
-                    <div class="empty-title">No campaigns found</div>
-                    <div class="empty-message">Try adjusting your search or filter criteria</div>
+        // Stat cards
+        const statsGrid = document.getElementById('statsGrid');
+        statsGrid.innerHTML = `
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-label">Total Campaigns</span>
+                    <div class="stat-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
+                    </div>
                 </div>
-            `;
+                <div class="stat-value">${api.formatNumber(overview.totalCampaigns)}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-label">Total Leads</span>
+                    <div class="stat-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                </div>
+                <div class="stat-value">${api.formatNumber(overview.totalLeads)}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-label">Priority Leads</span>
+                    <div class="stat-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    </div>
+                </div>
+                <div class="stat-value">${api.formatNumber(overview.totalPriorityLeads)}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-label">Avg Score</span>
+                    <div class="stat-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    </div>
+                </div>
+                <div class="stat-value">${overview.averageScore}</div>
+            </div>
+        `;
+
+        // Recent activity
+        const activityList = document.getElementById('activityList');
+        if (recentActivity && recentActivity.length > 0) {
+            activityList.innerHTML = recentActivity.map(activity => `
+                <div class="activity-item" onclick="dashboard.showCampaignDetail('${activity.id}')">
+                    <div class="activity-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
+                    </div>
+                    <div class="activity-info">
+                        <div class="activity-name">${api.safeString(activity.name)}</div>
+                        <div class="activity-meta">${api.safeString(activity.industry)} · ${api.formatDateSafe(activity.executedAt)}</div>
+                    </div>
+                    <div class="activity-stats">
+                        <span class="activity-stat">${activity.totalLeads} leads</span>
+                        <span class="activity-stat highlight">${activity.priorityLeads} priority</span>
+                    </div>
+                </div>
+            `).join('');
         } else {
-            // Use the same rendering logic but with filtered data
-            const originalCampaigns = this.campaigns;
-            this.campaigns = filteredCampaigns;
-            this.renderCampaigns();
-            this.campaigns = originalCampaigns;
+            activityList.innerHTML = `
+                <div class="card" style="text-align:center; padding:2rem">
+                    <p class="empty-title">No campaigns yet</p>
+                    <p class="empty-message">Create your first campaign to get started</p>
+                </div>
+            `;
         }
     }
 
-    renderLeads() {
-        const container = document.getElementById('leadsTable');
-        
-        if (!this.currentCampaign) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">👥</div>
-                    <div class="empty-title">Select a campaign</div>
-                    <div class="empty-message">Choose a campaign from the dropdown to view its leads</div>
+    renderCampaigns(campaigns) {
+        const grid = document.getElementById('campaignsGrid');
+
+        if (!campaigns || campaigns.length === 0) {
+            grid.innerHTML = `
+                <div class="card" style="text-align:center; padding:3rem; grid-column:1/-1">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="48" height="48" style="opacity:0.3;margin-bottom:1rem"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
+                    <p class="empty-title">No Campaigns</p>
+                    <p class="empty-message">Launch your first campaign to start generating leads</p>
                 </div>
             `;
             return;
         }
 
-        // Initialize leads table
+        grid.innerHTML = campaigns.map(campaign => {
+            const status = campaign.results ? 'completed' : 'running';
+            return `
+                <div class="campaign-card" onclick="dashboard.showCampaignDetail('${campaign.id}')">
+                    <div class="campaign-card-header">
+                        <span class="campaign-card-title">${api.safeString(campaign.name)}</span>
+                        <span class="campaign-card-badge ${status}">${status}</span>
+                    </div>
+                    <div class="campaign-card-meta">
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            ${api.formatDateSafe(campaign.executedAt)}
+                        </span>
+                        <span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                            ${api.safeString(campaign.industry)} · ${api.safeString(campaign.location || '')}
+                        </span>
+                    </div>
+                    <div class="campaign-card-stats">
+                        <div class="campaign-stat">
+                            <div class="campaign-stat-value">${api.formatNumber(campaign.results?.totalLeads || 0)}</div>
+                            <div class="campaign-stat-label">Leads</div>
+                        </div>
+                        <div class="campaign-stat">
+                            <div class="campaign-stat-value">${api.formatNumber(campaign.results?.priorityLeads || 0)}</div>
+                            <div class="campaign-stat-label">Priority</div>
+                        </div>
+                        <div class="campaign-stat">
+                            <div class="campaign-stat-value">${campaign.results?.averageScore || 0}</div>
+                            <div class="campaign-stat-label">Avg Score</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    renderLeadsTable(leads, campaignId) {
+        const container = document.getElementById('leadsTableContainer');
+
+        if (!leads || leads.length === 0) {
+            container.innerHTML = `
+                <div class="card" style="text-align:center; padding:3rem">
+                    <p class="empty-title">No leads found</p>
+                    <p class="empty-message">This campaign has no leads data</p>
+                </div>
+            `;
+            return;
+        }
+
         this.leadsTable = new DataTable(container, {
+            campaignId,
             columns: [
-                { key: 'name', title: 'Business Name', sortable: true },
-                { key: 'address', title: 'Address', sortable: true },
-                { key: 'phone', title: 'Phone', sortable: false },
-                { key: 'intelligence.score', title: 'Score', type: 'score', sortable: true },
-                { key: 'intelligence.priority', title: 'Priority', type: 'priority', sortable: true },
-                { key: 'rating', title: 'Rating', type: 'number', sortable: true },
-                { key: 'actions', title: 'Actions', type: 'actions', sortable: false }
+                { key: 'name', title: 'Business Name', type: 'text' },
+                { key: 'phone', title: 'Phone', type: 'text' },
+                { key: 'address', title: 'Address', type: 'text' },
+                { key: 'rating', title: 'Rating', type: 'text' },
+                { key: 'intelligence.score', title: 'Score', type: 'score' },
+                { key: 'intelligence.priority', title: 'Priority', type: 'priority' },
+                { key: 'actions', title: 'Actions', type: 'actions' }
             ],
-            data: this.currentCampaign.leads || [],
-            campaignId: this.currentCampaign.id,
-            pageSize: 20,
+            data: leads,
             pagination: true,
+            pageSize: 10,
             sortable: true
         });
 
         this.leadsTable.render();
     }
 
-    async loadCampaignLeads(campaignId) {
-        try {
-            api.showLoading('leadsTable', 'Loading campaign leads...');
-            this.currentCampaign = await api.getCampaign(campaignId);
-            this.renderLeads();
-        } catch (error) {
-            api.handleError(error, 'loading campaign leads');
-        }
-    }
+    renderAnalytics(data) {
+        const { campaignTrends, industryStats, qualityDistribution } = data;
 
-    filterLeads() {
-        if (!this.leadsTable || !this.currentCampaign) return;
+        // Trend cards
+        const trendsContainer = document.getElementById('analyticsTrends');
+        trendsContainer.innerHTML = `
+            <div class="trend-card">
+                <div class="trend-value">${api.formatNumber(campaignTrends.totalCampaigns)}</div>
+                <div class="trend-label">Total Campaigns</div>
+            </div>
+            <div class="trend-card">
+                <div class="trend-value">${api.formatNumber(campaignTrends.recentCampaigns)}</div>
+                <div class="trend-label">Last 30 Days</div>
+            </div>
+            <div class="trend-card">
+                <div class="trend-value">${api.formatNumber(campaignTrends.totalLeads)}</div>
+                <div class="trend-label">All Leads</div>
+            </div>
+            <div class="trend-card">
+                <div class="trend-value">${campaignTrends.avgQualityScore}</div>
+                <div class="trend-label">Avg Quality</div>
+            </div>
+        `;
 
-        const priority = document.getElementById('priorityFilter')?.value;
-        const minScore = parseInt(document.getElementById('minScoreFilter')?.value) || 0;
-
-        this.leadsTable.filter(lead => {
-            let matches = true;
-
-            if (priority && lead.intelligence?.priority !== priority) {
-                matches = false;
-            }
-
-            if (minScore > 0 && (lead.intelligence?.score || 0) < minScore) {
-                matches = false;
-            }
-
-            return matches;
+        // Industry chart
+        const industryContent = document.getElementById('industryChartContent');
+        const industryData = Object.entries(industryStats).map(([label, stats]) => ({
+            label: label.charAt(0).toUpperCase() + label.slice(1),
+            value: stats.totalLeads
+        }));
+        SimpleChart.createBarChart(industryContent, industryData, {
+            title: '',
+            color: '#6366f1'
         });
+
+        // Quality distribution chart
+        const qualityContent = document.getElementById('qualityChartContent');
+        const qualityData = Object.entries(qualityDistribution).map(([label, value]) => ({
+            label,
+            value
+        }));
+        SimpleChart.createPieChart(qualityContent, qualityData, { title: '' });
     }
 
-    async renderAnalytics() {
-        try {
-            api.showLoading('industryChart', 'Loading analytics...');
-            api.showLoading('qualityChart', 'Loading analytics...');
-            api.showLoading('trendsChart', 'Loading analytics...');
+    // ═══════════════════════════════════════════════════════
+    // CAMPAIGN ACTIONS
+    // ═══════════════════════════════════════════════════════
 
-            const analytics = await api.getAnalytics();
-
-            // Industry performance chart
-            const industryData = Object.entries(analytics.industryStats).map(([industry, stats]) => ({
-                label: api.getIndustryName(industry),
-                value: stats.totalLeads
-            }));
-
-            SimpleChart.createBarChart(
-                document.getElementById('industryChart'),
-                industryData,
-                { title: 'Leads by Industry' }
-            );
-
-            // Lead quality distribution
-            const qualityData = Object.entries(analytics.qualityDistribution).map(([priority, count]) => ({
-                label: `${priority} Priority`,
-                value: count
-            }));
-
-            SimpleChart.createPieChart(
-                document.getElementById('qualityChart'),
-                qualityData,
-                { title: 'Lead Quality Distribution' }
-            );
-
-            // Campaign trends
-            const trendsContainer = document.getElementById('trendsChart');
-            trendsContainer.innerHTML = `
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; padding: 1rem;">
-                    <div style="text-align: center;">
-                        <div style="font-size: 2rem; font-weight: bold; color: var(--primary-color);">
-                            ${api.formatNumber(analytics.campaignTrends.totalCampaigns)}
-                        </div>
-                        <div style="color: var(--text-secondary);">Total Campaigns</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 2rem; font-weight: bold; color: var(--success-color);">
-                            ${api.formatNumber(analytics.campaignTrends.totalLeads)}
-                        </div>
-                        <div style="color: var(--text-secondary);">Total Leads</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 2rem; font-weight: bold; color: var(--warning-color);">
-                            ${analytics.campaignTrends.avgQualityScore}
-                        </div>
-                        <div style="color: var(--text-secondary);">Avg Quality Score</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 2rem; font-weight: bold; color: var(--primary-color);">
-                            ${api.formatNumber(analytics.campaignTrends.recentCampaigns)}
-                        </div>
-                        <div style="color: var(--text-secondary);">Recent (30 days)</div>
-                    </div>
-                </div>
-            `;
-
-        } catch (error) {
-            api.handleError(error, 'loading analytics');
-        }
-    }
-
-    openNewCampaignModal() {
-        // Pre-fill with user preferences
-        if (this.dashboardData?.userPreferences) {
-            const industry = this.dashboardData.userPreferences.industry;
-            const industrySelect = document.getElementById('campaignIndustry');
-            if (industrySelect && industry) {
-                industrySelect.value = industry;
-                this.updateCampaignFormDefaults(industry);
-            }
-        }
-
-        showModal('newCampaignModal');
-    }
-
-    closeNewCampaignModal() {
-        hideModal();
-        document.getElementById('newCampaignForm').reset();
-    }
-
-    updateCampaignFormDefaults(industry) {
-        const locationInput = document.getElementById('campaignLocation');
-        const queryInput = document.getElementById('searchQuery');
-
-        if (locationInput && !locationInput.value) {
-            locationInput.value = 'Jakarta';
-        }
-
-        if (queryInput && industry) {
-            const queries = {
-                restaurant: 'Restaurant Jakarta',
-                automotive: 'Rental mobil Jakarta',
-                retail: 'Toko Jakarta',
-                professional: 'Konsultan Jakarta',
-                healthcare: 'Klinik Jakarta',
-                education: 'Kursus Jakarta',
-                realestate: 'Property Jakarta'
-            };
-            
-            if (!queryInput.value) {
-                queryInput.value = queries[industry] || 'Bisnis Jakarta';
-            }
-        }
-    }
-
-    async createCampaign() {
+    async createCampaign(event) {
+        event.preventDefault();
+        
         const form = document.getElementById('newCampaignForm');
         const formData = new FormData(form);
-        
-        const campaignData = {
-            name: formData.get('name'),
-            industry: formData.get('industry'),
-            location: formData.get('location'),
-            searchQuery: formData.get('searchQuery'),
-            maxResults: parseInt(formData.get('maxResults')) || 20,
-            contentStyle: formData.get('contentStyle'),
-            language: formData.get('language') || 'indonesian',
-            yourService: formData.get('yourService')
-        };
+        const campaignData = Object.fromEntries(formData.entries());
+
+        // Validate
+        if (!campaignData.name || !campaignData.industry || !campaignData.location || !campaignData.searchQuery || !campaignData.yourService) {
+            showNotification('Validation Error', 'Please fill in all required fields', 'warning');
+            return;
+        }
 
         try {
-            // Close the modal and show progress
-            this.closeNewCampaignModal();
+            hideModal();
+            
+            // Show progress modal
             this.progressManager.show(campaignData.name);
 
-            // Create the campaign
             const result = await api.createCampaign(campaignData);
             
             if (result.success) {
-                showNotification('Campaign Started', 'Your campaign is now running in the background', 'success');
+                showNotification('Campaign Launched', `Campaign "${campaignData.name}" is running`, 'success');
+                form.reset();
             }
-
         } catch (error) {
-            this.progressManager.error(error.message);
             api.handleError(error, 'creating campaign');
+            if (this.progressManager) {
+                this.progressManager.error(error.message);
+            }
         }
     }
 
-    async viewCampaign(campaignId) {
+    async showCampaignDetail(campaignId) {
+        const content = document.getElementById('campaignDetailContent');
+        content.innerHTML = '<div class="loading">Loading campaign details...</div>';
+        showModal('campaignDetailModal');
+
         try {
-            // Load campaign details
-            const campaign = await api.getCampaign(campaignId);
-            this.currentCampaign = campaign;
-            
-            // Show campaign detail view
-            this.showCampaignDetail(campaign);
+            const campaign = await api.getCampaignDetail(campaignId);
+            this.renderCampaignDetail(campaign);
         } catch (error) {
+            content.innerHTML = '<p class="empty-title">Failed to load campaign details</p>';
             api.handleError(error, 'loading campaign details');
         }
     }
 
-    showCampaignDetail(campaign) {
-        // Hide all sections
-        document.querySelectorAll('.content-section').forEach(section => {
-            section.classList.remove('active');
-        });
-        
-        // Show campaign detail section
-        const detailSection = document.getElementById('campaign-detail');
-        if (detailSection) {
-            detailSection.classList.add('active');
-            this.renderCampaignDetail(campaign);
-        }
-    }
-
     renderCampaignDetail(campaign) {
-        // Update campaign detail header
-        document.getElementById('campaignDetailName').textContent = campaign.name || 'Unnamed Campaign';
-        document.getElementById('campaignDetailIndustry').textContent = api.getIndustryName(campaign.industry);
-        document.getElementById('campaignDetailLocation').textContent = campaign.location || 'Unknown Location';
-        document.getElementById('campaignDetailDate').textContent = api.formatDateSafe(campaign.executedAt);
+        const content = document.getElementById('campaignDetailContent');
         
-        // Render campaign stats
-        this.renderCampaignStats(campaign);
-        
-        // Render leads table in detail view
-        this.renderCampaignLeadsDetail(campaign);
-        
-        // Render campaign insights
-        this.renderCampaignInsights(campaign);
-        
-        // Render marketing content
-        this.renderMarketingContent(campaign);
-    }
-
-    renderCampaignStats(campaign) {
-        const results = campaign.results || {};
-        const leads = campaign.leads || [];
-        
-        // Calculate additional stats
-        const totalLeads = results.totalLeads || leads.length || 0;
-        const priorityLeads = results.priorityLeads || leads.filter(lead =>
-            lead.intelligence?.priority === 'high' || lead.intelligence?.priority === 'medium'
-        ).length || 0;
-        const averageScore = results.averageScore || this.calculateAverageScore(leads);
-        const averageRating = this.calculateAverageRating(leads);
-        
-        // Update stat cards
-        document.getElementById('detailTotalLeads').textContent = api.formatNumber(totalLeads);
-        document.getElementById('detailPriorityLeads').textContent = api.formatNumber(priorityLeads);
-        document.getElementById('detailAverageScore').textContent = api.parseNumericValue(averageScore) || '0';
-        document.getElementById('detailAverageRating').textContent = api.parseNumericValue(averageRating) || '0';
-    }
-
-    calculateAverageScore(leads) {
-        if (!leads || leads.length === 0) return 0;
-        
-        const validScores = leads
-            .map(lead => api.parseNumericValue(lead.intelligence?.score))
-            .filter(score => score !== null && !isNaN(score));
-            
-        if (validScores.length === 0) return 0;
-        
-        const sum = validScores.reduce((acc, score) => acc + score, 0);
-        return (sum / validScores.length).toFixed(1);
-    }
-
-    calculateAverageRating(leads) {
-        if (!leads || leads.length === 0) return 0;
-        
-        const validRatings = leads
-            .map(lead => api.parseNumericValue(lead.rating))
-            .filter(rating => rating !== null && !isNaN(rating));
-            
-        if (validRatings.length === 0) return 0;
-        
-        const sum = validRatings.reduce((acc, rating) => acc + rating, 0);
-        return (sum / validRatings.length).toFixed(1);
-    }
-
-    renderCampaignLeadsDetail(campaign) {
-        const container = document.getElementById('campaignLeadsTable');
-        
-        if (!campaign.leads || campaign.leads.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">👥</div>
-                    <div class="empty-title">No leads found</div>
-                    <div class="empty-message">This campaign didn't generate any leads</div>
+        content.innerHTML = `
+            <div class="campaign-detail-grid">
+                <div class="detail-item">
+                    <div class="detail-label">Campaign Name</div>
+                    <div class="detail-value">${api.safeString(campaign.name)}</div>
                 </div>
-            `;
-            return;
-        }
-
-        // Initialize leads table for detail view
-        const detailTable = new DataTable(container, {
-            columns: [
-                { key: 'name', title: 'Business Name', sortable: true },
-                { key: 'address', title: 'Address', sortable: true },
-                { key: 'phone', title: 'Phone', sortable: false },
-                { key: 'intelligence.score', title: 'Score', type: 'score', sortable: true },
-                { key: 'intelligence.priority', title: 'Priority', type: 'priority', sortable: true },
-                { key: 'rating', title: 'Rating', type: 'number', sortable: true },
-                { key: 'actions', title: 'Actions', type: 'actions', sortable: false }
-            ],
-            data: campaign.leads,
-            campaignId: campaign.id,
-            pageSize: 10,
-            pagination: true,
-            sortable: true
-        });
-
-        detailTable.render();
+                <div class="detail-item">
+                    <div class="detail-label">Industry</div>
+                    <div class="detail-value">${api.safeString(campaign.industry)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Location</div>
+                    <div class="detail-value">${api.safeString(campaign.location || 'N/A')}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Executed</div>
+                    <div class="detail-value">${api.formatDateSafe(campaign.executedAt)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Total Leads</div>
+                    <div class="detail-value">${api.formatNumber(campaign.results?.totalLeads || 0)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Priority Leads</div>
+                    <div class="detail-value">${api.formatNumber(campaign.results?.priorityLeads || 0)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Avg Score</div>
+                    <div class="detail-value">${campaign.results?.averageScore || 0}/100</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Content Generated</div>
+                    <div class="detail-value">${campaign.results?.contentGenerated || 0} leads</div>
+                </div>
+            </div>
+            ${campaign.leads && campaign.leads.length > 0 ? `
+                <h4 style="margin-bottom:var(--space-md);font-weight:600">Top Leads</h4>
+                ${campaign.leads.slice(0, 5).map((lead, index) => this.renderLeadCard(lead, campaign.id, index)).join('')}
+            ` : ''}
+        `;
     }
 
-    renderCampaignInsights(campaign) {
-        const leads = campaign.leads || [];
-        
-        // Calculate priority distribution
-        const priorityStats = {
-            high: leads.filter(lead => lead.intelligence?.priority === 'high').length,
-            medium: leads.filter(lead => lead.intelligence?.priority === 'medium').length,
-            low: leads.filter(lead => lead.intelligence?.priority === 'low').length
-        };
-        
-        // Calculate score distribution
-        const scoreRanges = {
-            high: leads.filter(lead => (lead.intelligence?.score || 0) >= 80).length,
-            medium: leads.filter(lead => {
-                const score = lead.intelligence?.score || 0;
-                return score >= 60 && score < 80;
-            }).length,
-            low: leads.filter(lead => (lead.intelligence?.score || 0) < 60).length
-        };
-        
-        // Update insights
-        const totalLeads = leads.length;
-        const conversionRate = totalLeads > 0 ? ((priorityStats.high + priorityStats.medium) / totalLeads * 100).toFixed(1) : 0;
-        const qualityScore = totalLeads > 0 ? ((scoreRanges.high * 3 + scoreRanges.medium * 2 + scoreRanges.low * 1) / (totalLeads * 3) * 100).toFixed(1) : 0;
-        
-        // Update insight values
-        document.getElementById('insightConversionRate').textContent = `${conversionRate}%`;
-        document.getElementById('insightQualityScore').textContent = `${qualityScore}%`;
-        document.getElementById('insightHighPriority').textContent = api.formatNumber(priorityStats.high);
-        
-        // Update priority distribution
-        document.getElementById('priorityHigh').textContent = api.formatNumber(priorityStats.high);
-        document.getElementById('priorityMedium').textContent = api.formatNumber(priorityStats.medium);
-        document.getElementById('priorityLow').textContent = api.formatNumber(priorityStats.low);
-        
-        // Update progress bars
-        const highPercentage = totalLeads > 0 ? (priorityStats.high / totalLeads * 100) : 0;
-        const mediumPercentage = totalLeads > 0 ? (priorityStats.medium / totalLeads * 100) : 0;
-        const lowPercentage = totalLeads > 0 ? (priorityStats.low / totalLeads * 100) : 0;
-        
-        const conversionBar = document.getElementById('conversionRateBar');
-        const qualityBar = document.getElementById('qualityScoreBar');
-        
-        if (conversionBar) {
-            conversionBar.style.width = `${conversionRate}%`;
-        }
-        
-        if (qualityBar) {
-            qualityBar.style.width = `${qualityScore}%`;
-        }
+    renderLeadCard(lead, campaignId, index) {
+        const score = lead.intelligence?.score || 0;
+        const priority = lead.intelligence?.priority || 'LOW';
+        const hasContent = lead.intelligence?.marketingContent;
+
+        return `
+            <div class="card" style="margin-bottom:var(--space-sm);padding:var(--space-md)">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-xs)">
+                    <strong style="font-size:0.9rem">${api.safeString(lead.name)}</strong>
+                    <span class="priority-badge priority-${priority.toLowerCase()}">${priority}</span>
+                </div>
+                <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:var(--space-sm)">
+                    ${api.safeString(lead.phone || '')} · ${api.safeString(lead.address || '')}
+                </div>
+                <div style="display:flex;gap:var(--space-xs);flex-wrap:wrap">
+                    <button class="btn-vcard" onclick="exportLeadVCard('${campaignId}', ${index}, '${api.safeString(lead.name).replace(/'/g, "\\'")}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                        vCard
+                    </button>
+                    ${hasContent ? `
+                        <button class="btn-vcard" onclick="dashboard.showMarketingContent(${JSON.stringify(lead.intelligence.marketingContent).replace(/"/g, '&quot;')}, '${api.safeString(lead.name).replace(/'/g, "\\'")}')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            Content
+                        </button>
+                    ` : ''}
+                    ${lead.phone ? `
+                        <button class="btn-vcard" onclick="dashboard.openWhatsApp('${lead.phone}', ${hasContent ? JSON.stringify(lead.intelligence.marketingContent.whatsapp || '').replace(/"/g, '&quot;') : "''"})">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                            WhatsApp
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
     }
 
-    renderMarketingContent(campaign) {
-        const leads = campaign.leads || [];
+    // ─── Marketing Content ──────────────────────────────────
+    showMarketingContent(content, leadName) {
+        const container = document.getElementById('marketingContent');
         
-        if (leads.length === 0) {
-            document.getElementById('whatsappContent').textContent = 'No leads available for marketing content generation.';
-            document.getElementById('emailContent').textContent = 'No leads available for marketing content generation.';
-            return;
-        }
-        
-        // Get sample lead for marketing content
-        const sampleLead = leads.find(lead => lead.intelligence?.priority === 'high') || leads[0];
-        
-        if (sampleLead && sampleLead.intelligence?.marketingContent) {
-            const content = sampleLead.intelligence.marketingContent;
-            
-            // Display WhatsApp content
-            const whatsappContent = content.whatsapp || 'WhatsApp content not available';
-            document.getElementById('whatsappContent').textContent = whatsappContent;
-            
-            // Display Email content
-            const emailContent = content.email || 'Email content not available';
-            document.getElementById('emailContent').textContent = emailContent;
-        } else {
-            // Generate personalized marketing content based on campaign data
-            const businessName = sampleLead?.name || 'Business Partner';
-            const industry = api.getIndustryName(campaign.industry);
-            const serviceName = "Asiifdev";
-            const location = campaign.location || "Jakarta";
-            
-            // Enhanced WhatsApp message with service-specific content
-            const whatsappMessage = `🎉 Halo! Saya dari ${serviceName} - solusi manajemen inventori untuk bisnis rental peralatan event.
+        const subject = content.subject || content.email_subject || '';
+        const email = content.email || content.email_body || '';
+        const whatsapp = content.whatsapp || content.whatsapp_message || '';
 
-Saya melihat ${businessName} bergerak di bidang ${industry.toLowerCase()} di ${location}. Apakah Anda sering mengalami:
-❌ Barang hilang saat event
-❌ Kesulitan tracking ribuan item
-❌ Laporan keuangan manual yang ribet
+        container.innerHTML = `
+            <h4 style="margin-bottom:var(--space-md);font-size:0.9rem;font-weight:600">Content for ${api.safeString(leadName)}</h4>
+            ${subject ? `
+                <div class="marketing-content" style="margin-bottom:var(--space-md)">
+                    <div class="marketing-header"><h4>Email Subject</h4></div>
+                    <div class="marketing-body"><div class="content-preview">${api.safeString(subject)}</div></div>
+                </div>
+            ` : ''}
+            ${email ? `
+                <div class="marketing-content" style="margin-bottom:var(--space-md)">
+                    <div class="marketing-header"><h4>Email Body</h4></div>
+                    <div class="marketing-body"><div class="content-preview">${api.safeString(email)}</div></div>
+                    <div class="marketing-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="dashboard.sendEmail('${api.safeString(subject).replace(/'/g, "\\'")}', '${api.safeString(email).replace(/'/g, "\\'")}')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                            Open Email
+                        </button>
+                    </div>
+                </div>
+            ` : ''}
+            ${whatsapp ? `
+                <div class="marketing-content" style="margin-bottom:var(--space-md)">
+                    <div class="marketing-header"><h4>WhatsApp Message</h4></div>
+                    <div class="marketing-body"><div class="content-preview">${api.safeString(whatsapp)}</div></div>
+                    <div class="marketing-actions">
+                        <button class="btn btn-success btn-sm" onclick="navigator.clipboard.writeText(${JSON.stringify(whatsapp).replace(/"/g, '&quot;')}).then(()=>showNotification('Copied','Message copied to clipboard','success'))">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            Copy
+                        </button>
+                    </div>
+                </div>
+            ` : ''}
+        `;
 
-${serviceName} membantu event organizer seperti Anda:
-✅ Tracking real-time dengan QR code
-✅ Sistem POS rental yang cepat
-✅ Laporan otomatis & backup Google Sheets
-✅ Tingkatkan produktivitas hingga 70%
-
-Mau demo gratis khusus untuk ${businessName}? Chat saya sekarang! 📱`;
-
-            // Enhanced Email message with professional format
-            const emailMessage = `Subject: Solusi Manajemen Inventori untuk ${businessName}
-
-Halo Tim ${businessName},
-
-Saya dari ${serviceName}, sistem manajemen inventori khusus untuk bisnis rental peralatan event di ${location}.
-
-Kami memahami tantangan yang dihadapi ${industry.toLowerCase()} seperti ${businessName}:
-- Kesulitan melacak ribuan item peralatan
-- Kerugian dari barang hilang/rusak
-- Proses manual yang memakan waktu
-
-${serviceName} menawarkan solusi all-in-one:
-• Tracking real-time semua peralatan dengan QR code
-• Sistem POS untuk rental in/out yang efisien
-• Manajemen customer dan history lengkap
-• Laporan keuangan otomatis
-• Multi-branch management
-
-Hasil yang telah dicapai klien kami di ${location}:
-- Produktivitas meningkat 70%
-- Kerugian barang berkurang 85%
-- Waktu operasional lebih efisien
-
-Tertarik untuk demo gratis khusus ${businessName}? Mari diskusikan bagaimana ${serviceName} dapat membantu bisnis Anda berkembang.
-
-Best regards,
-Tim ${serviceName}
-📧 info@asiifdev.com
-📱 WhatsApp: +62-xxx-xxxx-xxxx`;
-            
-            document.getElementById('whatsappContent').textContent = whatsappMessage;
-            document.getElementById('emailContent').textContent = emailMessage;
-        }
+        showModal('marketingModal');
     }
 
-    // Back to campaigns from detail view
-    backToCampaigns() {
-        this.showSection('campaigns');
-    }
-
-    // Send WhatsApp message
-    sendWhatsApp(content) {
+    // ─── WhatsApp & Email ───────────────────────────────────
+    openWhatsApp(phone, message) {
         try {
-            // Format content for WhatsApp
-            const message = encodeURIComponent(content);
-            const whatsappUrl = `https://wa.me/?text=${message}`;
-            
-            // Open WhatsApp in new tab
-            window.open(whatsappUrl, '_blank');
-            
-            showNotification('WhatsApp', 'WhatsApp opened with your message', 'success');
+            let cleanPhone = phone.replace(/[^0-9+]/g, '');
+            if (cleanPhone.startsWith('0')) {
+                cleanPhone = '62' + cleanPhone.substring(1);
+            }
+            const text = encodeURIComponent(message || '');
+            const url = `https://wa.me/${cleanPhone}${text ? '?text=' + text : ''}`;
+            window.open(url, '_blank');
+            showNotification('WhatsApp', 'Opening WhatsApp...', 'success');
         } catch (error) {
             api.handleError(error, 'opening WhatsApp');
         }
     }
 
-    // Send Email
-    sendEmail(content) {
+    sendEmail(subject, body) {
         try {
-            // Extract subject and body from content
-            const lines = content.split('\n');
-            const subjectLine = lines.find(line => line.startsWith('Subject:'));
-            const subject = subjectLine ? encodeURIComponent(subjectLine.replace('Subject:', '').trim()) : encodeURIComponent('Business Partnership Opportunity');
-            
-            // Get body content (everything after subject line)
-            const subjectIndex = lines.findIndex(line => line.startsWith('Subject:'));
-            const bodyLines = subjectIndex >= 0 ? lines.slice(subjectIndex + 1) : lines;
-            const body = encodeURIComponent(bodyLines.join('\n').trim());
-            
-            // Create mailto URL
-            const mailtoUrl = `mailto:?subject=${subject}&body=${body}`;
-            
-            // Open email client
-            window.location.href = mailtoUrl;
-            
-            showNotification('Email', 'Email client opened with your message', 'success');
+            const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.open(mailtoUrl);
+            showNotification('Email', 'Opening email client...', 'success');
         } catch (error) {
-            api.handleError(error, 'opening email client');
+            api.handleError(error, 'opening email');
         }
     }
 
-    closeCampaignProgressModal() {
-        this.progressManager.hide();
-    }
-
-    async exportData() {
+    // ─── Export ─────────────────────────────────────────────
+    async exportAllVCards() {
+        if (!this.currentCampaign) {
+            showNotification('Export', 'Please select a campaign first', 'warning');
+            return;
+        }
         try {
-            if (this.currentSection === 'leads' && this.currentCampaign) {
-                // Export current campaign leads
-                const leads = this.currentCampaign.leads || [];
-                const exportData = leads.map(lead => ({
-                    name: lead.name,
-                    address: lead.address,
-                    phone: lead.phone,
-                    email: lead.email || '',
-                    website: lead.website || '',
-                    rating: lead.rating || '',
-                    score: lead.intelligence?.score || 0,
-                    category: lead.intelligence?.category || '',
-                    priority: lead.intelligence?.priority || '',
-                    recommendation: lead.intelligence?.recommendation || ''
-                }));
-
-                const filename = `${this.currentCampaign.name}_leads_${new Date().toISOString().split('T')[0]}.csv`;
-                api.exportToCSV(exportData, filename);
-                showNotification('Export Complete', `Exported ${exportData.length} leads to ${filename}`, 'success');
-
-            } else if (this.currentSection === 'campaigns') {
-                // Export campaigns summary
-                const exportData = this.campaigns.map(campaign => ({
-                    name: campaign.name,
-                    industry: campaign.industry,
-                    location: campaign.location,
-                    executedAt: campaign.executedAt,
-                    totalLeads: campaign.results?.totalLeads || 0,
-                    priorityLeads: campaign.results?.priorityLeads || 0,
-                    averageScore: campaign.results?.averageScore || 0
-                }));
-
-                const filename = `campaigns_summary_${new Date().toISOString().split('T')[0]}.csv`;
-                api.exportToCSV(exportData, filename);
-                showNotification('Export Complete', `Exported ${exportData.length} campaigns to ${filename}`, 'success');
-
-            } else {
-                showNotification('Export Info', 'Navigate to Campaigns or Leads section to export data', 'info');
-            }
-
+            window.open(`/api/campaigns/${this.currentCampaign}/export/vcard`, '_blank');
+            showNotification('Export', 'Downloading vCard bundle...', 'success');
         } catch (error) {
-            api.handleError(error, 'exporting data');
+            api.handleError(error, 'exporting vCards');
         }
     }
 
-    // Export single lead as vCard
-    async exportLeadVCard(campaignId, leadIndex, leadName) {
-        try {
-            await api.exportLeadVCard(campaignId, leadIndex, leadName);
-            showNotification('vCard Export', `Contact "${leadName}" exported successfully! Check your downloads.`, 'success');
-        } catch (error) {
-            api.handleError(error, 'exporting vCard');
-        }
-    }
+    // ─── Campaign Select ────────────────────────────────────
+    updateCampaignSelect(campaigns) {
+        const select = document.getElementById('campaignSelect');
+        if (!select) return;
 
-    // Export all campaign leads as vCard bundle
-    async exportCampaignVCard(campaignId, campaignName) {
-        try {
-            await api.exportCampaignVCard(campaignId, campaignName);
-            showNotification('vCard Export', `All contacts from "${campaignName}" exported successfully!`, 'success');
-        } catch (error) {
-            api.handleError(error, 'exporting vCard bundle');
-        }
+        const current = select.value;
+        select.innerHTML = '<option value="">Select Campaign</option>' +
+            campaigns.map(c => `<option value="${c.id}">${api.safeString(c.name)}</option>`).join('');
+        
+        if (current) select.value = current;
     }
 }
 
-// Global functions for HTML onclick handlers
-window.openNewCampaignModal = () => dashboard.openNewCampaignModal();
-window.closeNewCampaignModal = () => dashboard.closeNewCampaignModal();
-window.closeCampaignProgressModal = () => dashboard.closeCampaignProgressModal();
-window.showSection = (section) => dashboard.showSection(section);
-window.exportData = () => dashboard.exportData();
-
-// Global vCard export functions
-window.exportLeadVCard = (campaignId, leadIndex, leadName) => dashboard.exportLeadVCard(campaignId, leadIndex, leadName);
-window.exportCampaignVCard = (campaignId, campaignName) => dashboard.exportCampaignVCard(campaignId, campaignName);
-
-// Global campaign detail functions
-window.backToCampaigns = () => dashboard.backToCampaigns();
-window.sendWhatsApp = (content) => dashboard.sendWhatsApp(content);
-window.sendEmail = (content) => dashboard.sendEmail(content);
-
-// Initialize dashboard when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.dashboard = new Dashboard();
-});
-
-// Handle page unload
-window.addEventListener('beforeunload', () => {
-    if (dashboard.eventSource) {
-        api.disconnectFromEvents();
+// ─── Global: Export Lead vCard ──────────────────────────────
+function exportLeadVCard(campaignId, leadIndex, leadName) {
+    try {
+        window.open(`/api/leads/${campaignId}/${leadIndex}/vcard`, '_blank');
+        showNotification('vCard', `Downloading contact for ${leadName}`, 'success');
+    } catch (error) {
+        showNotification('Error', 'Failed to export vCard', 'error');
     }
-});
+}
+
+// ─── Initialize ────────────────────────────────────────────
+const dashboard = new Dashboard();

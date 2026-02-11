@@ -1,464 +1,776 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f1117" />
+    <meta
+      name="description"
+      content="AI-powered business lead generation dashboard"
+    />
     <title>Business Leads AI Dashboard</title>
-    <link rel="stylesheet" href="css/dashboard.css">
-    <link rel="stylesheet" href="css/components.css">
-</head>
-<body>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/dashboard.css" />
+    <link rel="stylesheet" href="css/components.css" />
+  </head>
+  <body>
     <!-- Header -->
     <header class="header">
-        <div class="header-content">
-            <div class="logo">
-                <h1>🚀 Business Leads AI</h1>
-                <span class="version">v2.0 Dashboard</span>
+      <div class="header-content">
+        <div class="header-left">
+          <button
+            class="hamburger-btn"
+            id="hamburgerBtn"
+            aria-label="Toggle menu"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <div class="logo">
+            <div class="logo-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"
+                />
+                <path
+                  d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"
+                />
+                <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+                <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+              </svg>
             </div>
-            <div class="header-actions">
-                <button class="btn btn-primary" id="newCampaignBtn">
-                    ➕ New Campaign
-                </button>
-                <div class="user-info">
-                    <span id="userIndustry">Professional</span>
-                </div>
-            </div>
+            <h1>Business Leads AI</h1>
+            <span class="version">v2.0</span>
+          </div>
         </div>
+        <div class="header-actions">
+          <button
+            class="theme-toggle"
+            id="themeToggle"
+            aria-label="Toggle theme"
+          >
+            <div class="toggle-thumb">
+              <svg
+                class="icon-moon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+              </svg>
+              <svg
+                class="icon-sun"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                style="display: none"
+              >
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2" />
+                <path d="M12 20v2" />
+                <path d="m4.93 4.93 1.41 1.41" />
+                <path d="m17.66 17.66 1.41 1.41" />
+                <path d="M2 12h2" />
+                <path d="M20 12h2" />
+                <path d="m6.34 17.66-1.41 1.41" />
+                <path d="m19.07 4.93-1.41 1.41" />
+              </svg>
+            </div>
+          </button>
+          <button
+            class="btn btn-primary btn-sm"
+            onclick="showModal('newCampaignModal')"
+            id="newCampaignBtn"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              width="16"
+              height="16"
+            >
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span class="btn-text">New Campaign</span>
+          </button>
+        </div>
+      </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="main-content">
-        <!-- Navigation -->
-        <nav class="sidebar">
-            <ul class="nav-menu">
-                <li class="nav-item active" data-section="dashboard">
-                    <span class="nav-icon">📊</span>
-                    <span class="nav-text">Dashboard</span>
-                </li>
-                <li class="nav-item" data-section="campaigns">
-                    <span class="nav-icon">🎯</span>
-                    <span class="nav-text">Campaigns</span>
-                </li>
-                <li class="nav-item" data-section="leads">
-                    <span class="nav-icon">👥</span>
-                    <span class="nav-text">Leads</span>
-                </li>
-                <li class="nav-item" data-section="analytics">
-                    <span class="nav-icon">📈</span>
-                    <span class="nav-text">Analytics</span>
-                </li>
-            </ul>
-        </nav>
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-        <!-- Content Area -->
-        <div class="content-area">
-            <!-- Dashboard Section -->
-            <section id="dashboard-section" class="content-section active">
-                <div class="section-header">
-                    <h2>Dashboard Overview</h2>
-                    <p>Monitor your lead generation performance</p>
-                </div>
+    <!-- Main Layout -->
+    <div class="main-content">
+      <!-- Sidebar Navigation -->
+      <nav class="sidebar" id="sidebar" aria-label="Main navigation">
+        <ul class="nav-menu">
+          <li class="nav-item active" data-section="dashboard">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="3" width="7" height="9" />
+              <rect x="14" y="3" width="7" height="5" />
+              <rect x="14" y="12" width="7" height="9" />
+              <rect x="3" y="16" width="7" height="5" />
+            </svg>
+            <span class="nav-label">Dashboard</span>
+          </li>
+          <li class="nav-item" data-section="campaigns">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"
+              />
+              <path
+                d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"
+              />
+            </svg>
+            <span class="nav-label">Campaigns</span>
+            <span class="nav-badge" id="campaignCount">0</span>
+          </li>
+          <li class="nav-item" data-section="leads">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            <span class="nav-label">Leads</span>
+          </li>
+          <li class="nav-item" data-section="analytics">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M3 3v18h18" />
+              <path d="m19 9-5 5-4-4-3 3" />
+            </svg>
+            <span class="nav-label">Analytics</span>
+          </li>
+        </ul>
+      </nav>
 
-                <!-- Overview Cards -->
-                <div class="overview-cards">
-                    <div class="card stat-card">
-                        <div class="stat-icon">🎯</div>
-                        <div class="stat-content">
-                            <h3 id="totalCampaigns">0</h3>
-                            <p>Total Campaigns</p>
-                        </div>
-                    </div>
-                    <div class="card stat-card">
-                        <div class="stat-icon">👥</div>
-                        <div class="stat-content">
-                            <h3 id="totalLeads">0</h3>
-                            <p>Total Leads</p>
-                        </div>
-                    </div>
-                    <div class="card stat-card">
-                        <div class="stat-icon">⭐</div>
-                        <div class="stat-content">
-                            <h3 id="priorityLeads">0</h3>
-                            <p>Priority Leads</p>
-                        </div>
-                    </div>
-                    <div class="card stat-card">
-                        <div class="stat-icon">📊</div>
-                        <div class="stat-content">
-                            <h3 id="averageScore">0</h3>
-                            <p>Avg Quality Score</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Recent Activity -->
-                <div class="dashboard-grid">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>Recent Campaigns</h3>
-                            <button class="btn btn-secondary btn-sm" onclick="showSection('campaigns')">View All</button>
-                        </div>
-                        <div class="card-content">
-                            <div id="recentActivity" class="activity-list">
-                                <div class="loading">Loading recent activity...</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>Quick Actions</h3>
-                        </div>
-                        <div class="card-content">
-                            <div class="quick-actions">
-                                <button class="action-btn" onclick="openNewCampaignModal()">
-                                    <span class="action-icon">🎯</span>
-                                    <span class="action-text">Create Campaign</span>
-                                </button>
-                                <button class="action-btn" onclick="showSection('analytics')">
-                                    <span class="action-icon">📈</span>
-                                    <span class="action-text">View Analytics</span>
-                                </button>
-                                <button class="action-btn" onclick="exportData()">
-                                    <span class="action-icon">📥</span>
-                                    <span class="action-text">Export Data</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Campaigns Section -->
-            <section id="campaigns-section" class="content-section">
-                <div class="section-header">
-                    <h2>Campaign Management</h2>
-                    <p>Manage and monitor your lead generation campaigns</p>
-                </div>
-
-                <div class="campaigns-container">
-                    <div class="campaigns-filters">
-                        <input type="text" id="campaignSearch" placeholder="Search campaigns..." class="search-input">
-                        <select id="industryFilter" class="filter-select">
-                            <option value="">All Industries</option>
-                            <option value="restaurant">Restaurant</option>
-                            <option value="automotive">Automotive</option>
-                            <option value="retail">Retail</option>
-                            <option value="professional">Professional</option>
-                            <option value="healthcare">Healthcare</option>
-                            <option value="education">Education</option>
-                            <option value="realestate">Real Estate</option>
-                        </select>
-                    </div>
-
-                    <div id="campaignsList" class="campaigns-list">
-                        <div class="loading">Loading campaigns...</div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Leads Section -->
-            <section id="leads-section" class="content-section">
-                <div class="section-header">
-                    <h2>Lead Management</h2>
-                    <p>View and manage your generated leads</p>
-                </div>
-
-                <div class="leads-container">
-                    <div class="leads-filters">
-                        <select id="campaignSelect" class="filter-select">
-                            <option value="">Select Campaign</option>
-                        </select>
-                        <select id="priorityFilter" class="filter-select">
-                            <option value="">All Priorities</option>
-                            <option value="HIGH">High Priority</option>
-                            <option value="MEDIUM">Medium Priority</option>
-                            <option value="LOW">Low Priority</option>
-                        </select>
-                        <input type="number" id="minScoreFilter" placeholder="Min Score" class="score-input" min="0" max="100">
-                    </div>
-
-                    <div id="leadsTable" class="leads-table-container">
-                        <div class="loading">Select a campaign to view leads</div>
-                    </div>
-
-                    <div id="leadsPagination" class="pagination"></div>
-                </div>
-            </section>
-
-            <!-- Analytics Section -->
-            <section id="analytics-section" class="content-section">
-                <div class="section-header">
-                    <h2>Analytics & Insights</h2>
-                    <p>Analyze your lead generation performance</p>
-                </div>
-
-                <div class="analytics-grid">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>Industry Performance</h3>
-                        </div>
-                        <div class="card-content">
-                            <div id="industryChart" class="chart-container">
-                                <div class="loading">Loading industry data...</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>Lead Quality Distribution</h3>
-                        </div>
-                        <div class="card-content">
-                            <div id="qualityChart" class="chart-container">
-                                <div class="loading">Loading quality data...</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card full-width">
-                        <div class="card-header">
-                            <h3>Campaign Trends</h3>
-                        </div>
-                        <div class="card-content">
-                            <div id="trendsChart" class="chart-container">
-                                <div class="loading">Loading trends data...</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Campaign Detail Section -->
-            <section id="campaign-detail" class="content-section campaign-detail">
-                <!-- Campaign Detail Header -->
-                <div class="campaign-detail-header">
-                    <div class="campaign-detail-info">
-                        <h2 id="campaignDetailName">Campaign Name</h2>
-                        <div class="campaign-detail-meta">
-                            <span id="campaignDetailIndustry">Industry</span>
-                            <span id="campaignDetailLocation">Location</span>
-                            <span id="campaignDetailDate">Date</span>
-                        </div>
-                    </div>
-                    <div class="campaign-detail-actions">
-                        <a href="#" class="back-btn" onclick="backToCampaigns()">Back to Campaigns</a>
-                    </div>
-                </div>
-
-                <!-- Campaign Stats Grid -->
-                <div class="campaign-stats-grid">
-                    <div class="campaign-stat-card">
-                        <div class="campaign-stat-icon">👥</div>
-                        <div class="campaign-stat-value" id="detailTotalLeads">0</div>
-                        <div class="campaign-stat-label">Total Leads</div>
-                    </div>
-                    <div class="campaign-stat-card">
-                        <div class="campaign-stat-icon">⭐</div>
-                        <div class="campaign-stat-value" id="detailPriorityLeads">0</div>
-                        <div class="campaign-stat-label">Priority Leads</div>
-                    </div>
-                    <div class="campaign-stat-card">
-                        <div class="campaign-stat-icon">📊</div>
-                        <div class="campaign-stat-value" id="detailAverageScore">0</div>
-                        <div class="campaign-stat-label">Average Score</div>
-                    </div>
-                    <div class="campaign-stat-card">
-                        <div class="campaign-stat-icon">⭐</div>
-                        <div class="campaign-stat-value" id="detailAverageRating">0</div>
-                        <div class="campaign-stat-label">Average Rating</div>
-                    </div>
-                </div>
-
-                <!-- Campaign Content Grid -->
-                <div class="campaign-content-grid">
-                    <!-- Campaign Leads Section -->
-                    <div class="campaign-leads-section">
-                        <div class="campaign-leads-header">
-                            <h3>Campaign Leads</h3>
-                            <p>Detailed view of all generated leads</p>
-                        </div>
-                        <div class="campaign-leads-content">
-                            <div id="campaignLeadsTable"></div>
-                        </div>
-                    </div>
-
-                    <!-- Campaign Insights -->
-                    <div class="campaign-insights">
-                        <h3>Campaign Insights</h3>
-                        
-                        <div class="insight-item">
-                            <div class="insight-label">Conversion Rate</div>
-                            <div class="insight-value" id="insightConversionRate">0%</div>
-                            <div class="insight-bar">
-                                <div class="insight-bar-fill" id="conversionRateBar"></div>
-                            </div>
-                        </div>
-                        
-                        <div class="insight-item">
-                            <div class="insight-label">Quality Score</div>
-                            <div class="insight-value" id="insightQualityScore">0%</div>
-                            <div class="insight-bar">
-                                <div class="insight-bar-fill" id="qualityScoreBar"></div>
-                            </div>
-                        </div>
-                        
-                        <div class="insight-item">
-                            <div class="insight-label">High Priority Leads</div>
-                            <div class="insight-value" id="insightHighPriority">0</div>
-                        </div>
-
-                        <!-- Priority Distribution -->
-                        <div class="priority-distribution">
-                            <h4>Priority Distribution</h4>
-                            <div class="priority-item">
-                                <div class="priority-item-label">
-                                    <div class="priority-dot high"></div>
-                                    High Priority
-                                </div>
-                                <div class="priority-item-count" id="priorityHigh">0</div>
-                            </div>
-                            <div class="priority-item">
-                                <div class="priority-item-label">
-                                    <div class="priority-dot medium"></div>
-                                    Medium Priority
-                                </div>
-                                <div class="priority-item-count" id="priorityMedium">0</div>
-                            </div>
-                            <div class="priority-item">
-                                <div class="priority-item-label">
-                                    <div class="priority-dot low"></div>
-                                    Low Priority
-                                </div>
-                                <div class="priority-item-count" id="priorityLow">0</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Marketing Content Section -->
-                <div class="marketing-content-section">
-                    <div class="marketing-content-header">
-                        <h3>AI-Generated Marketing Content</h3>
-                        <p>Sample marketing messages for your leads</p>
-                    </div>
-                    <div class="marketing-content-grid">
-                        <div class="marketing-content-item">
-                            <h4 class="whatsapp">WhatsApp Message</h4>
-                            <div class="marketing-message" id="whatsappContent">Loading WhatsApp content...</div>
-                            <div class="marketing-actions">
-                                <button class="action-btn-sm whatsapp" onclick="sendWhatsApp(document.getElementById('whatsappContent').textContent)">
-                                    Send WhatsApp
-                                </button>
-                                <button class="action-btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('whatsappContent').textContent)">
-                                    Copy
-                                </button>
-                            </div>
-                        </div>
-                        <div class="marketing-content-item">
-                            <h4 class="email">Email Message</h4>
-                            <div class="marketing-message" id="emailContent">Loading email content...</div>
-                            <div class="marketing-actions">
-                                <button class="action-btn-sm email" onclick="sendEmail(document.getElementById('emailContent').textContent)">
-                                    Send Email
-                                </button>
-                                <button class="action-btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('emailContent').textContent)">
-                                    Copy
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
+      <!-- Content Area -->
+      <main class="content">
+        <!-- Dashboard Section -->
+        <div class="section active" id="section-dashboard">
+          <h2 class="section-title">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="3" width="7" height="9" />
+              <rect x="14" y="3" width="7" height="5" />
+              <rect x="14" y="12" width="7" height="9" />
+              <rect x="3" y="16" width="7" height="5" />
+            </svg>
+            Dashboard
+          </h2>
+          <div class="stats-grid" id="statsGrid">
+            <div class="stat-card skeleton skeleton-card"></div>
+            <div class="stat-card skeleton skeleton-card"></div>
+            <div class="stat-card skeleton skeleton-card"></div>
+            <div class="stat-card skeleton skeleton-card"></div>
+          </div>
+          <div class="recent-activity" id="recentActivity">
+            <h3>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                width="18"
+                height="18"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              Recent Activity
+            </h3>
+            <div class="activity-list" id="activityList">
+              <div class="skeleton skeleton-row"></div>
+              <div class="skeleton skeleton-row"></div>
+              <div class="skeleton skeleton-row"></div>
+            </div>
+          </div>
         </div>
-    </main>
+
+        <!-- Campaigns Section -->
+        <div class="section" id="section-campaigns">
+          <div class="campaigns-header">
+            <h2 class="section-title">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"
+                />
+                <path
+                  d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"
+                />
+              </svg>
+              Campaigns
+            </h2>
+            <button
+              class="btn btn-primary"
+              onclick="showModal('newCampaignModal')"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                width="16"
+                height="16"
+              >
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              New Campaign
+            </button>
+          </div>
+          <div class="campaigns-grid" id="campaignsGrid">
+            <div class="skeleton skeleton-card" style="height: 180px"></div>
+            <div class="skeleton skeleton-card" style="height: 180px"></div>
+          </div>
+        </div>
+
+        <!-- Leads Section -->
+        <div class="section" id="section-leads">
+          <div class="leads-header">
+            <h2 class="section-title">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              Leads
+            </h2>
+            <div class="leads-tools">
+              <select
+                id="campaignSelect"
+                onchange="dashboard.loadLeadsForCampaign(this.value)"
+              >
+                <option value="">Select Campaign</option>
+              </select>
+              <button
+                class="btn btn-secondary btn-sm"
+                id="exportVCardBtn"
+                style="display: none"
+                onclick="dashboard.exportAllVCards()"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  width="14"
+                  height="14"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Export vCards
+              </button>
+            </div>
+          </div>
+          <div id="leadsTableContainer">
+            <div class="card" style="text-align: center; padding: 3rem">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                width="48"
+                height="48"
+                style="opacity: 0.3; margin-bottom: 1rem"
+              >
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              <p class="empty-title">No Leads Loaded</p>
+              <p class="empty-message">
+                Select a campaign above to view its leads
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Analytics Section -->
+        <div class="section" id="section-analytics">
+          <h2 class="section-title">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M3 3v18h18" />
+              <path d="m19 9-5 5-4-4-3 3" />
+            </svg>
+            Analytics
+          </h2>
+          <div class="analytics-trends" id="analyticsTrends">
+            <div class="skeleton skeleton-card" style="height: 100px"></div>
+            <div class="skeleton skeleton-card" style="height: 100px"></div>
+            <div class="skeleton skeleton-card" style="height: 100px"></div>
+            <div class="skeleton skeleton-card" style="height: 100px"></div>
+          </div>
+          <div class="analytics-grid" id="analyticsGrid">
+            <div class="analytics-card" id="industryChart">
+              <h3>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  width="18"
+                  height="18"
+                >
+                  <line x1="18" y1="20" x2="18" y2="10" />
+                  <line x1="12" y1="20" x2="12" y2="4" />
+                  <line x1="6" y1="20" x2="6" y2="14" />
+                </svg>
+                Industry Distribution
+              </h3>
+              <div id="industryChartContent"></div>
+            </div>
+            <div class="analytics-card" id="qualityChart">
+              <h3>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  width="18"
+                  height="18"
+                >
+                  <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+                  <path d="M22 12A10 10 0 0 0 12 2v10z" />
+                </svg>
+                Lead Quality
+              </h3>
+              <div id="qualityChartContent"></div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Bottom Navigation (Mobile) -->
+    <nav class="bottom-nav" id="bottomNav" aria-label="Mobile navigation">
+      <ul class="bottom-nav-items">
+        <li class="bottom-nav-item active" data-section="dashboard">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="3" width="7" height="9" />
+            <rect x="14" y="3" width="7" height="5" />
+            <rect x="14" y="12" width="7" height="9" />
+            <rect x="3" y="16" width="7" height="5" />
+          </svg>
+          Dashboard
+        </li>
+        <li class="bottom-nav-item" data-section="campaigns">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"
+            />
+            <path
+              d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"
+            />
+          </svg>
+          Campaigns
+        </li>
+        <li class="bottom-nav-item" data-section="leads">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          Leads
+        </li>
+        <li class="bottom-nav-item" data-section="analytics">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M3 3v18h18" />
+            <path d="m19 9-5 5-4-4-3 3" />
+          </svg>
+          Analytics
+        </li>
+      </ul>
+    </nav>
+
+    <!-- Notifications Container -->
+    <div id="notifications"></div>
 
     <!-- New Campaign Modal -->
-    <div id="newCampaignModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Create New Campaign</h3>
-                <button class="modal-close" onclick="closeNewCampaignModal()">&times;</button>
-            </div>
-            <form id="newCampaignForm" class="modal-body">
-                <div class="form-group">
-                    <label for="campaignName">Campaign Name</label>
-                    <input type="text" id="campaignName" name="name" required placeholder="e.g., Jakarta Restaurant Q1 2024">
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="campaignIndustry">Industry</label>
-                        <select id="campaignIndustry" name="industry" required>
-                            <option value="">Select Industry</option>
-                            <option value="restaurant">🍽️ Restaurant & Food Service</option>
-                            <option value="automotive">🚗 Automotive</option>
-                            <option value="retail">🛍️ Retail & E-commerce</option>
-                            <option value="professional">💼 Professional Services</option>
-                            <option value="healthcare">🏥 Healthcare</option>
-                            <option value="education">🎓 Education</option>
-                            <option value="realestate">🏠 Real Estate</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="campaignLocation">Location</label>
-                        <input type="text" id="campaignLocation" name="location" required placeholder="e.g., Jakarta, Bandung">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="searchQuery">Search Query</label>
-                    <input type="text" id="searchQuery" name="searchQuery" required placeholder="e.g., Restaurant Jakarta">
-                </div>
-
-
-                <div class="form-group">
-                    <label for="yourService">Your Service/Product</label>
-                    <textarea id="yourService" name="yourService" required placeholder="Describe your service or product briefly..."></textarea>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeNewCampaignModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Campaign</button>
-                </div>
-            </form>
+    <div class="modal" id="newCampaignModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              width="20"
+              height="20"
+            >
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            New Campaign
+          </h3>
+          <button class="modal-close" onclick="hideModal()">&times;</button>
         </div>
+        <div class="modal-body">
+          <form id="newCampaignForm" onsubmit="dashboard.createCampaign(event)">
+            <div class="form-group">
+              <label for="campaignName">Campaign Name</label>
+              <input
+                type="text"
+                id="campaignName"
+                name="name"
+                placeholder="e.g., Restaurant Leads Jakarta"
+                required
+              />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="campaignIndustry">Industry</label>
+                <select id="campaignIndustry" name="industry" required>
+                  <option value="">Select Industry</option>
+                  <option value="restaurant">Restaurant & Food</option>
+                  <option value="automotive">Automotive</option>
+                  <option value="retail">Retail & E-commerce</option>
+                  <option value="professional">Professional Services</option>
+                  <option value="healthcare">Healthcare</option>
+                  <option value="education">Education</option>
+                  <option value="realestate">Real Estate</option>
+                  <option value="custom">Custom / Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="campaignLocation">Location</label>
+                <input
+                  type="text"
+                  id="campaignLocation"
+                  name="location"
+                  placeholder="e.g., Jakarta"
+                  required
+                />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="campaignQuery">Search Query</label>
+              <input
+                type="text"
+                id="campaignQuery"
+                name="searchQuery"
+                placeholder="e.g., Restaurant tanpa website Jakarta"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="campaignService">Your Service Description</label>
+              <input
+                type="text"
+                id="campaignService"
+                name="yourService"
+                placeholder="e.g., Website development & digital marketing"
+                required
+              />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="campaignMaxResults">Max Results</label>
+                <input
+                  type="number"
+                  id="campaignMaxResults"
+                  name="maxResults"
+                  value="20"
+                  min="5"
+                  max="100"
+                />
+              </div>
+              <div class="form-group">
+                <label for="campaignStyle">Content Style</label>
+                <select id="campaignStyle" name="contentStyle">
+                  <option value="conservative">Conservative</option>
+                  <option value="balanced" selected>Balanced</option>
+                  <option value="aggressive">Aggressive</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="campaignLanguage">Language</label>
+              <select id="campaignLanguage" name="language">
+                <option value="indonesian" selected>Bahasa Indonesia</option>
+                <option value="english">English</option>
+              </select>
+            </div>
+            <div class="form-actions">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                onclick="hideModal()"
+              >
+                Cancel
+              </button>
+              <button type="submit" class="btn btn-primary">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  width="16"
+                  height="16"
+                >
+                  <path
+                    d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"
+                  />
+                  <path
+                    d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"
+                  />
+                </svg>
+                Launch Campaign
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Campaign Detail Modal -->
+    <div class="modal" id="campaignDetailModal">
+      <div class="modal-content" style="max-width: 700px">
+        <div class="modal-header">
+          <h3>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              width="20"
+              height="20"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="m9 12 2 2 4-4" />
+            </svg>
+            Campaign Details
+          </h3>
+          <button class="modal-close" onclick="hideModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="campaignDetailContent">
+          <div class="loading">Loading campaign details...</div>
+        </div>
+      </div>
     </div>
 
     <!-- Campaign Progress Modal -->
-    <div id="campaignProgressModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Campaign Progress</h3>
-            </div>
-            <div class="modal-body">
-                <div id="campaignProgressContent">
-                    <div class="progress-info">
-                        <h4 id="progressCampaignName">Campaign Name</h4>
-                        <p id="progressStatus">Starting campaign...</p>
-                    </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar">
-                            <div id="progressBar" class="progress-fill"></div>
-                        </div>
-                        <span id="progressPercent">0%</span>
-                    </div>
-                    <div id="progressMessages" class="progress-messages"></div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="progressCloseBtn" class="btn btn-secondary" onclick="closeCampaignProgressModal()" disabled>Close</button>
-            </div>
+    <div class="modal" id="campaignProgressModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              width="20"
+              height="20"
+            >
+              <path
+                d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"
+              />
+              <path
+                d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"
+              />
+            </svg>
+            <span id="progressCampaignName">Campaign Progress</span>
+          </h3>
+          <button class="modal-close" onclick="hideModal()">&times;</button>
         </div>
+        <div class="modal-body">
+          <div class="progress-info">
+            <span class="progress-status" id="progressStatus">Starting...</span>
+            <span class="progress-percent" id="progressPercent">0%</span>
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+          </div>
+          <div class="progress-messages" id="progressMessages"></div>
+        </div>
+        <div class="modal-footer">
+          <button
+            class="btn btn-secondary"
+            id="progressCloseBtn"
+            onclick="hideModal()"
+            disabled
+          >
+            Close
+          </button>
+        </div>
+      </div>
     </div>
 
-    <!-- Notification Container -->
-    <div id="notifications" class="notifications-container"></div>
+    <!-- Marketing Content Modal -->
+    <div class="modal" id="marketingModal">
+      <div class="modal-content" style="max-width: 700px">
+        <div class="modal-header">
+          <h3>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              width="20"
+              height="20"
+            >
+              <path
+                d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"
+              />
+              <circle cx="12" cy="13" r="3" />
+            </svg>
+            Marketing Content
+          </h3>
+          <button class="modal-close" onclick="hideModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="marketingContent">
+          <div class="loading">Loading content...</div>
+        </div>
+      </div>
+    </div>
 
     <!-- Scripts -->
     <script src="js/api.js"></script>
     <script src="js/components.js"></script>
     <script src="js/dashboard.js"></script>
-</body>
+  </body>
 </html>

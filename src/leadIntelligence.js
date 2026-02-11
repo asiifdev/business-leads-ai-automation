@@ -332,7 +332,7 @@ class LeadIntelligence {
         };
 
         const fs = require('fs');
-        const outputPath = `output/${filename}_${timestamp}.json`;
+        const outputPath = `${filename}_${timestamp}.json`;
         fs.writeFileSync(outputPath, JSON.stringify(reportData, null, 2));
         
         console.log(`📄 Intelligence report saved: ${outputPath}`);
