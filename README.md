@@ -5,7 +5,7 @@
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
-  [![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
+  [![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
   [![NestJS](https://img.shields.io/badge/NestJS-10-red.svg)](https://nestjs.com/)
   [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
   [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://docs.docker.com/compose/)
@@ -35,7 +35,7 @@ Think Apollo.io + Instantly.ai — but open-source, self-hosted, and free.
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | Next.js 15, App Router, shadcn/ui, Tailwind CSS, Recharts |
+| **Frontend** | Next.js 16, App Router, shadcn/ui, Tailwind CSS, Recharts |
 | **Backend** | NestJS 10, Prisma ORM, REST API |
 | **Database** | PostgreSQL 16 |
 | **Queue** | BullMQ + Redis 7 |
@@ -106,7 +106,7 @@ Swagger API docs: [http://localhost:3001/api/docs](http://localhost:3001/api/doc
 ```
 prospex/
 ├── apps/
-│   ├── web/              # Next.js 15 dashboard
+│   ├── web/              # Next.js 16 dashboard
 │   ├── api/              # NestJS REST API
 │   └── marketing/        # Landing page
 ├── packages/

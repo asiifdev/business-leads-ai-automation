@@ -24,9 +24,11 @@ Panduan lengkap penggunaan Prospex dari instalasi hingga close deals pertama.
 
 ### Prasyarat
 
-- Node.js 20+
+- Node.js 20+ (disarankan 22 LTS)
 - pnpm 9+ — `npm install -g pnpm`
 - Docker Desktop
+
+> **Stack:** Next.js 16, NestJS 10, PostgreSQL 16, Redis 7
 
 ### Langkah instalasi
 

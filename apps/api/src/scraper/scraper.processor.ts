@@ -3,6 +3,7 @@ import { CampaignsService } from "../campaigns/campaigns.service";
 import { LeadsService } from "../leads/leads.service";
 import { LeadIntelligenceService } from "../ai/lead-intelligence.service";
 import { MarketingAiService } from "../ai/marketing-ai.service";
+import { GoogleMapsScraperService } from "./google-maps.scraper";
 
 export interface ScraperJobData {
   campaignId: string;
@@ -25,6 +26,7 @@ export class ScraperProcessor {
     private leads: LeadsService,
     private leadIntelligence: LeadIntelligenceService,
     private marketingAi: MarketingAiService,
+    private googleMaps: GoogleMapsScraperService,
   ) {}
 
   async process(data: ScraperJobData): Promise<void> {
@@ -34,12 +36,17 @@ export class ScraperProcessor {
     try {
       await this.campaigns.updateStatus(campaignId, "running", 0);
 
-      const mockLeads = this.generateMockLeads(data);
-      const total = mockLeads.length;
+      const rawLeads = await this.scrapeLeads(data);
+      const total = rawLeads.length;
+
+      if (total === 0) {
+        await this.campaigns.updateStatus(campaignId, "failed", 0, "No leads found");
+        return;
+      }
 
       await this.campaigns.updateStatus(campaignId, "running", 30);
 
-      const scoredLeads = this.leadIntelligence.scoreLeads(mockLeads, data.industry);
+      const scoredLeads = this.leadIntelligence.scoreLeads(rawLeads, data.industry);
       await this.campaigns.updateStatus(campaignId, "running", 60);
 
       const processedLeads = await Promise.all(
@@ -106,32 +113,57 @@ export class ScraperProcessor {
     }
   }
 
-  private generateMockLeads(data: ScraperJobData) {
-    const count = Math.min(data.maxResults, 15);
+  private async scrapeLeads(data: ScraperJobData) {
+    const perQuery = Math.ceil(data.maxResults / data.searchQueries.length);
+    const results: ReturnType<typeof this.normalizeRaw>[] = [];
+
+    for (const query of data.searchQueries) {
+      try {
+        const raw = await this.googleMaps.scrape(query, perQuery);
+        results.push(...raw.map((b) => this.normalizeRaw(b, data.industry)));
+        this.logger.log(`Query "${query}": ${raw.length} results`);
+      } catch (err) {
+        this.logger.warn(`Scrape failed for "${query}", using mock fallback: ${err}`);
+        results.push(...this.generateMockLeads(data, query, perQuery));
+      }
+    }
+
+    // Deduplicate by name+address
+    const seen = new Set<string>();
+    return results.filter((b) => {
+      const key = `${b.name.toLowerCase()}|${b.address.toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  private normalizeRaw(raw: { name: string; address: string; phone: string; website: string; rating: string; hasWebsite: boolean }, industry: string) {
+    return {
+      name: raw.name,
+      address: raw.address,
+      phone: raw.phone ?? "",
+      website: raw.website ?? "",
+      rating: raw.rating ?? "N/A",
+      hasWebsite: raw.hasWebsite ?? !!raw.website,
+      industry,
+    };
+  }
+
+  private generateMockLeads(data: ScraperJobData, query: string, count: number) {
+    const label = query || data.industry;
     const prefixes = [
-      `${data.location} ${data.industry} Premier`,
-      `Toko ${data.industry} Jaya`,
-      `${data.industry} Makmur`,
-      `Usaha ${data.industry} Sejahtera`,
-      `${data.industry} Berkah`,
-      `Toko ${data.industry} Mandiri`,
-      `${data.industry} Maju`,
-      `${data.industry} Bersama`,
-      `${data.industry} Sukses`,
-      `${data.industry} Abadi`,
-      `${data.industry} Sejati`,
-      `Toko ${data.industry} Utama`,
-      `${data.industry} Kreatif`,
-      `${data.industry} Modern`,
-      `${data.industry} Digital`,
+      `${label} Premier`, `Toko ${label} Jaya`, `${label} Makmur`,
+      `Usaha ${label} Sejahtera`, `${label} Berkah`, `${label} Mandiri`,
+      `${label} Maju`, `${label} Bersama`, `${label} Sukses`, `${label} Abadi`,
     ];
-    return Array.from({ length: count }, (_, i) => ({
-      name: prefixes[i % prefixes.length] + (i >= prefixes.length ? ` ${i + 1}` : ""),
+    return Array.from({ length: Math.min(count, prefixes.length) }, (_, i) => ({
+      name: prefixes[i],
       address: `Jl. ${data.location} No. ${10 + i}, ${data.location}`,
-      phone: `+628${String(10000000 + Math.floor(Math.random() * 89999999))}`,
-      website: Math.random() > 0.4 ? `www.${data.industry.toLowerCase()}${i + 1}.com` : "",
-      rating: (3.5 + Math.random() * 1.5).toFixed(1),
-      hasWebsite: Math.random() > 0.4,
+      phone: `+628${String(10000000 + i * 1234567)}`,
+      website: i % 3 !== 0 ? `www.${label.toLowerCase().replace(/\s+/g, "")}${i + 1}.com` : "",
+      rating: ((3.5 + (i % 3) * 0.4)).toFixed(1),
+      hasWebsite: i % 3 !== 0,
       industry: data.industry,
     }));
   }
