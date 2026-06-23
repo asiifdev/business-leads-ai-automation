@@ -1,0 +1,152 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── Job 1: TypeScript ───────────────────────────────────────────────────────
+  typecheck:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 9
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @prospex/database exec prisma generate
+      - run: pnpm --filter @prospex/api exec tsc --noEmit
+      - run: pnpm --filter @prospex/web exec tsc --noEmit
+
+  # ─── Job 2: Build ────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 9
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @prospex/database exec prisma generate
+      - run: pnpm --filter @prospex/api build
+      - run: pnpm --filter @prospex/web build
+
+  # ─── Job 3: E2E Tests ────────────────────────────────────────────────────────
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [typecheck, build]
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: prospex
+          POSTGRES_PASSWORD: prospex
+          POSTGRES_DB: prospex
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://prospex:prospex@localhost:5432/prospex
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-test-secret-do-not-use-in-prod
+      OPENAI_API_KEY: ""          # intentionally empty — AI falls back to mock
+      PORT: 3001
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+
+    steps:
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 9
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @prospex/database exec prisma generate
+
+      - name: Push database schema
+        run: pnpm --filter @prospex/database db:push
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Build API
+        run: pnpm --filter @prospex/api build
+
+      - name: Build Web
+        run: pnpm --filter @prospex/web build
+
+      - name: Start API server
+        run: nohup node apps/api/dist/main.js > /tmp/api.log 2>&1 &
+
+      - name: Start Web server
+        run: nohup pnpm --filter @prospex/web start > /tmp/web.log 2>&1 &
+
+      - name: Wait for servers to be ready
+        run: |
+          echo "Waiting for API..."
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3001/api/health && break
+            sleep 2
+          done
+          echo "Waiting for Web..."
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000 && break
+            sleep 2
+          done
+
+      - name: Run E2E tests
+        run: pnpm test:e2e
+
+      - name: Upload Playwright report on failure
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Print server logs on failure
+        if: failure()
+        run: |
+          echo "=== API LOG ===" && cat /tmp/api.log || true
+          echo "=== WEB LOG ===" && cat /tmp/web.log || true
