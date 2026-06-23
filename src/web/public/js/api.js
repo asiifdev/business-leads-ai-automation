@@ -82,7 +82,12 @@ class API {
 
     safeString(value, fallback = '-') {
         if (value === null || value === undefined || value === '') return fallback;
-        return String(value);
+        // Escape HTML special chars. Single quotes left as-is since we use double-quoted attributes.
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     parseNumericValue(value) {

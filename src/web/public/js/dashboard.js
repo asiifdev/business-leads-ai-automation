@@ -410,8 +410,9 @@ class Dashboard {
                 { key: 'phone', title: 'Phone', type: 'text' },
                 { key: 'address', title: 'Address', type: 'text' },
                 { key: 'rating', title: 'Rating', type: 'text' },
-                { key: 'intelligence.score', title: 'Score', type: 'score' },
-                { key: 'intelligence.priority', title: 'Priority', type: 'priority' },
+                { key: 'score', title: 'Score', type: 'score' },
+                { key: 'priority', title: 'Priority', type: 'priority' },
+                { key: 'crm_status', title: 'CRM', type: 'text' },
                 { key: 'actions', title: 'Actions', type: 'actions' }
             ],
             data: leads,
@@ -549,7 +550,8 @@ class Dashboard {
 
     renderCampaignDetail(campaign) {
         const content = document.getElementById('campaignDetailContent');
-        
+        const statusLabel = { completed: 'Completed', failed: 'Failed', running: 'Running', starting: 'Starting', scraping: 'Scraping', analyzing: 'Analyzing', generating: 'Generating' }[campaign.status] || campaign.status;
+
         content.innerHTML = `
             <div class="campaign-detail-grid">
                 <div class="detail-item">
@@ -557,16 +559,24 @@ class Dashboard {
                     <div class="detail-value">${api.safeString(campaign.name)}</div>
                 </div>
                 <div class="detail-item">
+                    <div class="detail-label">Status</div>
+                    <div class="detail-value"><span class="campaign-card-badge ${campaign.status}">${statusLabel}</span></div>
+                </div>
+                <div class="detail-item">
                     <div class="detail-label">Industry</div>
-                    <div class="detail-value">${api.safeString(campaign.industry)}</div>
+                    <div class="detail-value">${api.safeString(campaign.industry || 'N/A')}</div>
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Location</div>
                     <div class="detail-value">${api.safeString(campaign.location || 'N/A')}</div>
                 </div>
                 <div class="detail-item">
-                    <div class="detail-label">Executed</div>
-                    <div class="detail-value">${api.formatDateSafe(campaign.executedAt)}</div>
+                    <div class="detail-label">Created</div>
+                    <div class="detail-value">${api.formatDateSafe(campaign.createdAt)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Completed</div>
+                    <div class="detail-value">${api.formatDateSafe(campaign.completedAt)}</div>
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Total Leads</div>
@@ -577,24 +587,48 @@ class Dashboard {
                     <div class="detail-value">${api.formatNumber(campaign.results?.priorityLeads || 0)}</div>
                 </div>
                 <div class="detail-item">
+                    <div class="detail-label">High Quality</div>
+                    <div class="detail-value">${api.formatNumber(campaign.results?.highQualityLeads || 0)}</div>
+                </div>
+                <div class="detail-item">
                     <div class="detail-label">Avg Score</div>
                     <div class="detail-value">${campaign.results?.averageScore || 0}/100</div>
                 </div>
                 <div class="detail-item">
-                    <div class="detail-label">Content Generated</div>
-                    <div class="detail-value">${campaign.results?.contentGenerated || 0} leads</div>
+                    <div class="detail-label">Search Query</div>
+                    <div class="detail-value" style="font-size:0.82rem;word-break:break-word">${api.safeString(campaign.searchQuery || 'N/A')}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Content Style</div>
+                    <div class="detail-value">${api.safeString(campaign.contentStyle || 'balanced')}</div>
                 </div>
             </div>
-            ${campaign.leads && campaign.leads.length > 0 ? `
-                <h4 style="margin-bottom:var(--space-md);font-weight:600">Top Leads</h4>
-                ${campaign.leads.slice(0, 5).map((lead, index) => this.renderLeadCard(lead, campaign.id, index)).join('')}
-            ` : ''}
+            <div style="margin-top:var(--space-md);display:flex;gap:var(--space-sm);flex-wrap:wrap">
+                <button class="btn btn-secondary btn-sm" onclick="dashboard.loadLeadsForCampaign('${campaign.id}');dashboard.showSection('leads');document.getElementById('campaignSelect').value='${campaign.id}';hideModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    View Leads
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="window.open('/api/campaigns/${campaign.id}/export/xlsx','_blank');showNotification('Export','Downloading XLSX...','success')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Export XLSX
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="window.open('/api/campaigns/${campaign.id}/export/csv','_blank');showNotification('Export','Downloading CSV...','success')">
+                    Export CSV
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="window.open('/api/campaigns/${campaign.id}/export/vcard','_blank');showNotification('Export','Downloading vCards...','success')">
+                    Export vCards
+                </button>
+            </div>
+            ${campaign.error ? `<div style="margin-top:var(--space-md);padding:var(--space-sm);background:#ef444420;border-radius:var(--radius-sm);color:#ef4444;font-size:0.82rem">Error: ${api.safeString(campaign.error)}</div>` : ''}
         `;
     }
 
     renderLeadCard(lead, campaignId, index) {
-        const priority = lead.intelligence?.priority || 'LOW';
-        const hasContent = lead.intelligence?.marketingContent;
+        // DB returns flat fields: lead.score, lead.priority, lead.marketing_content
+        const priority = lead.priority || 'LOW';
+        const content = lead.marketing_content;
+        const hasContent = !!content;
+        const waMsg = hasContent ? (content.whatsapp || '') : '';
 
         return `
             <div class="card" style="margin-bottom:var(--space-sm);padding:var(--space-md)">
@@ -611,13 +645,13 @@ class Dashboard {
                         vCard
                     </button>
                     ${hasContent ? `
-                        <button class="btn-vcard" onclick="dashboard.showMarketingContent(${JSON.stringify(lead.intelligence.marketingContent).replace(/"/g, '&quot;')}, '${api.safeString(lead.name).replace(/'/g, "\\'")}')">
+                        <button class="btn-vcard" onclick="dashboard.showMarketingContent(${JSON.stringify(content).replace(/"/g, '&quot;')}, '${api.safeString(lead.name).replace(/'/g, "\\'")}')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                             Content
                         </button>
                     ` : ''}
                     ${lead.phone ? `
-                        <button class="btn-vcard" onclick="dashboard.openWhatsApp('${lead.phone}', ${hasContent ? JSON.stringify(lead.intelligence.marketingContent.whatsapp || '').replace(/"/g, '&quot;') : "''"})">
+                        <button class="btn-vcard" onclick="dashboard.openWhatsApp('${lead.phone}', ${JSON.stringify(waMsg).replace(/"/g, '&quot;')})">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                             WhatsApp
                         </button>
