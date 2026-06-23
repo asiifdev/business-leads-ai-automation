@@ -335,6 +335,72 @@
 }
 
 
+/* ─── Platform Tabs (Marketing Content Modal) ───────────── */
+.platform-tabs {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    margin-bottom: var(--space-md);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+}
+
+.ptab {
+    padding: 0.3rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.ptab:hover { color: var(--text-primary); border-color: var(--primary); }
+.ptab.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+
+.ptab-content { animation: fadeIn 0.15s ease; }
+
+/* ─── CRM Funnel Chart ───────────────────────────────────── */
+.funnel-chart { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem; }
+
+.funnel-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.82rem;
+}
+
+.funnel-label { width: 90px; text-align: right; color: var(--text-muted); flex-shrink: 0; }
+
+.funnel-track {
+    flex: 1;
+    height: 22px;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.funnel-fill {
+    height: 100%;
+    border-radius: var(--radius-sm);
+    transition: width 0.5s ease;
+    display: flex;
+    align-items: center;
+    padding-left: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #fff;
+    min-width: 2rem;
+}
+
+/* ─── Campaign Card Status Badges ────────────────────────── */
+.campaign-card-badge.starting,
+.campaign-card-badge.scraping,
+.campaign-card-badge.analyzing,
+.campaign-card-badge.generating { background: #f59e0b20; color: #f59e0b; }
+.campaign-card-badge.failed { background: #ef444420; color: #ef4444; }
+
 /* ─── Responsive Components ──────────────────────────────── */
 @media (max-width: 768px) {
     .modal.active {

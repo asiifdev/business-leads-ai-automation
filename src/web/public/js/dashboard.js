@@ -242,9 +242,11 @@ class Dashboard {
             this.currentCampaign = campaignId;
             this.renderLeadsTable(data.leads || [], campaignId);
             
-            // Show export button
-            const exportBtn = document.getElementById('exportVCardBtn');
-            if (exportBtn) exportBtn.style.display = '';
+            // Show export buttons
+            ['exportVCardBtn', 'exportXlsxBtn', 'exportCsvBtn'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) btn.style.display = '';
+            });
         } catch (error) {
             api.handleError(error, 'loading leads');
             container.innerHTML = '<div class="card" style="text-align:center;padding:2rem"><p class="empty-title">Failed to load leads</p></div>';
@@ -351,17 +353,18 @@ class Dashboard {
         }
 
         grid.innerHTML = campaigns.map(campaign => {
-            const status = campaign.results ? 'completed' : 'running';
+            const status = campaign.status || 'completed';
+            const statusLabel = { completed: 'Completed', running: 'Running', failed: 'Failed', starting: 'Starting', scraping: 'Scraping', analyzing: 'Analyzing', generating: 'Generating' }[status] || status;
             return `
                 <div class="campaign-card" onclick="dashboard.showCampaignDetail('${campaign.id}')">
                     <div class="campaign-card-header">
                         <span class="campaign-card-title">${api.safeString(campaign.name)}</span>
-                        <span class="campaign-card-badge ${status}">${status}</span>
+                        <span class="campaign-card-badge ${status}">${statusLabel}</span>
                     </div>
                     <div class="campaign-card-meta">
                         <span>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                            ${api.formatDateSafe(campaign.executedAt)}
+                            ${api.formatDateSafe(campaign.createdAt)}
                         </span>
                         <span>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -421,7 +424,7 @@ class Dashboard {
     }
 
     renderAnalytics(data) {
-        const { campaignTrends, industryStats, qualityDistribution } = data;
+        const { campaignTrends, industryStats, qualityDistribution, crmFunnel, overview } = data;
 
         // Trend cards
         const trendsContainer = document.getElementById('analyticsTrends');
@@ -431,37 +434,63 @@ class Dashboard {
                 <div class="trend-label">Total Campaigns</div>
             </div>
             <div class="trend-card">
-                <div class="trend-value">${api.formatNumber(campaignTrends.recentCampaigns)}</div>
-                <div class="trend-label">Last 30 Days</div>
-            </div>
-            <div class="trend-card">
                 <div class="trend-value">${api.formatNumber(campaignTrends.totalLeads)}</div>
                 <div class="trend-label">All Leads</div>
             </div>
             <div class="trend-card">
-                <div class="trend-value">${campaignTrends.avgQualityScore}</div>
+                <div class="trend-value">${api.formatNumber(overview?.won_leads || 0)}</div>
+                <div class="trend-label">Won Deals</div>
+            </div>
+            <div class="trend-card">
+                <div class="trend-value">${campaignTrends.avgQualityScore || 0}</div>
                 <div class="trend-label">Avg Quality</div>
             </div>
         `;
 
-        // Industry chart
+        // Industry bar chart
         const industryContent = document.getElementById('industryChartContent');
-        const industryData = Object.entries(industryStats).map(([label, stats]) => ({
+        const industryData = Object.entries(industryStats || {}).map(([label, stats]) => ({
             label: label.charAt(0).toUpperCase() + label.slice(1),
             value: stats.totalLeads
         }));
-        SimpleChart.createBarChart(industryContent, industryData, {
-            title: '',
-            color: '#6366f1'
-        });
+        SimpleChart.createBarChart(industryContent, industryData, { color: '#6366f1' });
 
-        // Quality distribution chart
+        // Quality pie chart
         const qualityContent = document.getElementById('qualityChartContent');
-        const qualityData = Object.entries(qualityDistribution).map(([label, value]) => ({
-            label,
-            value
-        }));
-        SimpleChart.createPieChart(qualityContent, qualityData, { title: '' });
+        const qualityData = Object.entries(qualityDistribution || {}).map(([label, value]) => ({ label, value }));
+        SimpleChart.createPieChart(qualityContent, qualityData, {});
+
+        // CRM Funnel — injected after analyticsGrid if not already there
+        let funnelCard = document.getElementById('crmFunnelCard');
+        if (!funnelCard) {
+            funnelCard = document.createElement('div');
+            funnelCard.id = 'crmFunnelCard';
+            funnelCard.className = 'analytics-card';
+            funnelCard.style.gridColumn = '1 / -1';
+            document.getElementById('analyticsGrid').appendChild(funnelCard);
+        }
+
+        const funnelOrder = ['new', 'contacted', 'replied', 'negotiating', 'won', 'lost'];
+        const funnelColors = { new: '#6366f1', contacted: '#3b82f6', replied: '#06b6d4', negotiating: '#f59e0b', won: '#10b981', lost: '#ef4444' };
+        const funnelData = funnelOrder.map(key => ({ key, label: key.charAt(0).toUpperCase() + key.slice(1), value: crmFunnel?.[key] || 0 })).filter(f => f.value > 0);
+        const maxFunnel = Math.max(...funnelData.map(f => f.value), 1);
+
+        funnelCard.innerHTML = `
+            <h3>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                CRM Pipeline Funnel
+            </h3>
+            <div class="funnel-chart">
+                ${funnelData.length ? funnelData.map(f => `
+                    <div class="funnel-bar-row">
+                        <div class="funnel-label">${f.label}</div>
+                        <div class="funnel-track">
+                            <div class="funnel-fill" style="width:${(f.value/maxFunnel*100).toFixed(1)}%;background:${funnelColors[f.key] || '#6366f1'}">${f.value}</div>
+                        </div>
+                    </div>
+                `).join('') : '<div style="color:var(--text-muted);font-size:0.85rem;padding:1rem 0">No CRM data yet — update lead statuses to see the funnel</div>'}
+            </div>
+        `;
     }
 
     // ═══════════════════════════════════════════════════════
@@ -470,34 +499,37 @@ class Dashboard {
 
     async createCampaign(event) {
         event.preventDefault();
-        
+
         const form = document.getElementById('newCampaignForm');
         const formData = new FormData(form);
         const campaignData = Object.fromEntries(formData.entries());
 
-        // Validate
-        if (!campaignData.name || !campaignData.industry || !campaignData.location || !campaignData.searchQuery || !campaignData.yourService) {
+        // Parse batch queries from textarea (one per line)
+        const rawQuery = (campaignData.searchQuery || '').trim();
+        const searchQueries = rawQuery.split('\n').map(q => q.trim()).filter(Boolean);
+
+        if (!campaignData.name || !campaignData.industry || !campaignData.location || searchQueries.length === 0 || !campaignData.yourService) {
             showNotification('Validation Error', 'Please fill in all required fields', 'warning');
             return;
         }
 
+        const { searchQuery: _sq, ...rest } = campaignData;
+        const payload = { ...rest, searchQueries };
+
         try {
             hideModal();
-            
-            // Show progress modal
             this.progressManager.show(campaignData.name);
 
-            const result = await api.createCampaign(campaignData);
-            
+            const result = await api.createCampaign(payload);
+
             if (result.success) {
-                showNotification('Campaign Launched', `Campaign "${campaignData.name}" is running`, 'success');
+                const batchMsg = searchQueries.length > 1 ? ` (${searchQueries.length} searches)` : '';
+                showNotification('Campaign Launched', `Campaign "${campaignData.name}" is running${batchMsg}`, 'success');
                 form.reset();
             }
         } catch (error) {
             api.handleError(error, 'creating campaign');
-            if (this.progressManager) {
-                this.progressManager.error(error.message);
-            }
+            if (this.progressManager) this.progressManager.error(error.message);
         }
     }
 
@@ -561,7 +593,6 @@ class Dashboard {
     }
 
     renderLeadCard(lead, campaignId, index) {
-        const score = lead.intelligence?.score || 0;
         const priority = lead.intelligence?.priority || 'LOW';
         const hasContent = lead.intelligence?.marketingContent;
 
@@ -599,43 +630,66 @@ class Dashboard {
     // ─── Marketing Content ──────────────────────────────────
     showMarketingContent(content, leadName) {
         const container = document.getElementById('marketingContent');
-        
-        const subject = content.subject || content.email_subject || '';
-        const email = content.email || content.email_body || '';
-        const whatsapp = content.whatsapp || content.whatsapp_message || '';
+
+        const emailSubject = content.email?.subject || content.subject || '';
+        const emailBody = content.email?.body || content.email_body || '';
+        const whatsapp = content.whatsapp || '';
+        const linkedinNote = content.linkedin?.connectionNote || '';
+        const linkedinInmail = content.linkedin?.followUpInMail || '';
+        const instagram = content.instagram || '';
+        const coldCallOpening = content.coldCall?.opening || '';
+        const coldCallValueProp = content.coldCall?.valueProp || '';
+        const coldCallClosing = content.coldCall?.closing || '';
+        const painPoints = content.painPoints || [];
+        const industry = content.industry || '';
+
+        const copyBtn = () =>
+            `<button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText(this.closest('.marketing-content').querySelector('.content-preview').textContent).then(()=>showNotification('Copied','Copied to clipboard','success'))">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Copy
+            </button>`;
+
+        const block = (title, textContent, extraBtn = '') => textContent ? `
+            <div class="marketing-content" style="margin-bottom:var(--space-md)">
+                <div class="marketing-header"><h4>${title}</h4></div>
+                <div class="marketing-body"><div class="content-preview">${api.safeString(textContent)}</div></div>
+                <div class="marketing-actions">${copyBtn(textContent)}${extraBtn}</div>
+            </div>` : '';
 
         container.innerHTML = `
-            <h4 style="margin-bottom:var(--space-md);font-size:0.9rem;font-weight:600">Content for ${api.safeString(leadName)}</h4>
-            ${subject ? `
-                <div class="marketing-content" style="margin-bottom:var(--space-md)">
-                    <div class="marketing-header"><h4>Email Subject</h4></div>
-                    <div class="marketing-body"><div class="content-preview">${api.safeString(subject)}</div></div>
-                </div>
-            ` : ''}
-            ${email ? `
-                <div class="marketing-content" style="margin-bottom:var(--space-md)">
-                    <div class="marketing-header"><h4>Email Body</h4></div>
-                    <div class="marketing-body"><div class="content-preview">${api.safeString(email)}</div></div>
-                    <div class="marketing-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="dashboard.sendEmail('${api.safeString(subject).replace(/'/g, "\\'")}', '${api.safeString(email).replace(/'/g, "\\'")}')">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                            Open Email
-                        </button>
-                    </div>
-                </div>
-            ` : ''}
-            ${whatsapp ? `
-                <div class="marketing-content" style="margin-bottom:var(--space-md)">
-                    <div class="marketing-header"><h4>WhatsApp Message</h4></div>
-                    <div class="marketing-body"><div class="content-preview">${api.safeString(whatsapp)}</div></div>
-                    <div class="marketing-actions">
-                        <button class="btn btn-success btn-sm" onclick="navigator.clipboard.writeText(${JSON.stringify(whatsapp).replace(/"/g, '&quot;')}).then(()=>showNotification('Copied','Message copied to clipboard','success'))">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                            Copy
-                        </button>
-                    </div>
-                </div>
-            ` : ''}
+            <div style="margin-bottom:var(--space-md)">
+                <strong>${api.safeString(leadName)}</strong>
+                ${industry ? `<span style="margin-left:0.5rem;font-size:0.8rem;color:var(--text-muted)">· ${api.safeString(industry)}</span>` : ''}
+            </div>
+            ${painPoints.length ? `<div style="margin-bottom:var(--space-md);font-size:0.82rem;color:var(--text-muted)">Pain points: ${painPoints.map(p => api.safeString(p)).join(' · ')}</div>` : ''}
+
+            <div class="platform-tabs">
+                <button class="ptab active" onclick="switchTab(this,'tab-email')">✉ Email</button>
+                <button class="ptab" onclick="switchTab(this,'tab-wa')">💬 WhatsApp</button>
+                <button class="ptab" onclick="switchTab(this,'tab-li')">💼 LinkedIn</button>
+                <button class="ptab" onclick="switchTab(this,'tab-ig')">📸 Instagram</button>
+                <button class="ptab" onclick="switchTab(this,'tab-cc')">📞 Cold Call</button>
+            </div>
+
+            <div id="tab-email" class="ptab-content active">
+                ${block('Subject', emailSubject)}
+                ${block('Body', emailBody, emailSubject ? `<button class="btn btn-secondary btn-sm" onclick="dashboard.sendEmail('${api.safeString(emailSubject).replace(/'/g,"\\'")}','${api.safeString(emailBody).replace(/'/g,"\\'")}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> Open Email</button>` : '')}
+            </div>
+            <div id="tab-wa" class="ptab-content" style="display:none">
+                ${block('WhatsApp Message', whatsapp)}
+            </div>
+            <div id="tab-li" class="ptab-content" style="display:none">
+                ${block('Connection Note (max 300 chars)', linkedinNote)}
+                ${block('Follow-up InMail', linkedinInmail)}
+            </div>
+            <div id="tab-ig" class="ptab-content" style="display:none">
+                ${block('Instagram DM', instagram)}
+            </div>
+            <div id="tab-cc" class="ptab-content" style="display:none">
+                ${block('Opening (30s)', coldCallOpening)}
+                ${block('Value Proposition', coldCallValueProp)}
+                ${block('Closing', coldCallClosing)}
+            </div>
         `;
 
         showModal('marketingModal');
@@ -669,16 +723,21 @@ class Dashboard {
 
     // ─── Export ─────────────────────────────────────────────
     async exportAllVCards() {
-        if (!this.currentCampaign) {
-            showNotification('Export', 'Please select a campaign first', 'warning');
-            return;
-        }
-        try {
-            window.open(`/api/campaigns/${this.currentCampaign}/export/vcard`, '_blank');
-            showNotification('Export', 'Downloading vCard bundle...', 'success');
-        } catch (error) {
-            api.handleError(error, 'exporting vCards');
-        }
+        if (!this.currentCampaign) { showNotification('Export', 'Please select a campaign first', 'warning'); return; }
+        window.open(`/api/campaigns/${this.currentCampaign}/export/vcard`, '_blank');
+        showNotification('Export', 'Downloading vCard bundle...', 'success');
+    }
+
+    async exportXlsx() {
+        if (!this.currentCampaign) { showNotification('Export', 'Please select a campaign first', 'warning'); return; }
+        window.open(`/api/campaigns/${this.currentCampaign}/export/xlsx`, '_blank');
+        showNotification('Export', 'Downloading Excel file...', 'success');
+    }
+
+    async exportCsv() {
+        if (!this.currentCampaign) { showNotification('Export', 'Please select a campaign first', 'warning'); return; }
+        window.open(`/api/campaigns/${this.currentCampaign}/export/csv`, '_blank');
+        showNotification('Export', 'Downloading CSV file...', 'success');
     }
 
     // ─── Campaign Select ────────────────────────────────────
@@ -696,12 +755,18 @@ class Dashboard {
 
 // ─── Global: Export Lead vCard ──────────────────────────────
 function exportLeadVCard(campaignId, leadIndex, leadName) {
-    try {
-        window.open(`/api/leads/${campaignId}/${leadIndex}/vcard`, '_blank');
-        showNotification('vCard', `Downloading contact for ${leadName}`, 'success');
-    } catch (error) {
-        showNotification('Error', 'Failed to export vCard', 'error');
-    }
+    window.open(`/api/leads/${campaignId}/${leadIndex}/vcard`, '_blank');
+    showNotification('vCard', `Downloading contact for ${leadName}`, 'success');
+}
+
+// ─── Global: Platform Tab Switcher ─────────────────────────
+function switchTab(btn, tabId) {
+    const modal = btn.closest('.modal-body');
+    modal.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+    modal.querySelectorAll('.ptab-content').forEach(t => { t.style.display = 'none'; t.classList.remove('active'); });
+    btn.classList.add('active');
+    const tab = document.getElementById(tabId);
+    if (tab) { tab.style.display = ''; tab.classList.add('active'); }
 }
 
 // ─── Initialize ────────────────────────────────────────────
