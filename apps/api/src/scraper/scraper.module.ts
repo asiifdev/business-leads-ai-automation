@@ -5,9 +5,10 @@ import { GoogleMapsScraperService } from "./google-maps.scraper";
 import { CampaignsModule } from "../campaigns/campaigns.module";
 import { LeadsModule } from "../leads/leads.module";
 import { AiModule } from "../ai/ai.module";
+import { AuthModule } from "../auth/auth.module";
 
 @Module({
-  imports: [CampaignsModule, LeadsModule, AiModule],
+  imports: [CampaignsModule, LeadsModule, AiModule, AuthModule],
   controllers: [ScraperController],
   providers: [ScraperProcessor, GoogleMapsScraperService],
 })

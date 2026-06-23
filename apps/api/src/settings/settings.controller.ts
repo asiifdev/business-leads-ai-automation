@@ -1,30 +1,44 @@
-import { Controller, Get, Post, Delete, Body, Param } from "@nestjs/common";
-import { ApiTags, ApiOperation } from "@nestjs/swagger";
+import { Controller, Get, Post, Delete, Body, Param, UseGuards } from "@nestjs/common";
+import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { SettingsService } from "./settings.service";
+import { JwtGuard } from "../auth/jwt.guard";
+import { WorkspaceId } from "../auth/current-workspace.decorator";
 
 @ApiTags("Settings")
+@ApiBearerAuth()
+@UseGuards(JwtGuard)
 @Controller("settings")
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
   @Get("integrations")
   @ApiOperation({ summary: "List workspace integrations" })
-  getIntegrations() { return this.settingsService.getIntegrations(); }
+  getIntegrations(@WorkspaceId() workspaceId: string) {
+    return this.settingsService.getIntegrations(workspaceId);
+  }
 
   @Post("integrations")
   @ApiOperation({ summary: "Save or update an integration" })
-  upsertIntegration(@Body() body: { type: string; name: string; config: Record<string, string> }) {
-    return this.settingsService.upsertIntegration(body.type, body.name, body.config);
+  upsertIntegration(
+    @WorkspaceId() workspaceId: string,
+    @Body() body: { type: string; name: string; config: Record<string, string> },
+  ) {
+    return this.settingsService.upsertIntegration(body.type, body.name, body.config, workspaceId);
   }
 
   @Get("api-keys")
   @ApiOperation({ summary: "List API keys" })
-  listApiKeys() { return this.settingsService.listApiKeys(); }
+  listApiKeys(@WorkspaceId() workspaceId: string) {
+    return this.settingsService.listApiKeys(workspaceId);
+  }
 
   @Post("api-keys")
   @ApiOperation({ summary: "Create a new API key" })
-  createApiKey(@Body() body: { name: string }) {
-    return this.settingsService.createApiKey(body.name);
+  createApiKey(
+    @WorkspaceId() workspaceId: string,
+    @Body() body: { name: string },
+  ) {
+    return this.settingsService.createApiKey(body.name, workspaceId);
   }
 
   @Delete("api-keys/:id")

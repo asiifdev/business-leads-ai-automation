@@ -1,9 +1,13 @@
-import { Controller, Get, Patch, Param, Body, Query } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiQuery } from "@nestjs/swagger";
+import { Controller, Get, Patch, Param, Body, Query, UseGuards } from "@nestjs/common";
+import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from "@nestjs/swagger";
 import { LeadsService } from "./leads.service";
 import { UpdateCrmDto } from "./dto/update-crm.dto";
+import { JwtGuard } from "../auth/jwt.guard";
+import { WorkspaceId } from "../auth/current-workspace.decorator";
 
 @ApiTags("Leads")
+@ApiBearerAuth()
+@UseGuards(JwtGuard)
 @Controller("leads")
 export class LeadsController {
   constructor(private readonly leadsService: LeadsService) {}
@@ -11,8 +15,11 @@ export class LeadsController {
   @Get()
   @ApiOperation({ summary: "List all leads" })
   @ApiQuery({ name: "campaignId", required: false })
-  findAll(@Query("campaignId") campaignId?: string) {
-    return this.leadsService.findAll(undefined, campaignId);
+  findAll(
+    @WorkspaceId() workspaceId: string,
+    @Query("campaignId") campaignId?: string,
+  ) {
+    return this.leadsService.findAll(workspaceId, campaignId);
   }
 
   @Get(":id")
