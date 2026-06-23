@@ -1,0 +1,268 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ MULTI-TENANT ============
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  logo        String?
+  plan        String   @default("free")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members      WorkspaceMember[]
+  campaigns    Campaign[]
+  leads        Lead[]
+  contacts     Contact[]
+  integrations Integration[]
+  apiKeys      ApiKey[]
+
+  @@map("workspaces")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  memberships WorkspaceMember[]
+  sessions    Session[]
+  accounts    Account[]
+
+  @@map("users")
+}
+
+model WorkspaceMember {
+  id          String   @id @default(cuid())
+  role        String   @default("member")
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+
+  @@unique([workspaceId, userId])
+  @@map("workspace_members")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verifications")
+}
+
+// ============ CAMPAIGNS ============
+
+model Campaign {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  industry      String
+  location      String
+  searchQueries String[]
+  maxResults    Int       @default(20)
+  yourService   String
+  contentStyle  String    @default("balanced")
+  language      String    @default("indonesian")
+  status        String    @default("draft")
+  progress      Int       @default(0)
+  error         String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  totalLeads       Int   @default(0)
+  priorityLeads    Int   @default(0)
+  highQualityLeads Int   @default(0)
+  averageScore     Float @default(0)
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+
+  leads Lead[]
+
+  @@map("campaigns")
+}
+
+// ============ LEADS ============
+
+model Lead {
+  id           String   @id @default(cuid())
+  name         String
+  address      String?
+  phone        String?
+  email        String?
+  website      String?
+  rating       String?
+  category     String?
+  source       String   @default("google_maps")
+  referenceUrl String?
+  hasWebsite   Boolean  @default(false)
+
+  score    Int    @default(0)
+  priority String @default("LOW")
+  aiAnalysis Json?
+
+  marketingContent Json?
+
+  crmStatus    String    @default("new")
+  crmNotes     String?
+  followUpDate DateTime?
+  contactedAt  DateTime?
+  repliedAt    DateTime?
+  closedAt     DateTime?
+  closeResult  String?
+
+  scrapedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  campaign    Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId  String
+  contact     Contact?  @relation(fields: [contactId], references: [id])
+  contactId   String?
+
+  activities LeadActivity[]
+  followUps  FollowUp[]
+
+  @@map("leads")
+}
+
+model LeadActivity {
+  id        String   @id @default(cuid())
+  type      String
+  note      String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId String
+
+  @@map("lead_activities")
+}
+
+model FollowUp {
+  id          String    @id @default(cuid())
+  scheduledAt DateTime
+  note        String?
+  done        Boolean   @default(false)
+  doneAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId String
+
+  @@map("follow_ups")
+}
+
+// ============ CONTACTS ============
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  company   String?
+  position  String?
+  website   String?
+  address   String?
+  tags      String[]
+  notes     String?
+  source    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+
+  leads Lead[]
+
+  @@map("contacts")
+}
+
+// ============ INTEGRATIONS ============
+
+model Integration {
+  id          String   @id @default(cuid())
+  type        String
+  name        String
+  config      Json
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+
+  @@map("integrations")
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  name       String
+  key        String    @unique
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+
+  @@map("api_keys")
+}

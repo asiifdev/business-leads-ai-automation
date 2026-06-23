@@ -1,6 +1,31 @@
-node_modules
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+.next/
+dist/
+build/
+out/
+
+# Environment
 .env
-*.csv
-output/*
-user-preferences.json
-business-profile.json
+.env.local
+.env.production
+
+# Database
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Output files
+output/
+
+# Misc
+.DS_Store
+*.pem
+.turbo
+coverage/
+*.log

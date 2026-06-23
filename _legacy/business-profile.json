@@ -1,0 +1,34 @@
+{
+  "business": {
+    "name": "Asiifdev Digital Agency",
+    "type": "Technology",
+    "phone": "085954270458",
+    "email": "admin@asiifdev.com",
+    "website": "https://asiifdev.com",
+    "description": "Perusahaan yang bergerak di bidang pembuatan sistem berbasis web dan mobile",
+    "valuePropositions": [
+      "Fast delivery",
+      "24/7 support",
+      "Affordable pricing"
+    ],
+    "targetIndustries": [
+      "retail",
+      "rental",
+      "event organizer",
+      "wedding organizer",
+      "konter"
+    ]
+  },
+  "owner": {
+    "name": "Muhammad Syaiful Anwar",
+    "phone": "085954270458",
+    "email": "asiif.anwar3@gmail.com"
+  },
+  "preferences": {
+    "language": "indonesian",
+    "campaignStyle": "balanced",
+    "defaultSearchQuery": "Event Organizer Indonesia",
+    "defaultLocation": "Indonesia",
+    "outputFormat": "csv"
+  }
+}
