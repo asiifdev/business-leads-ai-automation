@@ -100,7 +100,7 @@ export function IntegrationsPage() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button size="sm" variant="outline" asChild>
-              <a href="http://localhost:3001/api/docs" target="_blank" rel="noreferrer">
+              <a href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/docs`} target="_blank" rel="noreferrer">
                 Swagger Docs
               </a>
             </Button>

@@ -9,6 +9,7 @@ import { ArrowLeft, Download, Users, Star, TrendingUp, MapPin, Loader2, Search }
 import { useCampaign } from "@/hooks/use-campaigns";
 import { useLeads } from "@/hooks/use-leads";
 import { LeadsTable } from "@/components/leads/leads-table";
+import { api } from "@/lib/api";
 
 export function CampaignDetail({ id }: { id: string }) {
   const { campaign, loading, refresh } = useCampaign(id);
@@ -55,20 +56,14 @@ export function CampaignDetail({ id }: { id: string }) {
           <p className="text-muted-foreground text-sm capitalize">{campaign.industry} · {campaign.location}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <a href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api"}/export/leads/csv?campaignId=${id}`} download>
-              <Download className="mr-2 h-4 w-4" />CSV
-            </a>
+          <Button variant="outline" size="sm" onClick={() => api.download(`/export/leads/csv?campaignId=${id}`, `leads-${id}.csv`)}>
+            <Download className="mr-2 h-4 w-4" />CSV
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <a href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api"}/export/leads/json?campaignId=${id}`} download>
-              <Download className="mr-2 h-4 w-4" />JSON
-            </a>
+          <Button variant="outline" size="sm" onClick={() => api.download(`/export/leads/json?campaignId=${id}`, `leads-${id}.json`)}>
+            <Download className="mr-2 h-4 w-4" />JSON
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <a href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api"}/export/leads/vcard?campaignId=${id}`} download>
-              <Download className="mr-2 h-4 w-4" />vCard
-            </a>
+          <Button variant="outline" size="sm" onClick={() => api.download(`/export/leads/vcard?campaignId=${id}`, `leads-${id}.vcf`)}>
+            <Download className="mr-2 h-4 w-4" />vCard
           </Button>
         </div>
       </div>

@@ -7,8 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Download } from "lucide-react";
 import { useLeads } from "@/hooks/use-leads";
 import { LeadsTable } from "./leads-table";
-
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+import { api } from "@/lib/api";
 
 export function LeadsList() {
   const { leads, loading } = useLeads();
@@ -59,10 +58,8 @@ export function LeadsList() {
             <SelectItem value="lost">Lost</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" className="ml-auto" asChild>
-          <a href={`${API}/export/leads/csv`} download>
-            <Download className="mr-2 h-4 w-4" />Export CSV
-          </a>
+        <Button variant="outline" className="ml-auto" onClick={() => api.download("/export/leads/csv", "leads-all.csv")}>
+          <Download className="mr-2 h-4 w-4" />Export CSV
         </Button>
       </div>
 

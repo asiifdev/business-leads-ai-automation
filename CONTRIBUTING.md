@@ -1,335 +1,129 @@
-# Contributing to Business Scraping Tools
+# Contributing to Prospex
 
-Thank you for your interest in contributing to this project! We welcome contributions from the community while maintaining high standards for legal and ethical compliance.
+Thank you for your interest in contributing to Prospex — the open-source AI GTM automation platform!
 
-## 🤝 How to Contribute
-
-### Before Contributing
-
-1. **Read the Legal Disclaimer**: Review `DISCLAIMER.md` thoroughly
-2. **Understand the Purpose**: This tool is for legitimate business use only
-3. **Check Existing Issues**: Look for existing issues or discussions
-4. **Follow Guidelines**: Ensure your contribution aligns with our ethical standards
-
-## 📋 Contribution Guidelines
-
-### ✅ What We Welcome
-
-- **Bug Fixes**: Fix issues with scraping, AI integration, or CLI
-- **Feature Improvements**: Enhance existing functionality
-- **Documentation**: Improve README, comments, or guides
-- **Performance**: Optimize code efficiency and resource usage
-- **Security**: Fix security vulnerabilities
-- **Testing**: Add tests or improve test coverage
-- **Accessibility**: Improve user experience and accessibility
-
-### ❌ What We Don't Accept
-
-- **Illegal Use Cases**: Features that promote illegal scraping
-- **Spam Tools**: Functionality designed for mass spam
-- **Privacy Violations**: Features that violate user privacy
-- **Terms of Service Violations**: Code that circumvents website protections
-- **Harmful Content**: AI prompts that generate harmful content
-
-## 🛠️ Development Setup
+## Getting Started
 
 ### Prerequisites
 
-```bash
-# Node.js 20+ required
-node --version
+- Node.js 22 LTS
+- pnpm 9+ — `npm install -g pnpm`
+- Docker Desktop (for PostgreSQL + Redis)
 
-# Install dependencies
-npm install
-
-# Run interactive setup
-npm run setup
-```
-
-### Environment Configuration
-
-Run `npm run setup` to configure everything interactively, or manually edit:
-
-**`.env`** — API keys and system settings:
-
-```env
-OPENAI_API_KEY=your-test-api-key
-OPENAI_MODEL=gpt-4o-mini
-# OPENAI_BASE_URL=https://your-custom-endpoint.com/v1
-OUTPUT_LANGUAGE=indonesian
-```
-
-**`business-profile.json`** — Business data (created by setup wizard):
-
-```json
-{
-  "business": {
-    "name": "Test Business",
-    "type": "test_business",
-    "phone": "+6281234567890",
-    "email": "test@business.com",
-    "description": "Test products",
-    "valuePropositions": [],
-    "targetIndustries": []
-  },
-  "owner": {
-    "name": "Test Owner",
-    "phone": "+6281234567890",
-    "email": "owner@business.com"
-  },
-  "preferences": {
-    "language": "indonesian",
-    "campaignStyle": "balanced"
-  }
-}
-```
-
-## 🧪 Testing Your Changes
-
-### Run Basic Tests
+### Local Setup
 
 ```bash
-# Test scraping functionality
-node index.js -q "Test Query" -l 3
+git clone https://github.com/asiifdev/business-leads-ai-automation.git
+cd business-leads-ai-automation
 
-# Test marketing generation
-node index.js -q "Test Query" -l 2 \
-  -m "Test marketing message" \
-  -c "Test call to action"
+pnpm install
+
+# Copy and configure env
+cp .env.example apps/api/.env
+cp .env.example packages/database/.env
+# Edit apps/api/.env with DATABASE_URL, JWT_SECRET, OPENAI_API_KEY
+
+# Start infrastructure
+docker compose up -d
+
+# Push database schema
+pnpm --filter @prospex/database db:push
+
+# Start dev servers
+pnpm --filter @prospex/api dev      # API on :3001
+pnpm --filter @prospex/web dev      # Dashboard on :3000
 ```
 
-### Test Different Scenarios
+Swagger docs: `http://localhost:3001/api/docs`
 
-```bash
-# Test with different business types
-node index.js -q "Catering Jakarta" -l 5 \
-  -m "Sistem catering terintegrasi" \
-  -c "Demo gratis"
-
-# Test with auto-generated CTA
-node index.js -q "Hotel Jakarta" -l 3 \
-  -m "Sistem manajemen hotel"
-```
-
-## 📝 Code Standards
-
-### JavaScript/Node.js
-
-- **ES6+**: Use modern JavaScript features
-- **Async/Await**: Prefer async/await over callbacks
-- **Error Handling**: Always handle errors gracefully
-- **Comments**: Add clear comments for complex logic
-- **Naming**: Use descriptive variable and function names
-
-### File Structure
+## Project Structure
 
 ```
-src/
-├── businessProfile.js  # Centralized business config (NEW)
-├── scraper.js          # Google Maps scraping logic
-├── cli.js              # Command line interface
-├── fileUtils.js        # File handling utilities
-├── marketing.js        # AI marketing automation
-├── marketingAI.js      # Industry-specific AI content
-├── leadIntelligence.js # Lead scoring & analysis
-├── campaign.js         # Campaign builder
-└── setup.js            # Interactive setup wizard
+apps/
+├── api/         # NestJS 10 REST API
+├── web/         # Next.js 16 dashboard
+└── marketing/   # Landing page
+packages/
+├── database/    # Prisma schema
+└── types/       # Shared TypeScript types
 ```
+
+## What We Welcome
+
+- Bug fixes
+- New integrations (WhatsApp, Gmail, Telegram, webhook)
+- UI improvements
+- Performance optimizations
+- Documentation improvements
+- Tests
+
+## What We Don't Accept
+
+- Features designed for spam or bulk unsolicited messaging
+- Bypassing rate limits or ToS of scraped services
+- Privacy-violating data collection
+
+## Development Guidelines
 
 ### Code Style
 
-```javascript
-// ✅ Good: Clear, descriptive, well-commented
-async function scrapeBusinessData(query, maxResults) {
-  try {
-    const results = await performScraping(query, maxResults);
-    return processResults(results);
-  } catch (error) {
-    console.error("Scraping failed:", error.message);
-    throw new Error("Failed to scrape business data");
-  }
-}
+- TypeScript everywhere — no `any` unless absolutely unavoidable
+- NestJS conventions for backend (services, controllers, DTOs)
+- React Server Components where possible in Next.js
+- Tailwind CSS + shadcn/ui for UI components
 
-// ❌ Bad: Unclear, no error handling
-function scrape(q, l) {
-  return doStuff(q, l);
-}
+### Commit Messages
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+feat(leads): add bulk CRM status update
+fix(auth): handle expired JWT gracefully
+docs: update quickstart in README
 ```
 
-## 🔒 Legal Compliance
+### Before Opening a PR
 
-### When Contributing Code
+1. Run `pnpm --filter @prospex/api exec tsc --noEmit` — zero TS errors
+2. Run `pnpm --filter @prospex/web exec tsc --noEmit` — zero TS errors
+3. Test the happy path manually in the browser
+4. Update `docs/USER_GUIDE.md` if you changed user-facing behavior
 
-1. **Respect Rate Limits**: Don't add aggressive scraping features
-2. **Follow Terms of Service**: Respect Google Maps and OpenAI terms
-3. **Privacy First**: Don't collect unnecessary personal data
-4. **Ethical Use**: Ensure features promote legitimate business use
-5. **Documentation**: Add clear warnings for potentially problematic features
-
-### Required Disclaimers
-
-If your contribution involves:
-
-- **New data sources**: Add appropriate terms of service compliance
-- **Marketing features**: Include anti-spam law considerations
-- **AI integration**: Ensure OpenAI terms compliance
-- **Data handling**: Add privacy law considerations
-
-## 🚀 Pull Request Process
-
-### Before Submitting
-
-1. **Test Thoroughly**: Ensure your changes work correctly
-2. **Update Documentation**: Update README if needed
-3. **Check Legal Impact**: Ensure no legal compliance issues
-4. **Add Tests**: Include tests for new functionality
-5. **Review Guidelines**: Ensure compliance with ethical standards
-
-### Pull Request Template
+## Pull Request Template
 
 ```markdown
-## Description
+## What does this PR do?
 
-Brief description of your changes
+Brief description.
 
-## Type of Change
-
+## Type
 - [ ] Bug fix
 - [ ] New feature
-- [ ] Documentation update
-- [ ] Performance improvement
-- [ ] Security fix
+- [ ] Refactor
+- [ ] Documentation
 
 ## Testing
+- [ ] Tested locally end-to-end
+- [ ] TypeScript check passes
+- [ ] No breaking changes to existing API
 
-- [ ] Tested with small dataset
-- [ ] Verified legal compliance
-- [ ] Updated documentation
-- [ ] No breaking changes
-
-## Legal Considerations
-
-- [ ] Follows terms of service
-- [ ] Respects privacy laws
-- [ ] No spam/harmful features
-- [ ] Ethical use only
-
-## Additional Notes
-
-Any additional context or considerations
+## Screenshots (if UI change)
 ```
 
-## 🐛 Reporting Issues
+## Reporting Issues
 
-### Bug Reports
+Include:
+- Steps to reproduce
+- Expected vs actual behavior
+- Node.js version, OS
+- Relevant logs or screenshots
 
-When reporting bugs, include:
+For security vulnerabilities, email directly rather than opening a public issue.
 
-1. **Environment**: Node.js version, OS, dependencies
-2. **Steps to Reproduce**: Clear, step-by-step instructions
-3. **Expected vs Actual**: What you expected vs what happened
-4. **Logs**: Relevant error messages or console output
-5. **Legal Context**: Whether the issue affects legal compliance
+## Code of Conduct
 
-### Security Issues
-
-For security vulnerabilities:
-
-1. **Private Report**: Don't post publicly
-2. **Detailed Description**: Include impact assessment
-3. **Proof of Concept**: If possible, include reproduction steps
-4. **Timeline**: Expected disclosure timeline
-
-## 📚 Documentation
-
-### Adding Documentation
-
-When adding new features:
-
-1. **Update README**: Add usage examples
-2. **Add Comments**: Document complex code
-3. **Legal Notes**: Include relevant legal considerations
-4. **Examples**: Provide clear usage examples
-
-### Documentation Standards
-
-- **Clear Language**: Use simple, clear language
-- **Code Examples**: Include working code examples
-- **Legal Warnings**: Add appropriate legal disclaimers
-- **Step-by-Step**: Provide clear step-by-step instructions
-
-## 🤝 Community Guidelines
-
-### Be Respectful
-
-- **Constructive Feedback**: Provide helpful, constructive feedback
-- **Respect Others**: Be respectful of other contributors
-- **Inclusive Language**: Use inclusive, welcoming language
-- **Professional Conduct**: Maintain professional behavior
-
-### Communication
-
-- **Clear Communication**: Be clear and concise
-- **Ask Questions**: Don't hesitate to ask for clarification
-- **Share Knowledge**: Help others learn and grow
-- **Stay On Topic**: Keep discussions relevant to the project
-
-## 📞 Getting Help
-
-### Before Asking for Help
-
-1. **Check Documentation**: Read README and existing issues
-2. **Search Issues**: Look for similar problems
-3. **Test Yourself**: Try to reproduce and debug
-4. **Provide Context**: Include relevant details
-
-### How to Ask for Help
-
-```markdown
-## Issue Description
-
-Clear description of your problem
-
-## Environment
-
-- Node.js version: X.X.X
-- OS: Windows/Mac/Linux
-- Dependencies: List relevant packages
-
-## Steps to Reproduce
-
-1. Step one
-2. Step two
-3. Step three
-
-## Expected vs Actual
-
-Expected: What should happen
-Actual: What actually happens
-
-## Additional Context
-
-Any other relevant information
-```
-
-## 🎯 Code of Conduct
-
-### Our Standards
-
-- **Respectful**: Treat everyone with respect
-- **Inclusive**: Welcome diverse perspectives
-- **Professional**: Maintain professional conduct
-- **Ethical**: Prioritize ethical use of technology
-
-### Enforcement
-
-- **Warnings**: First-time violations get warnings
-- **Temporary Bans**: Repeated violations may result in temporary bans
-- **Permanent Bans**: Severe violations may result in permanent bans
-- **Appeals**: Process for appealing decisions
+Be respectful, constructive, and inclusive. We follow the [Contributor Covenant](https://www.contributor-covenant.org/).
 
 ---
 
-**Thank you for contributing to a more ethical and responsible open source community! 🌟**
-
-Remember: With great power comes great responsibility. Let's build tools that help businesses grow while respecting legal and ethical boundaries.
+**Every contribution, big or small, makes Prospex better for business owners worldwide. Thank you!**

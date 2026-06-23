@@ -35,4 +35,21 @@ export const api = {
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+
+  /** Fetch a file with auth header and trigger browser download */
+  async download(path: string, filename: string): Promise<void> {
+    const token = getToken();
+    const res = await fetch(`${API_URL}/api${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (res.status === 401) { window.location.href = "/login"; return; }
+    if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
 };
