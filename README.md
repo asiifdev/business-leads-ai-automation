@@ -10,6 +10,25 @@ Generate business leads from Google Maps, create personalized marketing content 
 
 ---
 
+## 🤝 Sponsors
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://www.coreclaw.com/?utm_source=github&utm_medium=referral&utm_campaign=asiifdev&utm_term=&utm_id=asiifdev">
+        <strong>🚀 CoreClaw</strong><br/>
+        Turn Google Maps Data Into Real Business Leads<br/>
+        Find websites, emails, and business contacts from Google Maps in minutes.<br/>
+        <strong>👉 Get 1,000 free leads →</strong>
+      </a>
+    </td>
+  </tr>
+</table>
+
+> Want to sponsor this project? See [GitHub Sponsors](https://github.com/sponsors/asiifdev) or reach out directly.
+
+---
+
 ## 🎯 What it does
 
 This tool helps you:
