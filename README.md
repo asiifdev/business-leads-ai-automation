@@ -1,3 +1,27 @@
+---
+
+<a href="https://www.coreclaw.com/?utm_source=github&utm_medium=referral&utm_campaign=asiifdev&utm_term=&utm_id=asiifdev">
+  <img
+    src="./docs/images/coreclaw-banner.png"
+    alt="CoreClaw - Turn Google Maps Data Into Real Business Leads"
+    width="100%"
+  />
+</a>
+
+## 🚀 Sponsored by CoreClaw
+<div align="center">
+Turn Google Maps Data Into Real Business Leads
+Find websites, emails, and business contacts from Google Maps in minutes.
+<p align="center">
+  <a href="https://www.coreclaw.com/?utm_source=github&utm_medium=referral&utm_campaign=asiifdev&utm_term=&utm_id=asiifdev">
+    <img src="https://img.shields.io/badge/Get_1,000_Free_Leads-22C55E?style=for-the-badge&logo=googlemaps&logoColor=white" alt="Get 1,000 Free Leads">
+  </a>
+</p>
+<sub>Sponsored by CoreClaw ❤️</sub>
+</div>
+
+---
+
 <div align="center">
   <h1>Prospex</h1>
   <p><strong>Open-source AI-powered GTM automation platform</strong></p>
@@ -10,27 +34,6 @@
   [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
   [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://docs.docker.com/compose/)
 </div>
-
----
-
-## 🤝 Sponsors
-
-<table>
-  <tr>
-    <td align="center">
-      <a href="https://www.coreclaw.com/?utm_source=github&utm_medium=referral&utm_campaign=asiifdev&utm_term=&utm_id=asiifdev">
-        <strong>🚀 CoreClaw</strong><br/>
-        Turn Google Maps Data Into Real Business Leads<br/>
-        Find websites, emails, and business contacts from Google Maps in minutes.<br/>
-        <strong>👉 Get 1,000 free leads →</strong>
-      </a>
-    </td>
-  </tr>
-</table>
-
-> Want to sponsor this project? See [GitHub Sponsors](https://github.com/sponsors/asiifdev) or reach out directly.
-
----
 
 ## What is Prospex?
 
