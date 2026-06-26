@@ -12,6 +12,8 @@
 <div align="center">
 Turn Google Maps Data Into Real Business Leads
 Find websites, emails, and business contacts from Google Maps in minutes.
+
+
 <p align="center">
   <a href="https://www.coreclaw.com/?utm_source=github&utm_medium=referral&utm_campaign=asiifdev&utm_term=&utm_id=asiifdev">
     <img src="https://img.shields.io/badge/Get_1,000_Free_Leads-22C55E?style=for-the-badge&logo=googlemaps&logoColor=white" alt="Get 1,000 Free Leads">
