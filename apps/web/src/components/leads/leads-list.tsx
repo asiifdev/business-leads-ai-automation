@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,20 +10,23 @@ import { LeadsTable } from "./leads-table";
 import { api } from "@/lib/api";
 
 export function LeadsList() {
-  const { leads, loading } = useLeads();
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState("all");
   const [crmStatus, setCrmStatus] = useState("all");
+  const [debouncedQ, setDebouncedQ] = useState("");
 
-  const filtered = leads.filter((l) => {
-    const matchSearch =
-      !search ||
-      l.name.toLowerCase().includes(search.toLowerCase()) ||
-      (l.address || "").toLowerCase().includes(search.toLowerCase());
-    const matchPriority = priority === "all" || l.priority === priority;
-    const matchCrm = crmStatus === "all" || l.crmStatus === crmStatus;
-    return matchSearch && matchPriority && matchCrm;
+  const { leads, total, loading } = useLeads({
+    q: debouncedQ || undefined,
+    priority: priority !== "all" ? priority : undefined,
+    status: crmStatus !== "all" ? crmStatus : undefined,
   });
+
+  // Debounce search input to avoid too many API calls
+  const handleSearch = useCallback((value: string) => {
+    setSearch(value);
+    const id = setTimeout(() => setDebouncedQ(value), 350);
+    return () => clearTimeout(id);
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -33,7 +36,7 @@ export function LeadsList() {
           <Input
             placeholder="Search leads..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="pl-8"
           />
         </div>
@@ -58,14 +61,17 @@ export function LeadsList() {
             <SelectItem value="lost">Lost</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" className="ml-auto" onClick={() => api.download("/export/leads/csv", "leads-all.csv")}>
-          <Download className="mr-2 h-4 w-4" />Export CSV
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          {!loading && <span className="text-xs text-muted-foreground">{total} leads</span>}
+          <Button variant="outline" onClick={() => api.download("/export/leads/csv", "leads-all.csv")}>
+            <Download className="mr-2 h-4 w-4" />Export CSV
+          </Button>
+        </div>
       </div>
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">
-          <LeadsTable leads={filtered} loading={loading} />
+          <LeadsTable leads={leads} loading={loading} />
         </CardContent>
       </Card>
     </div>

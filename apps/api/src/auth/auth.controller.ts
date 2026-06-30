@@ -1,11 +1,13 @@
-import { Controller, Post, Get, Body, Headers, UnauthorizedException } from "@nestjs/common";
+import { Controller, Post, Get, Body, Headers, UnauthorizedException, HttpCode, HttpStatus } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { JwtService } from "@nestjs/jwt";
 import { AuthService } from "./auth.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 
 @ApiTags("Auth")
+@Throttle({ default: { ttl: 60000, limit: 10 } })
 @Controller("auth")
 export class AuthController {
   constructor(
@@ -37,5 +39,14 @@ export class AuthController {
     } catch {
       throw new UnauthorizedException("Invalid or expired token");
     }
+  }
+
+  @Post("logout")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: "Logout — clears session on client side" })
+  logout() {
+    // JWT is stateless. Client must delete the token from storage.
+    // For server-side session invalidation, implement a token blocklist with Redis.
+    return;
   }
 }

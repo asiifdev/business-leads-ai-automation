@@ -1,0 +1,11 @@
+node_modules
+dist
+.env
+.env.*
+*.md
+playwright-report
+tests
+docs
+.git
+.gitignore
+tsconfig.tsbuildinfo

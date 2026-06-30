@@ -13,7 +13,7 @@ import { api } from "@/lib/api";
 
 export function CampaignDetail({ id }: { id: string }) {
   const { campaign, loading, refresh } = useCampaign(id);
-  const { leads, loading: leadsLoading, refresh: refreshLeads } = useLeads(id);
+  const { leads, loading: leadsLoading, refresh: refreshLeads } = useLeads({ campaignId: id });
 
   // Poll while campaign is running
   useEffect(() => {

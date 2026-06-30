@@ -97,8 +97,8 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @prospex/database exec prisma generate
 
-      - name: Push database schema
-        run: pnpm --filter @prospex/database db:push
+      - name: Run database migrations
+        run: pnpm --filter @prospex/database db:deploy
 
       - name: Install Playwright Chromium
         run: npx playwright install chromium --with-deps

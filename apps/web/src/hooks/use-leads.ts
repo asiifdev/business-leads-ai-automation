@@ -34,27 +34,54 @@ export interface Lead {
   createdAt: string;
 }
 
-export function useLeads(campaignId?: string) {
+interface PaginatedLeads {
+  data: Lead[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+interface LeadFilter {
+  campaignId?: string;
+  q?: string;
+  priority?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}
+
+export function useLeads(filter: LeadFilter = {}) {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const { campaignId, q, priority, status, page = 1, limit = 50 } = filter;
 
   const refresh = useCallback(async () => {
     try {
       setLoading(true);
-      const path = `/leads${campaignId ? `?campaignId=${campaignId}` : ""}`;
-      const data = await api.get<Lead[]>(path);
-      setLeads(data);
+      const params = new URLSearchParams();
+      if (campaignId) params.set("campaignId", campaignId);
+      if (q) params.set("q", q);
+      if (priority) params.set("priority", priority);
+      if (status) params.set("status", status);
+      params.set("page", String(page));
+      params.set("limit", String(limit));
+
+      const result = await api.get<PaginatedLeads>(`/leads?${params}`);
+      setLeads(result.data);
+      setTotal(result.total);
       setError(null);
     } catch (e) {
       setError(String(e));
     } finally {
       setLoading(false);
     }
-  }, [campaignId]);
+  }, [campaignId, q, priority, status, page, limit]);
 
   useEffect(() => { refresh(); }, [refresh]);
-  return { leads, loading, error, refresh };
+  return { leads, total, loading, error, refresh };
 }
 
 export function useLead(id: string) {

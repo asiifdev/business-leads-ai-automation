@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtGuard } from "./jwt.guard";
+import { ApiKeyGuard } from "./api-key.guard";
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { JwtGuard } from "./jwt.guard";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtGuard],
-  exports: [JwtModule, JwtGuard],
+  providers: [AuthService, JwtGuard, ApiKeyGuard],
+  exports: [JwtModule, JwtGuard, ApiKeyGuard],
 })
 export class AuthModule {}

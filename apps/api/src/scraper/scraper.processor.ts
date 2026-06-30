@@ -1,4 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { Processor, WorkerHost } from "@nestjs/bullmq";
+import { Job } from "bullmq";
 import { CampaignsService } from "../campaigns/campaigns.service";
 import { LeadsService } from "../leads/leads.service";
 import { LeadIntelligenceService } from "../ai/lead-intelligence.service";
@@ -17,8 +19,9 @@ export interface ScraperJobData {
   language: string;
 }
 
+@Processor("scraper")
 @Injectable()
-export class ScraperProcessor {
+export class ScraperProcessor extends WorkerHost {
   private readonly logger = new Logger(ScraperProcessor.name);
 
   constructor(
@@ -27,11 +30,14 @@ export class ScraperProcessor {
     private leadIntelligence: LeadIntelligenceService,
     private marketingAi: MarketingAiService,
     private googleMaps: GoogleMapsScraperService,
-  ) {}
+  ) {
+    super();
+  }
 
-  async process(data: ScraperJobData): Promise<void> {
+  async process(job: Job<ScraperJobData>): Promise<void> {
+    const data = job.data;
     const { campaignId, workspaceId } = data;
-    this.logger.log(`Starting campaign ${campaignId}`);
+    this.logger.log(`Starting campaign ${campaignId} (job ${job.id})`);
 
     try {
       await this.campaigns.updateStatus(campaignId, "running", 0);
@@ -110,6 +116,7 @@ export class ScraperProcessor {
     } catch (err) {
       this.logger.error(`Campaign ${campaignId} failed: ${err}`);
       await this.campaigns.updateStatus(campaignId, "failed", undefined, String(err));
+      throw err; // re-throw so BullMQ can retry if configured
     }
   }
 

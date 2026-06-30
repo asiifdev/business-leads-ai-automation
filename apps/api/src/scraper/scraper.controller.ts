@@ -1,9 +1,11 @@
 import { Controller, Post, Param, HttpCode, HttpStatus, UseGuards } from "@nestjs/common";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
-import { ScraperProcessor } from "./scraper.processor";
 import { CampaignsService } from "../campaigns/campaigns.service";
 import { JwtGuard } from "../auth/jwt.guard";
 import { WorkspaceId } from "../auth/current-workspace.decorator";
+import { ScraperJobData } from "./scraper.processor";
 
 @ApiTags("Scraper")
 @ApiBearerAuth()
@@ -11,7 +13,7 @@ import { WorkspaceId } from "../auth/current-workspace.decorator";
 @Controller("scraper")
 export class ScraperController {
   constructor(
-    private readonly processor: ScraperProcessor,
+    @InjectQueue("scraper") private readonly scraperQueue: Queue<ScraperJobData>,
     private readonly campaigns: CampaignsService,
   ) {}
 
@@ -23,18 +25,26 @@ export class ScraperController {
     @WorkspaceId() workspaceId: string,
   ) {
     const campaign = await this.campaigns.findOne(id, workspaceId);
-    // Fire-and-forget background job
-    this.processor.process({
-      campaignId: campaign.id,
-      workspaceId: campaign.workspaceId,
-      searchQueries: campaign.searchQueries,
-      industry: campaign.industry,
-      location: campaign.location,
-      maxResults: campaign.maxResults,
-      yourService: campaign.yourService,
-      contentStyle: campaign.contentStyle,
-      language: campaign.language,
-    }).catch((err) => console.error("Scraper failed:", err));
-    return { message: "Campaign started", campaignId: id };
+    const job = await this.scraperQueue.add(
+      "scrape",
+      {
+        campaignId: campaign.id,
+        workspaceId: campaign.workspaceId,
+        searchQueries: campaign.searchQueries,
+        industry: campaign.industry,
+        location: campaign.location,
+        maxResults: campaign.maxResults,
+        yourService: campaign.yourService,
+        contentStyle: campaign.contentStyle,
+        language: campaign.language,
+      },
+      {
+        attempts: 2,
+        backoff: { type: "exponential", delay: 5000 },
+        removeOnComplete: 100,
+        removeOnFail: 50,
+      },
+    );
+    return { message: "Campaign queued", campaignId: id, jobId: job.id };
   }
 }

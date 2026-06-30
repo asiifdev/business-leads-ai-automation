@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 
 const DEFAULT_WORKSPACE_ID = "default-workspace";
@@ -37,7 +37,9 @@ export class SettingsService {
     return this.prisma.apiKey.create({ data: { name, key, workspaceId } });
   }
 
-  async deleteApiKey(id: string) {
+  async deleteApiKey(id: string, workspaceId = DEFAULT_WORKSPACE_ID) {
+    const key = await this.prisma.apiKey.findFirst({ where: { id, workspaceId } });
+    if (!key) throw new NotFoundException("API key not found");
     return this.prisma.apiKey.delete({ where: { id } });
   }
 }

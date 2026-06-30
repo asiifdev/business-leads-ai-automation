@@ -78,10 +78,17 @@ export function useAuth() {
   };
 
   const logout = () => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    // Fire-and-forget server-side logout (no-op for stateless JWT, but good practice)
+    if (token) {
+      fetch(`${API}/auth/logout`, { method: "POST", headers: { Authorization: `Bearer ${token}` } })
+        .catch(() => undefined);
+    }
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     setUser(null);
     setWorkspace(null);
+    window.location.href = "/login";
   };
 
   return { user, workspace, loading, login, register, logout };

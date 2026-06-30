@@ -43,5 +43,7 @@ export class SettingsController {
 
   @Delete("api-keys/:id")
   @ApiOperation({ summary: "Delete an API key" })
-  deleteApiKey(@Param("id") id: string) { return this.settingsService.deleteApiKey(id); }
+  deleteApiKey(@Param("id") id: string, @WorkspaceId() workspaceId: string) {
+    return this.settingsService.deleteApiKey(id, workspaceId);
+  }
 }
