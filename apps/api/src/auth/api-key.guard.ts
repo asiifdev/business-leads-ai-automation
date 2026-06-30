@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -11,11 +12,13 @@ export class ApiKeyGuard implements CanActivate {
 
     if (!authHeader?.startsWith("ApiKey ")) throw new UnauthorizedException("Missing or invalid API key");
 
-    const key = authHeader.slice(7).trim();
-    if (!key.startsWith("px_")) throw new UnauthorizedException("Invalid API key format");
+    const plaintext = authHeader.slice(7).trim();
+    if (!plaintext.startsWith("px_")) throw new UnauthorizedException("Invalid API key format");
+
+    const keyHash = createHash("sha256").update(plaintext).digest("hex");
 
     const apiKey = await this.prisma.apiKey.findUnique({
-      where: { key },
+      where: { keyHash },
       include: { workspace: true },
     });
 

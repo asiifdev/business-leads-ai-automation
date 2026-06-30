@@ -256,7 +256,8 @@ model Integration {
 model ApiKey {
   id         String    @id @default(cuid())
   name       String
-  key        String    @unique
+  keyHash    String    @unique   // SHA-256 hash of the key; plaintext is shown only once at creation
+  keyPrefix  String              // First 8 chars of key for display (e.g. "px_abc123")
   lastUsedAt DateTime?
   expiresAt  DateTime?
   createdAt  DateTime  @default(now())

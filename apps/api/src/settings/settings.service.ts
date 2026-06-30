@@ -1,4 +1,4 @@
-import { randomBytes } from "crypto";
+import { randomBytes, createHash } from "crypto";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -28,13 +28,21 @@ export class SettingsService {
   async listApiKeys(workspaceId = DEFAULT_WORKSPACE_ID) {
     return this.prisma.apiKey.findMany({
       where: { workspaceId },
-      select: { id: true, name: true, lastUsedAt: true, expiresAt: true, createdAt: true },
+      select: { id: true, name: true, keyPrefix: true, lastUsedAt: true, expiresAt: true, createdAt: true },
     });
   }
 
   async createApiKey(name: string, workspaceId = DEFAULT_WORKSPACE_ID) {
-    const key = `px_${randomBytes(32).toString("base64url")}`;
-    return this.prisma.apiKey.create({ data: { name, key, workspaceId } });
+    const plaintext = `px_${randomBytes(32).toString("base64url")}`;
+    const keyHash = createHash("sha256").update(plaintext).digest("hex");
+    const keyPrefix = plaintext.slice(0, 10); // "px_" + first 7 chars
+
+    await this.prisma.apiKey.create({
+      data: { name, keyHash, keyPrefix, workspaceId },
+    });
+
+    // Return the plaintext key exactly once — it is never stored and cannot be recovered
+    return { name, keyPrefix, key: plaintext, note: "Store this key securely — it will not be shown again." };
   }
 
   async deleteApiKey(id: string, workspaceId = DEFAULT_WORKSPACE_ID) {
