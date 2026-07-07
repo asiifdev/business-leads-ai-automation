@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -7,7 +7,7 @@ function getToken(): string | null {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const token = getToken();
-  const res = await fetch(`${API_URL}/api${path}`, {
+  const res = await fetch(`${API_URL}${path}`, {
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -39,7 +39,7 @@ export const api = {
   /** Fetch a file with auth header and trigger browser download */
   async download(path: string, filename: string): Promise<void> {
     const token = getToken();
-    const res = await fetch(`${API_URL}/api${path}`, {
+    const res = await fetch(`${API_URL}${path}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (res.status === 401) { window.location.href = "/login"; return; }

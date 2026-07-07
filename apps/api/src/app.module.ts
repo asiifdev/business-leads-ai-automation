@@ -22,6 +22,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
       validationSchema: Joi.object({
         DATABASE_URL: Joi.string().required(),
         JWT_SECRET: Joi.string().min(16).required(),
+        ENCRYPTION_KEY: Joi.string().base64().required(),
         REDIS_URL: Joi.string().default("redis://localhost:6379"),
         PORT: Joi.number().default(3001),
         NODE_ENV: Joi.string().valid("development", "production", "test").default("development"),

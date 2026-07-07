@@ -5,6 +5,35 @@ import { PrismaService } from "../prisma/prisma.service";
 export class WorkspaceService {
   constructor(private prisma: PrismaService) {}
 
+  async getWorkspace(workspaceId: string) {
+    const workspace = await this.prisma.workspace.findUnique({ where: { id: workspaceId } });
+    if (!workspace) throw new NotFoundException("Workspace not found");
+    return workspace;
+  }
+
+  async updateWorkspace(
+    workspaceId: string,
+    data: { name?: string; slug?: string },
+    requesterId: string,
+  ) {
+    await this.requireOwnerOrAdmin(workspaceId, requesterId);
+
+    if (data.slug) {
+      const existing = await this.prisma.workspace.findUnique({ where: { slug: data.slug } });
+      if (existing && existing.id !== workspaceId) {
+        throw new ConflictException("Slug is already taken");
+      }
+    }
+
+    return this.prisma.workspace.update({
+      where: { id: workspaceId },
+      data: {
+        ...(data.name ? { name: data.name } : {}),
+        ...(data.slug ? { slug: data.slug } : {}),
+      },
+    });
+  }
+
   async getMembers(workspaceId: string) {
     return this.prisma.workspaceMember.findMany({
       where: { workspaceId },

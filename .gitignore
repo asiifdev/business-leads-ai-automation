@@ -29,3 +29,5 @@ output/
 .turbo
 coverage/
 *.log
+apps/marketing/next-env.d.ts
+apps/web/next-env.d.ts

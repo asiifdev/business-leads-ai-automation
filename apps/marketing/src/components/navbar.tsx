@@ -18,12 +18,12 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-6 text-sm text-slate-400">
           <Link href="#features" className="hover:text-white transition-colors">Features</Link>
           <Link href="#how-it-works" className="hover:text-white transition-colors">How it works</Link>
-          <Link href="https://github.com/asiifdev/prospex" target="_blank" className="hover:text-white transition-colors">Docs</Link>
+          <Link href="https://github.com/asiifdev/business-leads-ai-automation" target="_blank" className="hover:text-white transition-colors">Docs</Link>
         </div>
 
         <div className="flex items-center gap-3">
           <Link
-            href="https://github.com/asiifdev/prospex"
+            href="https://github.com/asiifdev/business-leads-ai-automation"
             target="_blank"
             className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors"
           >

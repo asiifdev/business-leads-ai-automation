@@ -14,7 +14,7 @@ export function Footer() {
         </div>
         <div className="flex items-center gap-6 text-slate-500 text-xs">
           <Link
-            href="https://github.com/asiifdev/prospex"
+            href="https://github.com/asiifdev/business-leads-ai-automation"
             target="_blank"
             className="hover:text-white transition-colors flex items-center gap-1"
           >

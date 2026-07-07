@@ -12,6 +12,22 @@ import { CurrentUserId } from "../auth/current-user.decorator";
 export class WorkspaceController {
   constructor(private readonly workspaceService: WorkspaceService) {}
 
+  @Get()
+  @ApiOperation({ summary: "Get the current workspace" })
+  getWorkspace(@WorkspaceId() workspaceId: string) {
+    return this.workspaceService.getWorkspace(workspaceId);
+  }
+
+  @Patch()
+  @ApiOperation({ summary: "Update workspace name/slug (owner/admin only)" })
+  updateWorkspace(
+    @WorkspaceId() workspaceId: string,
+    @CurrentUserId() requesterId: string,
+    @Body() body: { name?: string; slug?: string },
+  ) {
+    return this.workspaceService.updateWorkspace(workspaceId, body, requesterId);
+  }
+
   @Get("members")
   @ApiOperation({ summary: "List workspace members" })
   getMembers(@WorkspaceId() workspaceId: string) {

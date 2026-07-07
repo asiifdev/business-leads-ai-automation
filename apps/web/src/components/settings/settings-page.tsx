@@ -23,7 +23,19 @@ interface NewKeyResult extends ApiKey {
   key: string;
 }
 
+interface Workspace {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 export function SettingsPage() {
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [workspaceSlug, setWorkspaceSlug] = useState("");
+  const [savingWorkspace, setSavingWorkspace] = useState(false);
+  const [savedWorkspace, setSavedWorkspace] = useState(false);
+  const [workspaceError, setWorkspaceError] = useState("");
+
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [keysLoading, setKeysLoading] = useState(true);
   const [newKeyName, setNewKeyName] = useState("");
@@ -50,6 +62,34 @@ export function SettingsPage() {
   }, []);
 
   useEffect(() => { loadApiKeys(); }, [loadApiKeys]);
+
+  useEffect(() => {
+    api.get<Workspace>("/workspace")
+      .then((workspace) => {
+        setWorkspaceName(workspace.name);
+        setWorkspaceSlug(workspace.slug);
+      })
+      .catch(console.error);
+  }, []);
+
+  const saveWorkspace = async () => {
+    setSavingWorkspace(true);
+    setWorkspaceError("");
+    try {
+      const updated = await api.patch<Workspace>("/workspace", {
+        name: workspaceName,
+        slug: workspaceSlug,
+      });
+      setWorkspaceName(updated.name);
+      setWorkspaceSlug(updated.slug);
+      setSavedWorkspace(true);
+      setTimeout(() => setSavedWorkspace(false), 2000);
+    } catch (e) {
+      setWorkspaceError(e instanceof Error ? e.message : "Failed to save workspace");
+    } finally {
+      setSavingWorkspace(false);
+    }
+  };
 
   // Load saved AI integration config
   useEffect(() => {
@@ -129,11 +169,27 @@ export function SettingsPage() {
           <CardDescription>Your workspace information</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {workspaceError && (
+            <div className="text-sm text-red-500">{workspaceError}</div>
+          )}
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2"><Label>Workspace Name</Label><Input defaultValue="My Workspace" /></div>
-            <div className="space-y-2"><Label>Slug</Label><Input defaultValue="default" /></div>
+            <div className="space-y-2">
+              <Label>Workspace Name</Label>
+              <Input value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Slug</Label>
+              <Input value={workspaceSlug} onChange={(e) => setWorkspaceSlug(e.target.value)} />
+            </div>
           </div>
-          <Button className="bg-purple-600 hover:bg-purple-700">Save changes</Button>
+          <Button
+            className="bg-purple-600 hover:bg-purple-700"
+            onClick={saveWorkspace}
+            disabled={savingWorkspace}
+          >
+            {savingWorkspace && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {savedWorkspace ? "Saved!" : "Save changes"}
+          </Button>
         </CardContent>
       </Card>
 

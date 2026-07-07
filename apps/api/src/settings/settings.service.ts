@@ -1,15 +1,45 @@
 import { randomBytes, createHash } from "crypto";
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
+import { encryptSecret, decryptSecret } from "./encryption.util";
 
 const DEFAULT_WORKSPACE_ID = "default-workspace";
+const SECRET_CONFIG_KEYS = ["apiKey"];
 
 @Injectable()
 export class SettingsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private config: ConfigService,
+  ) {}
+
+  private get encryptionKey(): string {
+    return this.config.get<string>("ENCRYPTION_KEY")!;
+  }
+
+  private decryptConfig(config: Record<string, string>): Record<string, string> {
+    const result = { ...config };
+    for (const key of SECRET_CONFIG_KEYS) {
+      if (result[key]) result[key] = decryptSecret(result[key], this.encryptionKey);
+    }
+    return result;
+  }
+
+  private encryptConfig(config: Record<string, string>): Record<string, string> {
+    const result = { ...config };
+    for (const key of SECRET_CONFIG_KEYS) {
+      if (result[key]) result[key] = encryptSecret(result[key], this.encryptionKey);
+    }
+    return result;
+  }
 
   async getIntegrations(workspaceId = DEFAULT_WORKSPACE_ID) {
-    return this.prisma.integration.findMany({ where: { workspaceId } });
+    const integrations = await this.prisma.integration.findMany({ where: { workspaceId } });
+    return integrations.map((integration) => ({
+      ...integration,
+      config: this.decryptConfig(integration.config as Record<string, string>),
+    }));
   }
 
   async upsertIntegration(
@@ -18,11 +48,15 @@ export class SettingsService {
     config: Record<string, string>,
     workspaceId = DEFAULT_WORKSPACE_ID,
   ) {
+    const encryptedConfig = this.encryptConfig(config);
     const existing = await this.prisma.integration.findFirst({ where: { workspaceId, type } });
     if (existing) {
-      return this.prisma.integration.update({ where: { id: existing.id }, data: { config, enabled: true } });
+      return this.prisma.integration.update({
+        where: { id: existing.id },
+        data: { config: encryptedConfig, enabled: true },
+      });
     }
-    return this.prisma.integration.create({ data: { type, name, config, workspaceId } });
+    return this.prisma.integration.create({ data: { type, name, config: encryptedConfig, workspaceId } });
   }
 
   async listApiKeys(workspaceId = DEFAULT_WORKSPACE_ID) {
