@@ -79,7 +79,6 @@ jobs:
       JWT_SECRET: ci-test-secret-do-not-use-in-prod
       ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
       OPENAI_API_KEY: ""          # intentionally empty — AI falls back to mock
-      PORT: 3001
       NEXT_PUBLIC_API_URL: http://localhost:3001
 
     steps:
@@ -111,6 +110,8 @@ jobs:
         run: pnpm --filter @prospex/web build
 
       - name: Start API server
+        env:
+          PORT: 3001
         run: nohup node apps/api/dist/main.js > /tmp/api.log 2>&1 &
 
       - name: Start Web server
