@@ -1,4 +1,16 @@
+"use client";
+
+import { motion } from "framer-motion";
 import { MapPin, Cpu, Send } from "lucide-react";
+
+const container = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.1 } },
+};
+const item = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } },
+};
 
 const steps = [
   {
@@ -44,10 +56,17 @@ export function HowItWorks() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <motion.div
+          variants={container}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.2 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-6"
+        >
           {steps.map((step) => (
-            <div
+            <motion.div
               key={step.num}
+              variants={item}
               className={`bg-white/[0.03] border ${step.border} rounded-2xl p-6 hover:bg-white/[0.05] transition-colors`}
             >
               <div className="flex items-center gap-3 mb-4">
@@ -58,9 +77,9 @@ export function HowItWorks() {
               </div>
               <h3 className="text-white font-semibold mb-2">{step.title}</h3>
               <p className="text-slate-400 text-sm leading-relaxed">{step.desc}</p>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   );

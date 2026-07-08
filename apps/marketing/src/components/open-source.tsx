@@ -1,10 +1,19 @@
+"use client";
+
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { Github, Star, GitFork, ArrowRight } from "lucide-react";
 
 export function OpenSource() {
   return (
     <section className="py-24 px-4 sm:px-6">
-      <div className="max-w-4xl mx-auto text-center">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.2 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="max-w-4xl mx-auto text-center"
+      >
         <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-slate-300 text-xs px-3 py-1.5 rounded-full mb-8">
           <Github className="w-3.5 h-3.5" />
           100% open source · MIT license
@@ -12,7 +21,7 @@ export function OpenSource() {
 
         <h2 className="text-3xl sm:text-5xl font-bold text-white mb-6 leading-tight">
           Built in the open,{" "}
-          <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+          <span className="text-gradient-brand">
             for everyone
           </span>
         </h2>
@@ -33,7 +42,7 @@ export function OpenSource() {
           </Link>
           <Link
             href="http://localhost:3000/register"
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all text-sm shadow-lg shadow-purple-500/25 hover:-translate-y-0.5"
+            className="flex items-center gap-2 bg-gradient-brand text-white px-6 py-3 rounded-xl font-semibold transition-all text-sm shadow-glow hover:-translate-y-0.5"
           >
             Try it now <ArrowRight className="w-4 h-4" />
           </Link>
@@ -66,7 +75,7 @@ export function OpenSource() {
             <span className="text-emerald-400">pnpm dev</span>
           </pre>
         </div>
-      </div>
+      </motion.div>
     </section>
   );
 }

@@ -1,14 +1,25 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Phone, Globe, MapPin, Star, Mail, MessageCircle, Loader2, Copy, Instagram } from "lucide-react";
 import { useLead } from "@/hooks/use-leads";
 import { api } from "@/lib/api";
+
+const container = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
+};
+const item = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0 },
+};
 
 export function LeadDetail({ id }: { id: string }) {
   const { lead, loading, refresh } = useLead(id);
@@ -30,8 +41,40 @@ export function LeadDetail({ id }: { id: string }) {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      <div className="space-y-6 max-w-4xl">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-9 w-9 rounded-md" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-5 w-1/3" />
+            <Skeleton className="h-3.5 w-1/2" />
+          </div>
+          <Skeleton className="h-8 w-12" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 space-y-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <Skeleton className="h-4 w-28" />
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-4 w-3/4" />
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <Skeleton className="h-4 w-24" />
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }
@@ -40,8 +83,13 @@ export function LeadDetail({ id }: { id: string }) {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div className="flex items-center gap-3">
+    <motion.div
+      variants={container}
+      initial="hidden"
+      animate="show"
+      className="space-y-6 max-w-4xl"
+    >
+      <motion.div variants={item} className="flex items-center gap-3">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/leads"><ArrowLeft className="h-4 w-4" /></Link>
         </Button>
@@ -54,13 +102,13 @@ export function LeadDetail({ id }: { id: string }) {
           <p className="text-sm text-muted-foreground">{lead.industry} · {lead.address}</p>
         </div>
         <div className="text-right flex-shrink-0">
-          <div className="text-2xl font-bold text-purple-600">{lead.score}</div>
+          <div className="text-2xl font-bold text-primary">{lead.score}</div>
           <div className="text-xs text-muted-foreground">AI Score</div>
         </div>
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4">
+        <motion.div variants={item} className="lg:col-span-2 space-y-4">
           {/* Contact Info */}
           <Card>
             <CardHeader className="pb-3">
@@ -101,7 +149,7 @@ export function LeadDetail({ id }: { id: string }) {
                 {lead.marketingContent.email && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <Mail className="w-4 h-4 text-blue-500" />
+                      <Mail className="w-4 h-4 text-info" />
                       <span className="text-sm font-medium">Email</span>
                       <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs opacity-60 hover:opacity-100" onClick={() => navigator.clipboard.writeText(lead.marketingContent!.email!.body)}>
                         Copy
@@ -118,7 +166,7 @@ export function LeadDetail({ id }: { id: string }) {
                     <Separator />
                     <div>
                       <div className="flex items-center gap-2 mb-2">
-                        <MessageCircle className="w-4 h-4 text-emerald-500" />
+                        <MessageCircle className="w-4 h-4 text-success" />
                         <span className="text-sm font-medium">WhatsApp</span>
                         <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs opacity-60 hover:opacity-100" onClick={() => navigator.clipboard.writeText(lead.marketingContent!.whatsapp!)}>
                           Copy
@@ -147,10 +195,10 @@ export function LeadDetail({ id }: { id: string }) {
               </CardContent>
             </Card>
           )}
-        </div>
+        </motion.div>
 
         {/* CRM Panel */}
-        <div className="space-y-4">
+        <motion.div variants={item} className="space-y-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">CRM Status</CardTitle>
@@ -174,7 +222,8 @@ export function LeadDetail({ id }: { id: string }) {
                 </SelectContent>
               </Select>
               <Button
-                className="w-full bg-purple-600 hover:bg-purple-700 text-sm h-9"
+                variant="gradient"
+                className="w-full text-sm h-9"
                 onClick={handleCrmUpdate}
                 disabled={saving || !crmStatus}
               >
@@ -190,7 +239,7 @@ export function LeadDetail({ id }: { id: string }) {
             <CardContent>
               <div className="space-y-3">
                 {(lead.activities || []).map((a) => (
-                  <div key={a.id} className="text-xs border-l-2 border-purple-500/30 pl-3">
+                  <div key={a.id} className="text-xs border-l-2 border-primary/30 pl-3">
                     <p className="font-medium capitalize text-muted-foreground">{a.type}</p>
                     <p className="mt-0.5">{a.note}</p>
                   </div>
@@ -201,8 +250,8 @@ export function LeadDetail({ id }: { id: string }) {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { ArrowRight, Github, Zap } from "lucide-react";
 
 export function Hero() {
@@ -12,7 +15,12 @@ export function Hero() {
       {/* Grid */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px]" />
 
-      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 text-center">
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" as const }}
+        className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 text-center"
+      >
         <div className="inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs px-3 py-1.5 rounded-full mb-8 font-medium">
           <Zap className="w-3 h-3" />
           Open-source · Self-hosted · Free forever
@@ -20,7 +28,7 @@ export function Hero() {
 
         <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-white leading-[1.08] tracking-tight mb-6">
           AI-powered{" "}
-          <span className="bg-gradient-to-r from-purple-400 via-violet-400 to-blue-400 bg-clip-text text-transparent">
+          <span className="text-gradient-brand">
             lead generation
           </span>
           {" "}&amp; outreach
@@ -34,7 +42,7 @@ export function Hero() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
           <Link
             href="http://localhost:3000/register"
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-0.5 text-sm"
+            className="flex items-center gap-2 bg-gradient-brand text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-glow hover:brightness-110 hover:-translate-y-0.5 text-sm"
           >
             Start for free <ArrowRight className="w-4 h-4" />
           </Link>
@@ -48,7 +56,12 @@ export function Hero() {
         </div>
 
         {/* Dashboard mockup */}
-        <div className="relative max-w-4xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" as const }}
+          className="relative max-w-4xl mx-auto"
+        >
           <div className="absolute -inset-px bg-gradient-to-b from-purple-500/20 via-transparent to-transparent rounded-2xl" />
           <div className="relative bg-slate-900/90 border border-white/10 rounded-2xl overflow-hidden shadow-2xl shadow-black/50">
             {/* Browser bar */}
@@ -100,8 +113,8 @@ export function Hero() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </section>
   );
 }

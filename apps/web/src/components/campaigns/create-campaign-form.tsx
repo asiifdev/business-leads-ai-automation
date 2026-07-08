@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, X } from "lucide-react";
+import { motion } from "framer-motion";
 
 const INDUSTRIES = [
   { value: "restaurant", label: "Restaurant & F&B" },
@@ -70,7 +71,12 @@ export function CreateCampaignForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <motion.form
+      onSubmit={handleSubmit}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Campaign Details</CardTitle>
@@ -179,7 +185,7 @@ export function CreateCampaignForm() {
         </CardContent>
         <CardFooter className="gap-3">
           <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
-          <Button type="submit" className="bg-purple-600 hover:bg-purple-700 shadow-sm shadow-purple-500/20 flex-1" disabled={loading}>
+          <Button type="submit" variant="gradient" className="flex-1" disabled={loading}>
             {loading ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Starting campaign...</>
             ) : (
@@ -188,6 +194,6 @@ export function CreateCampaignForm() {
           </Button>
         </CardFooter>
       </Card>
-    </form>
+    </motion.form>
   );
 }

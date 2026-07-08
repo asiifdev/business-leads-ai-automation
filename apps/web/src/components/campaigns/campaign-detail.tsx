@@ -1,15 +1,26 @@
 "use client";
 import { useEffect } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Download, Users, Star, TrendingUp, MapPin, Loader2, Search } from "lucide-react";
 import { useCampaign } from "@/hooks/use-campaigns";
 import { useLeads } from "@/hooks/use-leads";
 import { LeadsTable } from "@/components/leads/leads-table";
 import { api } from "@/lib/api";
+
+const container = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
+};
+const item = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0 },
+};
 
 export function CampaignDetail({ id }: { id: string }) {
   const { campaign, loading, refresh } = useCampaign(id);
@@ -27,8 +38,25 @@ export function CampaignDetail({ id }: { id: string }) {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-9 w-9 rounded-md" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-5 w-1/3" />
+            <Skeleton className="h-3.5 w-1/2" />
+          </div>
+          <Skeleton className="h-8 w-20" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-4 pb-4 space-y-2">
+                <Skeleton className="h-3.5 w-2/3" />
+                <Skeleton className="h-7 w-1/2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -37,8 +65,8 @@ export function CampaignDetail({ id }: { id: string }) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
+    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+      <motion.div variants={item} className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/campaigns"><ArrowLeft className="h-4 w-4" /></Link>
         </Button>
@@ -66,16 +94,16 @@ export function CampaignDetail({ id }: { id: string }) {
             <Download className="mr-2 h-4 w-4" />vCard
           </Button>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <motion.div variants={item} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Leads", value: campaign.totalLeads, icon: Users, color: "text-blue-500" },
-          { label: "Priority Leads", value: campaign.priorityLeads, icon: Star, color: "text-amber-500" },
-          { label: "High Quality", value: campaign.highQualityLeads, icon: TrendingUp, color: "text-emerald-500" },
-          { label: "Avg Score", value: campaign.averageScore || "—", icon: MapPin, color: "text-purple-500" },
+          { label: "Total Leads", value: campaign.totalLeads, icon: Users, color: "text-info" },
+          { label: "Priority Leads", value: campaign.priorityLeads, icon: Star, color: "text-warning" },
+          { label: "High Quality", value: campaign.highQualityLeads, icon: TrendingUp, color: "text-success" },
+          { label: "Avg Score", value: campaign.averageScore || "—", icon: MapPin, color: "text-primary" },
         ].map((s) => (
-          <Card key={s.label}>
+          <Card key={s.label} interactive>
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center gap-2 mb-1">
                 <s.icon className={`w-4 h-4 ${s.color}`} />
@@ -85,35 +113,39 @@ export function CampaignDetail({ id }: { id: string }) {
             </CardContent>
           </Card>
         ))}
-      </div>
+      </motion.div>
 
       {campaign.status === "running" && (
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex justify-between text-sm mb-2">
-              <span className="flex items-center gap-1.5 text-muted-foreground">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />Scraping in progress...
-              </span>
-              <span className="font-medium">{campaign.progress}%</span>
-            </div>
-            <Progress value={campaign.progress} className="h-2" />
-          </CardContent>
-        </Card>
+        <motion.div variants={item}>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-info" />Scraping in progress...
+                </span>
+                <span className="font-medium">{campaign.progress}%</span>
+              </div>
+              <Progress value={campaign.progress} className="h-2" />
+            </CardContent>
+          </Card>
+        </motion.div>
       )}
 
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Leads ({leads.length})</CardTitle>
-            <Button variant="outline" size="sm" className="text-xs">
-              <Search className="mr-1 w-3 h-3" />Filter
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <LeadsTable leads={leads} loading={leadsLoading} />
-        </CardContent>
-      </Card>
-    </div>
+      <motion.div variants={item}>
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Leads ({leads.length})</CardTitle>
+              <Button variant="outline" size="sm" className="text-xs">
+                <Search className="mr-1 w-3 h-3" />Filter
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <LeadsTable leads={leads} loading={leadsLoading} />
+          </CardContent>
+        </Card>
+      </motion.div>
+    </motion.div>
   );
 }

@@ -1,10 +1,20 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Mail, Send, Webhook, Plug, ArrowRight, Zap } from "lucide-react";
 import Link from "next/link";
+
+const container = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.05 } },
+};
+const item = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0 },
+};
 
 const integrations = [
   {
@@ -87,10 +97,10 @@ export function IntegrationsPage() {
       </div>
 
       {/* API Keys callout */}
-      <Card className="border-purple-500/30 bg-purple-500/5">
+      <Card className="border-primary/30 bg-primary/5">
         <CardContent className="flex items-center gap-4 py-4">
-          <div className="p-2 bg-purple-500/20 rounded-lg flex-shrink-0">
-            <Zap className="w-5 h-5 text-purple-500" />
+          <div className="p-2 bg-gradient-brand rounded-lg flex-shrink-0 shadow-glow">
+            <Zap className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium">Use the Prospex REST API</p>
@@ -104,7 +114,7 @@ export function IntegrationsPage() {
                 Swagger Docs
               </a>
             </Button>
-            <Button size="sm" asChild className="bg-purple-600 hover:bg-purple-700">
+            <Button size="sm" asChild variant="gradient">
               <Link href="/settings">API Keys</Link>
             </Button>
           </div>
@@ -116,34 +126,41 @@ export function IntegrationsPage() {
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             {category}
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <motion.div
+            variants={container}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+          >
             {integrations
               .filter((i) => i.category === category)
               .map((integration) => (
-                <Card key={integration.id} className="relative overflow-hidden opacity-80">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${integration.bg} flex-shrink-0`}>
-                          <integration.icon className={`w-5 h-5 ${integration.color}`} />
+                <motion.div key={integration.id} variants={item}>
+                  <Card interactive className="relative overflow-hidden h-full">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${integration.bg} flex-shrink-0`}>
+                            <integration.icon className={`w-5 h-5 ${integration.color}`} />
+                          </div>
+                          <div>
+                            <CardTitle className="text-sm">{integration.name}</CardTitle>
+                          </div>
                         </div>
-                        <div>
-                          <CardTitle className="text-sm">{integration.name}</CardTitle>
-                        </div>
+                        <Badge variant="secondary" className="text-[10px] flex-shrink-0">
+                          Coming Soon
+                        </Badge>
                       </div>
-                      <Badge variant="secondary" className="text-[10px] flex-shrink-0">
-                        Coming Soon
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <CardDescription className="text-xs leading-relaxed">
-                      {integration.description}
-                    </CardDescription>
-                  </CardContent>
-                </Card>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <CardDescription className="text-xs leading-relaxed">
+                        {integration.description}
+                      </CardDescription>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               ))}
-          </div>
+          </motion.div>
         </div>
       ))}
 
@@ -153,7 +170,7 @@ export function IntegrationsPage() {
           href="https://github.com/asiifdev/business-leads-ai-automation/issues"
           target="_blank"
           rel="noreferrer"
-          className="text-purple-500 hover:underline"
+          className="text-primary hover:underline"
         >
           Request it on GitHub
         </a>

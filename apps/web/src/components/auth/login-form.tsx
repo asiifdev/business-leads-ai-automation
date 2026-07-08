@@ -14,13 +14,23 @@ export function LoginForm() {
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  const validate = () => {
+    const errors: { email?: string; password?: string } = {};
+    if (!/^\S+@\S+\.\S+$/.test(email)) errors.email = "Enter a valid email address";
+    if (!password) errors.password = "Password is required";
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
     setError("");
+    if (!validate()) return;
+    setLoading(true);
     try {
       await login(email, password);
       router.push("/dashboard");
@@ -48,9 +58,11 @@ export function LoginForm() {
               placeholder="you@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-purple-500"
+              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-primary"
+              aria-invalid={!!fieldErrors.email}
               required
             />
+            {fieldErrors.email && <p className="text-xs text-destructive">{fieldErrors.email}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="password" className="text-slate-300">Password</Label>
@@ -60,23 +72,21 @@ export function LoginForm() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-purple-500"
+              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-primary"
+              aria-invalid={!!fieldErrors.password}
               required
             />
+            {fieldErrors.password && <p className="text-xs text-destructive">{fieldErrors.password}</p>}
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-3 pb-6">
-          <Button
-            type="submit"
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-            disabled={loading}
-          >
+          <Button type="submit" variant="gradient" className="w-full" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sign in
+            {loading ? "Signing in..." : "Sign in"}
           </Button>
           <p className="text-sm text-slate-400 text-center">
             Don&apos;t have an account?{" "}
-            <a href="/register" className="text-purple-400 hover:text-purple-300">Sign up</a>
+            <a href="/register" className="text-primary hover:text-primary/80">Sign up</a>
           </p>
         </CardFooter>
       </form>

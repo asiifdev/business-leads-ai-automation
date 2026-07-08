@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -25,8 +26,22 @@ interface IndustryRow {
 }
 
 const CRM_COLORS: Record<string, string> = {
-  new: "#94a3b8", contacted: "#60a5fa", replied: "#818cf8",
-  meeting: "#a78bfa", proposal: "#f59e0b", won: "#34d399", lost: "#f87171",
+  new: "hsl(var(--muted-foreground))",
+  contacted: "hsl(var(--info))",
+  replied: "hsl(var(--primary))",
+  meeting: "hsl(280 85% 65%)",
+  proposal: "hsl(var(--warning))",
+  won: "hsl(var(--success))",
+  lost: "hsl(var(--destructive))",
+};
+
+const container = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
+};
+const item = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0 },
 };
 
 export function AnalyticsDashboard() {
@@ -61,8 +76,29 @@ export function AnalyticsDashboard() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-6 space-y-2">
+                <Skeleton className="h-7 w-16" />
+                <Skeleton className="h-3.5 w-24" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card className="lg:col-span-2">
+            <CardContent className="pt-6">
+              <Skeleton className="h-[240px] w-full" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <Skeleton className="h-[200px] w-full" />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -76,16 +112,23 @@ export function AnalyticsDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((item) => (
-          <Card key={item.label}>
-            <CardContent className="pt-6">
-              <p className="text-2xl font-bold">{item.value}</p>
-              <p className="text-sm text-muted-foreground mt-0.5">{item.label}</p>
-            </CardContent>
-          </Card>
+      <motion.div
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+      >
+        {stats.map((stat) => (
+          <motion.div key={stat.label} variants={item}>
+            <Card interactive className="h-full">
+              <CardContent className="pt-6">
+                <p className="text-2xl font-bold">{stat.value}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">{stat.label}</p>
+              </CardContent>
+            </Card>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
@@ -111,8 +154,8 @@ export function AnalyticsDashboard() {
                       fontSize: "12px",
                     }}
                   />
-                  <Bar dataKey="leads" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Total Leads" />
-                  <Bar dataKey="avgScore" fill="#10b981" radius={[4, 4, 0, 0]} name="Avg Score" />
+                  <Bar dataKey="leads" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Total Leads" />
+                  <Bar dataKey="avgScore" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} name="Avg Score" />
                 </BarChart>
               </ResponsiveContainer>
             )}
