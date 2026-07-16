@@ -12,7 +12,7 @@ concurrency:
 jobs:
   build-and-push:
     name: Build & Push ${{ matrix.app }}
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       contents: read
       packages: write
