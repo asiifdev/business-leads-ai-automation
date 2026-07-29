@@ -52,7 +52,6 @@ export function useCampaign(id: string) {
 
   const refresh = useCallback(async () => {
     try {
-      setLoading(true);
       const data = await api.get<Campaign>(`/campaigns/${id}`);
       setCampaign(data);
       setError(null);
@@ -63,6 +62,6 @@ export function useCampaign(id: string) {
     }
   }, [id]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { setLoading(true); refresh(); }, [refresh]);
   return { campaign, loading, error, refresh };
 }

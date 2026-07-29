@@ -6,9 +6,12 @@ export interface Lead {
   id: string;
   name: string;
   address: string;
+  lat?: number | null;
+  lng?: number | null;
   phone: string;
   website: string;
   rating: string;
+  reviewCount?: number | null;
   score: number;
   priority: "HIGH" | "MEDIUM" | "LOW";
   crmStatus: "new" | "contacted" | "replied" | "meeting" | "proposal" | "won" | "lost";
@@ -60,7 +63,6 @@ export function useLeads(filter: LeadFilter = {}) {
 
   const refresh = useCallback(async () => {
     try {
-      setLoading(true);
       const params = new URLSearchParams();
       if (campaignId) params.set("campaignId", campaignId);
       if (q) params.set("q", q);
@@ -80,7 +82,7 @@ export function useLeads(filter: LeadFilter = {}) {
     }
   }, [campaignId, q, priority, status, page, limit]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { setLoading(true); refresh(); }, [refresh]);
   return { leads, total, loading, error, refresh };
 }
 

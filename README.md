@@ -210,6 +210,18 @@ pnpm --filter @prospex/database db:studio   # Prisma Studio (DB browser)
 
 ---
 
+## Changelog
+
+### 2026-07-29
+- **Fix**: search queries now combine each campaign's search term with every area in its `location` field (split on commas) before scraping — previously `location` was stored but never sent to the scraper, so results could drift to the scraping server's IP-based region instead of the requested cities.
+- **Feature**: leads now capture `lat`/`lng` coordinates (parsed from the scraped Google Maps place URL) and store them on the `Lead` model.
+- **Feature**: campaign detail page has a new "Map" tab with a Leaflet-based lead map (custom priority-colored markers, auto-fit bounds, popups linking to lead detail) alongside the existing "List" view.
+- **Fix**: scraping progress no longer gets stuck at 0% — the scraper now reports incremental progress per search query/area combo while scraping runs (previously progress only updated before scraping started and after it fully finished, so long-running scrapes appeared frozen).
+- **Fix**: campaign and lead list polling (every 2s while a campaign is running) no longer flashes the whole page back to a loading skeleton on every refresh — only the initial fetch shows the skeleton, so live progress/lead updates render smoothly.
+- **Fix**: lead scoring/ordering no longer ranks by raw star rating alone (a 5.0★ lead with 1 review could previously outrank a 4.5★ lead with thousands of reviews). Review count is now scraped and stored, and rating contribution to the score uses a Bayesian average (weighted toward a neutral 4.0★ prior by review volume) so low-review, high-star leads no longer unfairly beat well-reviewed ones.
+
+---
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

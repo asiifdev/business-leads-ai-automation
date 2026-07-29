@@ -42,7 +42,7 @@ export class ScraperProcessor extends WorkerHost {
     try {
       await this.campaigns.updateStatus(campaignId, "running", 0);
 
-      const rawLeads = await this.scrapeLeads(data);
+      const rawLeads = await this.scrapeLeads(data, campaignId);
       const total = rawLeads.length;
 
       if (total === 0) {
@@ -85,7 +85,11 @@ export class ScraperProcessor extends WorkerHost {
             phone: lead.phone,
             website: lead.website,
             rating: lead.rating,
+            reviewCount: lead.reviewCount ?? undefined,
             hasWebsite: lead.hasWebsite ?? false,
+            referenceUrl: lead.referenceUrl,
+            lat: lead.lat ?? undefined,
+            lng: lead.lng ?? undefined,
             score: lead.score,
             priority: lead.priority,
             aiAnalysis: { factors: lead.factors, recommendation: lead.recommendation },
@@ -120,19 +124,31 @@ export class ScraperProcessor extends WorkerHost {
     }
   }
 
-  private async scrapeLeads(data: ScraperJobData) {
-    const perQuery = Math.ceil(data.maxResults / data.searchQueries.length);
+  private async scrapeLeads(data: ScraperJobData, campaignId: string) {
+    const areas = data.location
+      .split(",")
+      .map((a) => a.trim())
+      .filter(Boolean);
+    if (areas.length === 0) areas.push(data.location);
+
+    const combos = data.searchQueries.flatMap((query) =>
+      areas.map((area) => ({ query: `${query} ${area}`.trim(), area })),
+    );
+    const perQuery = Math.ceil(data.maxResults / combos.length);
     const results: ReturnType<typeof this.normalizeRaw>[] = [];
 
-    for (const query of data.searchQueries) {
+    for (let i = 0; i < combos.length; i++) {
+      const combo = combos[i];
       try {
-        const raw = await this.googleMaps.scrape(query, perQuery);
+        const raw = await this.googleMaps.scrape(combo.query, perQuery);
         results.push(...raw.map((b) => this.normalizeRaw(b, data.industry)));
-        this.logger.log(`Query "${query}": ${raw.length} results`);
+        this.logger.log(`Query "${combo.query}": ${raw.length} results`);
       } catch (err) {
-        this.logger.warn(`Scrape failed for "${query}", using mock fallback: ${err}`);
-        results.push(...this.generateMockLeads(data, query, perQuery));
+        this.logger.warn(`Scrape failed for "${combo.query}", using mock fallback: ${err}`);
+        results.push(...this.generateMockLeads(data, combo.query, combo.area, perQuery));
       }
+      const pct = Math.round(((i + 1) / combos.length) * 28);
+      await this.campaigns.updateStatus(campaignId, "running", pct);
     }
 
     // Deduplicate by name+address
@@ -145,19 +161,37 @@ export class ScraperProcessor extends WorkerHost {
     });
   }
 
-  private normalizeRaw(raw: { name: string; address: string; phone: string; website: string; rating: string; hasWebsite: boolean }, industry: string) {
+  private normalizeRaw(
+    raw: {
+      name: string;
+      address: string;
+      phone: string;
+      website: string;
+      rating: string;
+      reviewCount?: number | null;
+      hasWebsite: boolean;
+      referenceLink?: string;
+      lat?: number | null;
+      lng?: number | null;
+    },
+    industry: string,
+  ) {
     return {
       name: raw.name,
       address: raw.address,
       phone: raw.phone ?? "",
       website: raw.website ?? "",
       rating: raw.rating ?? "N/A",
+      reviewCount: raw.reviewCount ?? null,
       hasWebsite: raw.hasWebsite ?? !!raw.website,
+      referenceUrl: raw.referenceLink ?? "",
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
       industry,
     };
   }
 
-  private generateMockLeads(data: ScraperJobData, query: string, count: number) {
+  private generateMockLeads(data: ScraperJobData, query: string, area: string, count: number) {
     const label = query || data.industry;
     const prefixes = [
       `${label} Premier`, `Toko ${label} Jaya`, `${label} Makmur`,
@@ -166,11 +200,15 @@ export class ScraperProcessor extends WorkerHost {
     ];
     return Array.from({ length: Math.min(count, prefixes.length) }, (_, i) => ({
       name: prefixes[i],
-      address: `Jl. ${data.location} No. ${10 + i}, ${data.location}`,
+      address: `Jl. ${area} No. ${10 + i}, ${area}`,
       phone: `+628${String(10000000 + i * 1234567)}`,
       website: i % 3 !== 0 ? `www.${label.toLowerCase().replace(/\s+/g, "")}${i + 1}.com` : "",
       rating: ((3.5 + (i % 3) * 0.4)).toFixed(1),
+      reviewCount: 5 + i * 17,
       hasWebsite: i % 3 !== 0,
+      referenceUrl: "",
+      lat: null,
+      lng: null,
       industry: data.industry,
     }));
   }

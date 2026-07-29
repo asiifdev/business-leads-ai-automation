@@ -1,17 +1,24 @@
 "use client";
 import { useEffect } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Download, Users, Star, TrendingUp, MapPin, Loader2, Search } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ArrowLeft, Download, Users, Star, TrendingUp, MapPin, Loader2, Search, List, Map as MapIcon } from "lucide-react";
 import { useCampaign } from "@/hooks/use-campaigns";
 import { useLeads } from "@/hooks/use-leads";
 import { LeadsTable } from "@/components/leads/leads-table";
 import { api } from "@/lib/api";
+
+const LeadsMap = dynamic(() => import("@/components/leads/leads-map").then((m) => m.LeadsMap), {
+  ssr: false,
+  loading: () => <div className="h-[520px] w-full animate-pulse bg-muted" />,
+});
 
 const container = {
   hidden: { opacity: 0 },
@@ -133,17 +140,40 @@ export function CampaignDetail({ id }: { id: string }) {
 
       <motion.div variants={item}>
         <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Leads ({leads.length})</CardTitle>
-              <Button variant="outline" size="sm" className="text-xs">
-                <Search className="mr-1 w-3 h-3" />Filter
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <LeadsTable leads={leads} loading={leadsLoading} />
-          </CardContent>
+          <Tabs defaultValue="list">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Leads ({leads.length})</CardTitle>
+                <div className="flex items-center gap-2">
+                  <TabsList>
+                    <TabsTrigger value="list" className="text-xs">
+                      <List className="mr-1 w-3 h-3" />List
+                    </TabsTrigger>
+                    <TabsTrigger value="map" className="text-xs">
+                      <MapIcon className="mr-1 w-3 h-3" />Map
+                    </TabsTrigger>
+                  </TabsList>
+                  <Button variant="outline" size="sm" className="text-xs">
+                    <Search className="mr-1 w-3 h-3" />Filter
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <TabsContent value="list" className="mt-0">
+              <CardContent className="p-0">
+                <LeadsTable leads={leads} loading={leadsLoading} />
+              </CardContent>
+            </TabsContent>
+            <TabsContent value="map" className="mt-0">
+              <CardContent className="p-0">
+                {leadsLoading ? (
+                  <div className="h-[520px] w-full animate-pulse bg-muted" />
+                ) : (
+                  <LeadsMap leads={leads} />
+                )}
+              </CardContent>
+            </TabsContent>
+          </Tabs>
         </Card>
       </motion.div>
     </motion.div>

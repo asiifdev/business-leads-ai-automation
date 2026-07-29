@@ -85,10 +85,14 @@ export class LeadsService {
   async createMany(leads: Array<{
     name: string;
     address?: string;
+    lat?: number;
+    lng?: number;
     phone?: string;
     website?: string;
     rating?: string;
+    reviewCount?: number;
     hasWebsite?: boolean;
+    referenceUrl?: string;
     score?: number;
     priority?: string;
     marketingContent?: object;

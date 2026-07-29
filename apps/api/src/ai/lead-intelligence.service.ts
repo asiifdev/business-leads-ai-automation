@@ -6,7 +6,11 @@ interface LeadData {
   phone?: string;
   website?: string;
   rating?: string;
+  reviewCount?: number | null;
   hasWebsite?: boolean;
+  referenceUrl?: string;
+  lat?: number | null;
+  lng?: number | null;
   industry?: string;
 }
 
@@ -39,10 +43,26 @@ export class LeadIntelligenceService {
     if (lead.website || lead.hasWebsite) { score += 10; factors.push("Has website"); }
     if (lead.address) { score += 5; factors.push("Has address"); }
 
-    const rating = parseFloat(lead.rating ?? "0");
-    if (rating >= 4.5) { score += 15; factors.push(`High rating: ${rating}★`); }
-    else if (rating >= 4.0) { score += 10; factors.push(`Good rating: ${rating}★`); }
-    else if (rating >= 3.5) { score += 5; factors.push(`Average rating: ${rating}★`); }
+    const rawRating = parseFloat(lead.rating ?? "0");
+    if (rawRating > 0) {
+      // Bayesian average: pulls the rating toward a neutral prior (4.0★, worth
+      // PRIOR_WEIGHT "reviews") so a 5★/1-review lead can't outrank a 4.5★/thousands
+      // -review lead just because it has fewer, noisier ratings.
+      const PRIOR_MEAN = 4.0;
+      const PRIOR_WEIGHT = 25;
+      const n = lead.reviewCount ?? 1; // unknown count treated as low-confidence (1 review)
+      const rating = (PRIOR_WEIGHT * PRIOR_MEAN + n * rawRating) / (PRIOR_WEIGHT + n);
+
+      if (rating >= 4.5) score += 15;
+      else if (rating >= 4.0) score += 10;
+      else if (rating >= 3.5) score += 5;
+
+      const countLabel = lead.reviewCount != null ? ` (${lead.reviewCount} reviews)` : "";
+      factors.push(`Rating: ${rawRating}★${countLabel}`);
+
+      if ((lead.reviewCount ?? 0) >= 100) { score += 5; factors.push("Well-established (100+ reviews)"); }
+      else if ((lead.reviewCount ?? 0) >= 20) { score += 2; factors.push("Established (20+ reviews)"); }
+    }
 
     const industryKey = (targetIndustry || lead.industry || "").toLowerCase().replace(/[^a-z]/g, "");
     const industryScore = this.INDUSTRY_SCORES[industryKey];

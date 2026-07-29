@@ -7,9 +7,22 @@ export interface ScrapedBusiness {
   phone: string;
   website: string;
   rating: string;
+  reviewCount: number | null;
   hasWebsite: boolean;
   referenceLink: string;
+  lat: number | null;
+  lng: number | null;
   source: string;
+}
+
+// Google Maps place URLs embed coordinates either as a precise place marker
+// (!3d<lat>!4d<lng>) or as the viewport anchor (@lat,lng,zoom) — prefer the former.
+function extractLatLng(url: string): { lat: number | null; lng: number | null } {
+  const precise = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  if (precise) return { lat: parseFloat(precise[1]), lng: parseFloat(precise[2]) };
+  const viewport = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (viewport) return { lat: parseFloat(viewport[1]), lng: parseFloat(viewport[2]) };
+  return { lat: null, lng: null };
 }
 
 @Injectable()
@@ -120,7 +133,7 @@ export class GoogleMapsScraperService {
     // $$eval is Playwright's scoped DOM query — the callback is a static inline
     // function serialized and run in the browser context. No user-supplied data
     // flows into the function body, so there is no injection risk here.
-    return page
+    const cards = await page
       .$$eval(".Nv2PK, [data-result-index]", (cards) =>
         cards
           .map((card) => {
@@ -135,9 +148,21 @@ export class GoogleMapsScraperService {
             }
             if (!name) return null;
 
+            // The rating wrapper's aria-label usually reads like "4.5 stars 1,234 Reviews" —
+            // parse both the star value and the review count from it when present.
             let rating = "";
-            const rEl = card.querySelector('.MW4etd, [aria-label*="star"]');
-            if (rEl) rating = rEl.textContent?.trim() ?? "";
+            let reviewCount: number | null = null;
+            const ratingWrap = card.querySelector('[aria-label*="star" i]');
+            const ariaLabel = ratingWrap?.getAttribute("aria-label") ?? "";
+            const ratingMatch = ariaLabel.match(/([\d.]+)\s*star/i);
+            const reviewMatch = ariaLabel.match(/([\d.,]+)\s*review/i);
+            if (ratingMatch) rating = ratingMatch[1];
+            if (reviewMatch) reviewCount = parseInt(reviewMatch[1].replace(/[.,]/g, ""), 10);
+
+            if (!rating) {
+              const rEl = card.querySelector(".MW4etd");
+              if (rEl) rating = rEl.textContent?.trim() ?? "";
+            }
 
             let address = "";
             let phone = "";
@@ -152,6 +177,10 @@ export class GoogleMapsScraperService {
               }
               if (!address && /\bJl\.|\bJalan\b|\bStreet\b|\bSt\.|\bRd\.|\bNo\.\s*\d/i.test(t)) {
                 address = t.replace(/^[·•–]\s*/, "").trim();
+              }
+              if (reviewCount === null) {
+                const m = t.match(/^\(([\d.,]+)\)$/);
+                if (m) reviewCount = parseInt(m[1].replace(/[.,]/g, ""), 10);
               }
             }
 
@@ -169,15 +198,18 @@ export class GoogleMapsScraperService {
               address,
               phone: phone.replace(/\D/g, "").replace(/^62/, "0").replace(/^0+/, "0"),
               rating: rating || "N/A",
+              reviewCount,
               website,
               hasWebsite: !!website,
               referenceLink,
               source: "Google Maps",
             };
           })
-          .filter(Boolean),
+          .filter((c): c is NonNullable<typeof c> => c !== null),
       )
-      .catch(() => []) as Promise<ScrapedBusiness[]>;
+      .catch(() => []);
+
+    return cards.map((card) => ({ ...card, ...extractLatLng(card.referenceLink) }));
   }
 
   async close(): Promise<void> {

@@ -144,10 +144,13 @@ model Lead {
   id           String   @id @default(cuid())
   name         String
   address      String?
+  lat          Float?
+  lng          Float?
   phone        String?
   email        String?
   website      String?
   rating       String?
+  reviewCount  Int?
   category     String?
   source       String   @default("google_maps")
   referenceUrl String?

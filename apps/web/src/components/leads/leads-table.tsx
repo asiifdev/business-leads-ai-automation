@@ -100,6 +100,7 @@ export function LeadsTable({ leads, loading }: Props) {
             {lead.rating && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Star className="w-3 h-3 text-warning" />{lead.rating}
+                {lead.reviewCount != null && ` (${lead.reviewCount})`}
               </span>
             )}
             <div className="text-right hidden sm:block">

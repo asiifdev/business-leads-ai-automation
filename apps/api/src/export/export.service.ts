@@ -17,7 +17,7 @@ export class ExportService {
 
   toCsv(leads: Awaited<ReturnType<typeof this.getLeads>>): string {
     const headers = [
-      "Name", "Address", "Phone", "Website", "Rating", "Score", "Priority",
+      "Name", "Address", "Phone", "Website", "Rating", "Review Count", "Score", "Priority",
       "CRM Status", "Campaign", "Has Website", "Scraped At",
     ];
     const escape = (v: unknown) => {
@@ -26,7 +26,7 @@ export class ExportService {
         ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const rows = leads.map((l) => [
-      l.name, l.address, l.phone, l.website, l.rating, l.score, l.priority,
+      l.name, l.address, l.phone, l.website, l.rating, l.reviewCount, l.score, l.priority,
       l.crmStatus, l.campaign?.name ?? "", l.hasWebsite ? "Yes" : "No",
       new Date(l.scrapedAt).toISOString(),
     ].map(escape).join(","));
@@ -38,9 +38,12 @@ export class ExportService {
       id: l.id,
       name: l.name,
       address: l.address,
+      lat: l.lat,
+      lng: l.lng,
       phone: l.phone,
       website: l.website,
       rating: l.rating,
+      reviewCount: l.reviewCount,
       score: l.score,
       priority: l.priority,
       crmStatus: l.crmStatus,
