@@ -10,7 +10,8 @@ test.describe("Auth", () => {
 
   test("login with correct credentials redirects to dashboard", async ({ authedPage: page }) => {
     // Log out first
-    await page.locator('[title="Sign out"]').click();
+    await page.getByRole("button", { name: TEST_USER.email, exact: false }).click();
+    await page.getByRole("menuitem", { name: "Sign out" }).click();
     await page.waitForURL("/login");
 
     // Log back in
@@ -40,7 +41,8 @@ test.describe("Auth", () => {
   });
 
   test("logout clears session and redirects to /login", async ({ authedPage: page }) => {
-    await page.locator('[title="Sign out"]').click();
+    await page.getByRole("button", { name: TEST_USER.email, exact: false }).click();
+    await page.getByRole("menuitem", { name: "Sign out" }).click();
     await page.waitForURL("/login");
     await expect(page).toHaveURL("/login");
 

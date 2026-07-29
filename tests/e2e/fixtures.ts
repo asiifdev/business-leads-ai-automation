@@ -10,10 +10,21 @@ export const TEST_USER = {
   workspace: `E2E Workspace ${RUN_ID}`,
 };
 
-/** Register + login once, reuse page state in each test */
+// TEST_USER is a module-level singleton (shared across every spec file in the
+// run), so only the first authedPage use should register — subsequent uses
+// must log in, or registration fails on the duplicate email and the test
+// hangs waiting for a redirect that never happens.
+let hasRegistered = false;
+
+/** Register once, log in on every subsequent use; reuse page state in each test */
 export const test = base.extend<{ authedPage: Page }>({
   authedPage: async ({ page }, use) => {
-    await registerAndLogin(page, TEST_USER);
+    if (!hasRegistered) {
+      await registerAndLogin(page, TEST_USER);
+      hasRegistered = true;
+    } else {
+      await loginOnly(page, TEST_USER);
+    }
     await use(page);
   },
 });

@@ -4,13 +4,13 @@ test.describe("Leads", () => {
   test("leads list page loads", async ({ authedPage: page }) => {
     await page.goto("/leads");
     await expect(page.getByRole("heading", { name: /leads/i })).toBeVisible();
-    await expect(page.locator('input[placeholder*="Search"]')).toBeVisible();
+    await expect(page.getByPlaceholder("Search leads...")).toBeVisible();
   });
 
   test("search filter narrows results", async ({ authedPage: page }) => {
     await page.goto("/leads");
 
-    const searchInput = page.locator('input[placeholder*="Search"]');
+    const searchInput = page.getByPlaceholder("Search leads...");
     // Search for something that will not match anything
     await searchInput.fill("__no_match_xyz_12345__");
     // Table should show empty state or 0 rows
