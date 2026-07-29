@@ -116,6 +116,7 @@ export function CreateCampaignForm() {
               {queries.map((q, i) => (
                 <div key={i} className="flex gap-2">
                   <Input
+                    data-testid="query-input"
                     placeholder={`e.g. ${form.industry || "restaurant"} ${form.location || "Jakarta"}`}
                     value={q}
                     onChange={(e) => updateQuery(i, e.target.value)}

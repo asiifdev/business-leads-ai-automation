@@ -3,12 +3,16 @@ import { test, expect } from "./fixtures";
 test.describe("Settings", () => {
   test("settings page loads all sections", async ({ authedPage: page }) => {
     await page.goto("/settings");
+    // "AI Configuration" / "Prospex API Keys" live under the "AI & API Keys"
+    // tab, which is not the default tab and isn't rendered until activated.
+    await page.getByRole("tab", { name: "AI & API Keys" }).click();
     await expect(page.getByText(/API Keys/i)).toBeVisible();
     await expect(page.getByText(/AI Configuration/i).or(page.getByText(/OpenAI/i))).toBeVisible();
   });
 
   test("create API key → appears in list", async ({ authedPage: page }) => {
     await page.goto("/settings");
+    await page.getByRole("tab", { name: "AI & API Keys" }).click();
 
     const keyName = `E2E Key ${Date.now()}`;
 
@@ -26,6 +30,7 @@ test.describe("Settings", () => {
 
   test("created API key shows px_ prefix", async ({ authedPage: page }) => {
     await page.goto("/settings");
+    await page.getByRole("tab", { name: "AI & API Keys" }).click();
 
     const nameInput = page.locator('input[placeholder*="key name"], input[placeholder*="Key name"]');
     await expect(nameInput).toBeVisible({ timeout: 5000 });
@@ -38,6 +43,7 @@ test.describe("Settings", () => {
 
   test("delete API key removes it from list", async ({ authedPage: page }) => {
     await page.goto("/settings");
+    await page.getByRole("tab", { name: "AI & API Keys" }).click();
 
     const keyName = `Delete Test ${Date.now()}`;
     const nameInput = page.locator('input[placeholder*="key name"], input[placeholder*="Key name"]');
@@ -57,6 +63,7 @@ test.describe("Settings", () => {
 
   test("save AI configuration", async ({ authedPage: page }) => {
     await page.goto("/settings");
+    await page.getByRole("tab", { name: "AI & API Keys" }).click();
 
     const apiKeyInput = page.locator('input[placeholder*="sk-"], input[placeholder*="API key"]').first();
     const saveBtn = page.locator('button:has-text("Save"), button:has-text("Update")').first();

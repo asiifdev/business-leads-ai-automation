@@ -16,9 +16,9 @@ test.describe("Campaigns", () => {
   test("create campaign form renders all required fields", async ({ authedPage: page }) => {
     await page.goto("/campaigns/new");
     await expect(page.locator("#name")).toBeVisible();
-    await expect(page.getByText("Location")).toBeVisible();
-    await expect(page.getByText("Industry")).toBeVisible();
-    await expect(page.getByText("Search Queries")).toBeVisible();
+    await expect(page.getByText("Location", { exact: true })).toBeVisible();
+    await expect(page.getByText("Industry", { exact: true })).toBeVisible();
+    await expect(page.getByText("Search Queries", { exact: true })).toBeVisible();
   });
 
   test("create campaign → starts scraper → completes with leads", async ({ authedPage: page }) => {
@@ -32,8 +32,9 @@ test.describe("Campaigns", () => {
     await page.locator('[id="industry"], button:has-text("Select industry")').first().click();
     await page.locator('[role="option"]').first().click();
 
-    // Search query
-    await page.locator('input[placeholder*="query"], input[placeholder*="Search"]').first().fill(CAMPAIGN.query);
+    // Search query — scoped test id, since the header's global search box
+    // also has a placeholder containing "Search" and would otherwise match.
+    await page.getByTestId("query-input").first().fill(CAMPAIGN.query);
 
     // Your service
     const serviceField = page.locator('textarea, input[placeholder*="service"]').first();
@@ -42,8 +43,10 @@ test.describe("Campaigns", () => {
     // Submit
     await page.click('button[type="submit"]');
 
-    // Should redirect to campaign detail page
-    await page.waitForURL(/\/campaigns\/[a-z0-9-]+$/, { timeout: 15000 });
+    // Should redirect to campaign detail page. Excludes "/campaigns/new"
+    // itself, which the bare `[a-z0-9-]+` pattern would otherwise match if
+    // the form failed to submit and the page never actually navigated.
+    await page.waitForURL(/\/campaigns\/(?!new$)[a-z0-9-]+$/, { timeout: 15000 });
     await expect(page.getByText(CAMPAIGN.name)).toBeVisible();
 
     // Wait for campaign to complete (scraper uses mock fallback — should finish in < 30s)
@@ -59,7 +62,7 @@ test.describe("Campaigns", () => {
 
     // Click the campaign row/card
     await page.locator("a[href*='/campaigns/']").first().click();
-    await page.waitForURL(/\/campaigns\/[a-z0-9-]+$/);
+    await page.waitForURL(/\/campaigns\/(?!new$)[a-z0-9-]+$/);
 
     // Leads section should show at least 1 lead
     await expect(page.locator("text=/Leads \\(\\d+\\)/")).toBeVisible({ timeout: 10000 });
