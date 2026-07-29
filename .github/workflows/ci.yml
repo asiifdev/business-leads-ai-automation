@@ -57,7 +57,7 @@ jobs:
           POSTGRES_PASSWORD: prospex
           POSTGRES_DB: prospex
         ports:
-          - 5432:5432
+          - 5433:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -66,7 +66,7 @@ jobs:
       redis:
         image: redis:7-alpine
         ports:
-          - 6379:6379
+          - 6380:6379
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
@@ -74,8 +74,8 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://prospex:prospex@localhost:5432/prospex
-      REDIS_URL: redis://localhost:6379
+      DATABASE_URL: postgresql://prospex:prospex@localhost:5433/prospex
+      REDIS_URL: redis://localhost:6380
       JWT_SECRET: ci-test-secret-do-not-use-in-prod
       ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
       OPENAI_API_KEY: ""          # intentionally empty — AI falls back to mock
