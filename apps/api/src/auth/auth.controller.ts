@@ -7,7 +7,12 @@ import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 
 @ApiTags("Auth")
-@Throttle({ default: { ttl: 60000, limit: 10 } })
+@Throttle({
+  default: {
+    ttl: Number(process.env.THROTTLE_TTL_MS) || 60000,
+    limit: Number(process.env.AUTH_THROTTLE_LIMIT) || 10,
+  },
+})
 @Controller("auth")
 export class AuthController {
   constructor(

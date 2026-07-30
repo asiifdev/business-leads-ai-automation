@@ -32,6 +32,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
         NEXT_PUBLIC_APP_URL: Joi.string().default("http://localhost:3000"),
         THROTTLE_TTL_MS: Joi.number().default(60000),
         THROTTLE_LIMIT: Joi.number().default(60),
+        AUTH_THROTTLE_LIMIT: Joi.number().default(10),
       }),
       validationOptions: { abortEarly: true },
     }),

@@ -7,7 +7,7 @@ test.describe("Settings", () => {
     // tab, which is not the default tab and isn't rendered until activated.
     await page.getByRole("tab", { name: "AI & API Keys" }).click();
     await expect(page.getByRole("heading", { name: /API Keys/i })).toBeVisible();
-    await expect(page.getByText(/AI Configuration/i).or(page.getByText(/OpenAI/i))).toBeVisible();
+    await expect(page.getByRole("heading", { name: "AI Configuration" })).toBeVisible();
   });
 
   test("create API key → appears in list", async ({ authedPage: page }) => {
@@ -37,8 +37,11 @@ test.describe("Settings", () => {
     await nameInput.fill(`Prefix Test ${Date.now()}`);
     await page.getByRole("button", { name: "Create API key" }).click();
 
-    // The revealed key should start with px_
-    await expect(page.locator("text=/px_/")).toBeVisible({ timeout: 5000 });
+    // The revealed key is shown in a read-only input's value, not as text
+    // content, so it must be read via inputValue() rather than a text locator.
+    const revealedKey = page.locator('input[readonly]');
+    await expect(revealedKey).toBeVisible({ timeout: 5000 });
+    await expect(revealedKey).toHaveValue(/^px_/);
   });
 
   test("delete API key removes it from list", async ({ authedPage: page }) => {
@@ -56,7 +59,8 @@ test.describe("Settings", () => {
     const row = page.getByTestId("key-row").filter({ hasText: keyName });
     await row.getByRole("button", { name: "Delete API key" }).click();
     await page.getByRole("button", { name: "Delete key" }).click();
-    await expect(page.getByText(keyName)).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 8000 });
+    await expect(row).not.toBeVisible();
   });
 
   test("save AI configuration", async ({ authedPage: page }) => {
