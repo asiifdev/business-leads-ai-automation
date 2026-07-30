@@ -60,8 +60,9 @@ test.describe("Campaigns", () => {
     const completedBadge = page.locator("text=Completed").first();
     await expect(completedBadge).toBeVisible({ timeout: 10000 });
 
-    // Click the campaign row/card
-    await page.locator("a[href*='/campaigns/']").first().click();
+    // Click the campaign row/card. Excludes the ever-present "New Campaign"
+    // button, whose href ("/campaigns/new") would otherwise match first.
+    await page.locator("a[href^='/campaigns/']:not([href='/campaigns/new'])").first().click();
     await page.waitForURL(/\/campaigns\/(?!new$)[a-z0-9-]+$/);
 
     // Leads section should show at least 1 lead

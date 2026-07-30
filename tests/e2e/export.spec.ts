@@ -23,7 +23,9 @@ test.describe("Export", () => {
   test("export CSV from campaign detail triggers download", async ({ authedPage: page }) => {
     await page.goto("/campaigns");
 
-    const firstLink = page.locator("a[href*='/campaigns/']").first();
+    // Excludes the ever-present "New Campaign" button, whose href
+    // ("/campaigns/new") would otherwise match first.
+    const firstLink = page.locator("a[href^='/campaigns/']:not([href='/campaigns/new'])").first();
     const hasCampaigns = await firstLink.isVisible({ timeout: 5000 }).catch(() => false);
     if (!hasCampaigns) { test.skip(); return; }
 
@@ -46,7 +48,9 @@ test.describe("Export", () => {
   test("export JSON from campaign detail triggers download", async ({ authedPage: page }) => {
     await page.goto("/campaigns");
 
-    const firstLink = page.locator("a[href*='/campaigns/']").first();
+    // Excludes the ever-present "New Campaign" button, whose href
+    // ("/campaigns/new") would otherwise match first.
+    const firstLink = page.locator("a[href^='/campaigns/']:not([href='/campaigns/new'])").first();
     const hasCampaigns = await firstLink.isVisible({ timeout: 5000 }).catch(() => false);
     if (!hasCampaigns) { test.skip(); return; }
 

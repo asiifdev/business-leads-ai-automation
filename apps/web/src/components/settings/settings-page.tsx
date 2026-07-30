@@ -319,6 +319,7 @@ export function SettingsPage() {
                   onClick={createApiKey}
                   disabled={creating || !newKeyName.trim()}
                   className="flex-shrink-0"
+                  aria-label="Create API key"
                 >
                   {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 </Button>
@@ -334,7 +335,7 @@ export function SettingsPage() {
               ) : (
                 <div className="space-y-2">
                   {apiKeys.map((key) => (
-                    <div key={key.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div key={key.id} data-testid="key-row" className="flex items-center justify-between p-3 border rounded-lg">
                       <div>
                         <p className="text-sm font-medium">{key.name}</p>
                         <p className="text-xs text-muted-foreground">
@@ -347,6 +348,7 @@ export function SettingsPage() {
                         size="icon"
                         className="text-muted-foreground hover:text-destructive"
                         onClick={() => setKeyPendingDelete(key)}
+                        aria-label="Delete API key"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

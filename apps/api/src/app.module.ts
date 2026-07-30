@@ -30,10 +30,17 @@ import { WorkspaceModule } from "./workspace/workspace.module";
         OPENAI_MODEL: Joi.string().default("gpt-4o-mini"),
         OPENAI_BASE_URL: Joi.string().allow("").default(""),
         NEXT_PUBLIC_APP_URL: Joi.string().default("http://localhost:3000"),
+        THROTTLE_TTL_MS: Joi.number().default(60000),
+        THROTTLE_LIMIT: Joi.number().default(60),
       }),
       validationOptions: { abortEarly: true },
     }),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: Number(process.env.THROTTLE_TTL_MS) || 60000,
+        limit: Number(process.env.THROTTLE_LIMIT) || 60,
+      },
+    ]),
     PrismaModule,
     CampaignsModule,
     LeadsModule,

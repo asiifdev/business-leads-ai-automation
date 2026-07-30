@@ -6,7 +6,7 @@ test.describe("Settings", () => {
     // "AI Configuration" / "Prospex API Keys" live under the "AI & API Keys"
     // tab, which is not the default tab and isn't rendered until activated.
     await page.getByRole("tab", { name: "AI & API Keys" }).click();
-    await expect(page.getByText(/API Keys/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /API Keys/i })).toBeVisible();
     await expect(page.getByText(/AI Configuration/i).or(page.getByText(/OpenAI/i))).toBeVisible();
   });
 
@@ -17,12 +17,12 @@ test.describe("Settings", () => {
     const keyName = `E2E Key ${Date.now()}`;
 
     // Fill key name input
-    const nameInput = page.locator('input[placeholder*="key name"], input[placeholder*="Key name"]');
+    const nameInput = page.getByPlaceholder(/Key name/i);
     await expect(nameInput).toBeVisible({ timeout: 5000 });
     await nameInput.fill(keyName);
 
-    // Click create
-    await page.locator('button:has-text("Generate"), button:has-text("Create")').first().click();
+    // The create button is icon-only, identified by its accessible name.
+    await page.getByRole("button", { name: "Create API key" }).click();
 
     // New key should appear in the list
     await expect(page.getByText(keyName)).toBeVisible({ timeout: 5000 });
@@ -32,10 +32,10 @@ test.describe("Settings", () => {
     await page.goto("/settings");
     await page.getByRole("tab", { name: "AI & API Keys" }).click();
 
-    const nameInput = page.locator('input[placeholder*="key name"], input[placeholder*="Key name"]');
+    const nameInput = page.getByPlaceholder(/Key name/i);
     await expect(nameInput).toBeVisible({ timeout: 5000 });
     await nameInput.fill(`Prefix Test ${Date.now()}`);
-    await page.locator('button:has-text("Generate"), button:has-text("Create")').first().click();
+    await page.getByRole("button", { name: "Create API key" }).click();
 
     // The revealed key should start with px_
     await expect(page.locator("text=/px_/")).toBeVisible({ timeout: 5000 });
@@ -46,19 +46,17 @@ test.describe("Settings", () => {
     await page.getByRole("tab", { name: "AI & API Keys" }).click();
 
     const keyName = `Delete Test ${Date.now()}`;
-    const nameInput = page.locator('input[placeholder*="key name"], input[placeholder*="Key name"]');
+    const nameInput = page.getByPlaceholder(/Key name/i);
     await expect(nameInput).toBeVisible({ timeout: 5000 });
     await nameInput.fill(keyName);
-    await page.locator('button:has-text("Generate"), button:has-text("Create")').first().click();
+    await page.getByRole("button", { name: "Create API key" }).click();
     await expect(page.getByText(keyName)).toBeVisible({ timeout: 5000 });
 
-    // Delete it — find the delete button in the same row
-    const row = page.locator(`[data-testid="key-row"]:has-text("${keyName}"), tr:has-text("${keyName}"), li:has-text("${keyName}")`).first();
-    const deleteBtn = row.locator('button:has-text("Delete"), button[aria-label*="delete"], button[title*="delete"]');
-    if (await deleteBtn.isVisible()) {
-      await deleteBtn.click();
-      await expect(page.getByText(keyName)).not.toBeVisible({ timeout: 5000 });
-    }
+    // Delete it — find the row via its testid, click delete, confirm in the dialog.
+    const row = page.getByTestId("key-row").filter({ hasText: keyName });
+    await row.getByRole("button", { name: "Delete API key" }).click();
+    await page.getByRole("button", { name: "Delete key" }).click();
+    await expect(page.getByText(keyName)).not.toBeVisible({ timeout: 5000 });
   });
 
   test("save AI configuration", async ({ authedPage: page }) => {
