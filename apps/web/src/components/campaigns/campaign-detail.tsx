@@ -39,7 +39,7 @@ export function CampaignDetail({ id }: { id: string }) {
     const interval = setInterval(async () => {
       await refresh();
       await refreshLeads();
-    }, 2000);
+    }, 5000);
     return () => clearInterval(interval);
   }, [campaign?.status, refresh, refreshLeads]);
 

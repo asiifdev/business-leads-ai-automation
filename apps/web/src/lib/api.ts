@@ -17,7 +17,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
 
   if (res.status === 401) {
-    if (typeof window !== "undefined") window.location.href = "/login";
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("prospex_token");
+      localStorage.removeItem("prospex_user");
+      window.location.href = "/login";
+    }
     throw new Error("Unauthorized");
   }
 
@@ -42,7 +46,12 @@ export const api = {
     const res = await fetch(`${API_URL}${path}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
-    if (res.status === 401) { window.location.href = "/login"; return; }
+    if (res.status === 401) {
+      localStorage.removeItem("prospex_token");
+      localStorage.removeItem("prospex_user");
+      window.location.href = "/login";
+      return;
+    }
     if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
