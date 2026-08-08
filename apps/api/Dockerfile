@@ -1,5 +1,5 @@
 FROM node:22-alpine AS base
-RUN npm install -g pnpm
+RUN npm install -g pnpm@9.14.4
 
 FROM base AS deps
 WORKDIR /app
@@ -21,7 +21,7 @@ RUN pnpm --filter @prospex/api build
 # Playwright needs system deps for Chromium
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
-RUN npm install -g pnpm
+RUN npm install -g pnpm@9.14.4
 
 # Chromium system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
