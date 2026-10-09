@@ -156,6 +156,7 @@ model Lead {
   lat          Float?
   lng          Float?
   phone        String?
+  phoneE164    String? // digits with country code, used to match WhatsApp replies and opt-outs
   email        String?
   website      String?
   rating       String?
@@ -195,6 +196,7 @@ model Lead {
   outbound   OutboundMessage[]
   inbound    InboundMessage[]
 
+  @@index([workspaceId, phoneE164])
   @@map("leads")
 }
 

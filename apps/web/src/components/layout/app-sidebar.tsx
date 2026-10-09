@@ -17,24 +17,27 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
+import { useI18n } from "@/lib/i18n";
+import type { MessageKey } from "@/lib/i18n/en";
 
 const navItems = [
-  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Campaigns", href: "/campaigns", icon: Megaphone, badge: "New" },
-  { title: "Leads", href: "/leads", icon: Users },
-  { title: "Analytics", href: "/analytics", icon: BarChart3 },
-  { title: "AI Style", href: "/style", icon: Sparkles },
+  { title: "nav.dashboard" as MessageKey, href: "/dashboard", icon: LayoutDashboard },
+  { title: "nav.campaigns" as MessageKey, href: "/campaigns", icon: Megaphone },
+  { title: "nav.leads" as MessageKey, href: "/leads", icon: Users },
+  { title: "nav.analytics" as MessageKey, href: "/analytics", icon: BarChart3 },
+  { title: "nav.style" as MessageKey, href: "/style", icon: Sparkles },
 ];
 
 const bottomItems = [
-  { title: "Integrations", href: "/integrations", icon: Zap },
-  { title: "Settings", href: "/settings", icon: Settings },
+  { title: "nav.integrations" as MessageKey, href: "/integrations", icon: Zap },
+  { title: "nav.settings" as MessageKey, href: "/settings", icon: Settings },
 ];
 
 export function SidebarContent() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, workspace, logout } = useAuth();
+  const { t } = useI18n();
 
   const handleLogout = () => {
     logout();
@@ -42,7 +45,7 @@ export function SidebarContent() {
   };
 
   return (
-    <div className="flex h-full flex-col bg-sidebar">
+    <div className="flex h-full w-full min-w-0 flex-col bg-sidebar">
       <div className="flex items-center gap-2 px-4 h-14 border-b border-sidebar-border">
         <div className="w-7 h-7 bg-gradient-brand rounded-lg flex items-center justify-center flex-shrink-0 shadow-glow">
           <span className="text-white font-bold text-xs">P</span>
@@ -72,27 +75,24 @@ export function SidebarContent() {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "relative flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm font-medium transition-colors",
                 isActive
-                  ? "text-sidebar-primary-foreground"
-                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
               )}
             >
               {isActive && (
-                <motion.div
+                <motion.span
                   layoutId="sidebar-active"
-                  className="absolute inset-0 rounded-md bg-gradient-brand shadow-glow"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
+                  aria-hidden
+                  className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-sidebar-ring"
+                  transition={{ duration: 0.2 }}
                 />
               )}
-              <item.icon className="w-4 h-4 flex-shrink-0 relative z-10" />
-              <span className="flex-1 relative z-10">{item.title}</span>
-              {"badge" in item && item.badge && (
-                <Badge className="relative z-10 bg-accent/20 text-accent border-0 text-[10px] py-0 px-1.5">
-                  {item.badge}
-                </Badge>
-              )}
+              <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive && "text-sidebar-ring")} />
+              <span className="flex-1">{t(item.title)}</span>
             </Link>
           );
         })}
@@ -110,12 +110,12 @@ export function SidebarContent() {
               className={cn(
                 "flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
               )}
             >
               <item.icon className="w-4 h-4 flex-shrink-0" />
-              {item.title}
+              {t(item.title)}
             </Link>
           );
         })}
@@ -142,11 +142,11 @@ export function SidebarContent() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="top" className="w-56">
             <DropdownMenuItem asChild>
-              <Link href="/settings">Account settings</Link>
+              <Link href="/settings">{t("nav.account")}</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
-              <LogOut className="w-3.5 h-3.5 mr-1" /> Sign out
+              <LogOut className="w-3.5 h-3.5 mr-1" /> {t("nav.signOut")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -157,7 +157,7 @@ export function SidebarContent() {
 
 export function AppSidebar() {
   return (
-    <aside className="hidden md:flex w-60 flex-shrink-0 border-r border-sidebar-border">
+    <aside className="hidden md:flex w-60 flex-shrink-0 overflow-hidden border-r border-sidebar-border">
       <SidebarContent />
     </aside>
   );

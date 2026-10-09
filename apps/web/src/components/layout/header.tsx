@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SidebarContent } from "@/components/layout/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageToggle } from "@/components/language-toggle";
+import { useI18n } from "@/lib/i18n";
 
 const notifications = [
   { title: "New lead captured", detail: "Acme Corp requested a demo", time: "5m ago" },
@@ -22,6 +24,7 @@ const notifications = [
 ];
 
 export function Header() {
+  const { t } = useI18n();
   return (
     <header className="h-14 border-b flex items-center gap-3 px-4 sm:px-6 bg-background/80 backdrop-blur-sm flex-shrink-0 sticky top-0 z-30">
       <Sheet>
@@ -39,13 +42,14 @@ export function Header() {
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search leads, campaigns..."
+            placeholder={t("header.search")}
             className="pl-8 h-9 bg-muted/50 border-0 text-sm"
           />
         </div>
       </div>
 
       <div className="ml-auto flex items-center gap-1">
+        <LanguageToggle />
         <ThemeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -55,7 +59,7 @@ export function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("header.notifications")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {notifications.map((n) => (
               <DropdownMenuItem key={n.title} className="flex flex-col items-start gap-0.5 py-2">

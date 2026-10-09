@@ -32,6 +32,8 @@ export interface DraftPromptInput {
   /** Facts retrieved from the knowledge base; the model may only state facts found here. */
   knowledge?: string[];
   incoming: string;
+  /** Earlier turns of the same conversation, oldest first, already formatted as "Pelanggan: ..." / "Saya: ...". */
+  history?: string;
 }
 
 /** Builds chat messages for drafting a reply in the owner's own voice. */
@@ -56,6 +58,79 @@ export function buildDraftMessages(input: DraftPromptInput): { role: "system" | 
   ].join("\n");
   return [
     { role: "system", content: system },
-    { role: "user", content: `Pelanggan: ${input.incoming}\nBalasan saya:` },
+    { role: "user", content: `${input.history ? `Percakapan sebelumnya:\n${input.history}\n\n` : ""}Pelanggan: ${input.incoming}\nBalasan saya:` },
+  ];
+}
+
+export interface LeadFacts {
+  name: string;
+  category?: string | null;
+  address?: string | null;
+  rating?: string | null;
+  reviewCount?: number | null;
+  website?: string | null;
+  hasWebsite?: boolean;
+  recommendation?: string | null;
+}
+
+export interface OutreachPromptInput {
+  businessDescription: string;
+  /** What the owner offers to this lead. */
+  offer: string;
+  language: "indonesian" | "english";
+  lead: LeadFacts;
+  /** Absent when the owner has not trained a style: the draft is then plain and neutral. */
+  style?: StyleStats;
+  examples?: ReplyPair[];
+  knowledge?: string[];
+  /** 0 = first contact; 1, 2... = follow-up number. */
+  followUp?: { number: number; of: number; previousMessage: string; daysSince: number };
+}
+
+function leadLines(l: LeadFacts): string {
+  const rows: [string, string | null | undefined][] = [
+    ["Nama bisnis", l.name],
+    ["Kategori", l.category],
+    ["Alamat", l.address],
+    ["Rating Google", l.rating ? `${l.rating}${l.reviewCount ? ` (${l.reviewCount} ulasan)` : ""}` : null],
+    ["Website", l.hasWebsite === false ? "belum punya website" : l.website],
+    ["Catatan analisis", l.recommendation],
+  ];
+  return rows.filter(([, v]) => v).map(([k, v]) => `- ${k}: ${v}`).join("\n");
+}
+
+/** Builds the prompt for a first-contact message or a follow-up, written in the owner's voice when a style exists. */
+export function buildOutreachMessages(input: OutreachPromptInput): { role: "system" | "user"; content: string }[] {
+  const id = input.language === "indonesian";
+  const fu = input.followUp;
+  const shots = (input.examples ?? []).map((e, i) => `Contoh ${i + 1}\nPelanggan: ${e.incoming}\nBalasan saya: ${e.reply}`).join("\n\n");
+  const facts = input.knowledge?.length
+    ? `FAKTA BISNIS YANG BOLEH DIPAKAI:\n${input.knowledge.map((k) => `- ${k}`).join("\n")}`
+    : "Tidak ada fakta bisnis tambahan: jangan menyebut harga, paket, promo, jadwal, atau hasil yang dijanjikan.";
+  const system = [
+    `Kamu menulis ${fu ? `PESAN TINDAK LANJUT ke-${fu.number} (dari maksimal ${fu.of})` : "PESAN PERTAMA"} WhatsApp atas nama pemilik bisnis ini: ${input.businessDescription}`,
+    `Yang ditawarkan: ${input.offer}`,
+    fu
+      ? `Penerima belum membalas pesan sebelumnya (${fu.daysSince} hari lalu):\n"${fu.previousMessage}"\nTulis tindak lanjut yang singkat dan tidak memaksa. Jangan mengulang isi pesan sebelumnya. ${fu.number >= fu.of ? "Ini yang terakhir: tutup dengan sopan dan katakan tidak akan mengganggu lagi." : "Berikan satu alasan baru atau pertanyaan ringan."}`
+      : "Penerima belum mengenal pemilik dan belum pernah menghubungi lebih dulu. Perkenalkan diri dalam satu kalimat, kaitkan dengan satu hal spesifik tentang bisnis mereka, lalu ajukan satu pertanyaan atau ajakan kecil.",
+    "",
+    "DATA BISNIS PENERIMA (satu-satunya sumber fakta tentang mereka):",
+    leadLines(input.lead),
+    "",
+    facts,
+    "",
+    input.style ? "GAYA MENULIS PEMILIK (diukur dari chat aslinya):\n" + describeStyle(input.style) : "Gaya: sopan, hangat, langsung, seperti manusia biasa.",
+    shots ? `\nCONTOH BALASAN ASLI PEMILIK (untuk menangkap nada, bukan isi):\n${shots}` : "",
+    "",
+    "ATURAN:",
+    "- Jangan mengarang fakta tentang penerima di luar data di atas. Jangan memuji secara umum (\"bisnis Anda keren\").",
+    "- Jangan menjanjikan hasil atau angka. Jangan menulis seperti iklan atau broadcast.",
+    "- Satu pesan pendek, tanpa baris tanda tangan, tanpa placeholder seperti [Nama].",
+    `- Bahasa: ${id ? "Indonesia" : "English"}. Jangan menambahkan kalimat berhenti/opt-out, itu ditambahkan sistem.`,
+    "Tulis HANYA isi pesan, tanpa penjelasan, tanpa tanda kutip, tanpa label.",
+  ].filter((x) => x !== "").join("\n");
+  return [
+    { role: "system", content: system },
+    { role: "user", content: fu ? "Tulis pesan tindak lanjutnya." : "Tulis pesan pertamanya." },
   ];
 }

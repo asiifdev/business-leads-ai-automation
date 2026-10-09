@@ -118,6 +118,21 @@ export class StyleService {
     return { deleted: res.count > 0 };
   }
 
+  /** Finds the owner's real replies to the most similar past messages (pgvector cosine distance). */
+  async retrieveExamples(workspaceId: string, profile: { embeddingModel: string; dimensions: number }, text: string) {
+    const [qv] = await this.ai.embed([text]);
+    if (qv.length !== profile.dimensions || this.ai.embeddingModel !== profile.embeddingModel) {
+      throw new BadRequestException("The embedding model changed since training; re-import your chats");
+    }
+    const dims = Number(profile.dimensions);
+    const rows = await this.prisma.$queryRaw<{ incoming: string; reply: string; distance: number }[]>`
+      SELECT incoming, reply, (embedding::vector(${Prisma.raw(String(dims))}) <=> ${`[${qv.join(",")}]`}::vector(${Prisma.raw(String(dims))})) AS distance
+      FROM style_examples
+      WHERE "workspaceId" = ${workspaceId} AND "embeddingModel" = ${profile.embeddingModel} AND dimensions = ${dims}
+      ORDER BY distance ASC LIMIT ${EXAMPLES_PER_DRAFT}`;
+    return rows.map((r) => ({ incoming: r.incoming, reply: r.reply, similarity: Math.round((1 - Number(r.distance)) * 1000) / 1000 }));
+  }
+
   /**
    * Drafts a reply in the owner's voice and returns the full trace (style used, examples retrieved,
    * facts found) so the user can see why the draft says what it says.
@@ -129,17 +144,7 @@ export class StyleService {
     if (!profile) throw new NotFoundException("No style profile yet: import your chat exports first");
     const stats = profile.stats as unknown as StyleStats;
 
-    const [qv] = await this.ai.embed([incoming]);
-    if (qv.length !== profile.dimensions || this.ai.embeddingModel !== profile.embeddingModel) {
-      throw new BadRequestException("The embedding model changed since training; re-import your chats");
-    }
-    const dims = Number(profile.dimensions);
-    const rows = await this.prisma.$queryRaw<{ incoming: string; reply: string; distance: number }[]>`
-      SELECT incoming, reply, (embedding::vector(${Prisma.raw(String(dims))}) <=> ${`[${qv.join(",")}]`}::vector(${Prisma.raw(String(dims))})) AS distance
-      FROM style_examples
-      WHERE "workspaceId" = ${workspaceId} AND "embeddingModel" = ${profile.embeddingModel} AND dimensions = ${dims}
-      ORDER BY distance ASC LIMIT ${EXAMPLES_PER_DRAFT}`;
-    const examples = rows.map((r) => ({ incoming: r.incoming, reply: r.reply, similarity: Math.round((1 - Number(r.distance)) * 1000) / 1000 }));
+    const examples = await this.retrieveExamples(workspaceId, profile, incoming);
 
     const facts = await this.knowledge.search(workspaceId, incoming);
     const messages = buildDraftMessages({

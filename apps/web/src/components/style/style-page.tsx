@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
+import type { MessageKey } from "@/lib/i18n/en";
 
 /* Hallmark · component: page (AI Style) · genre: modern-minimal · theme: existing Prospex tokens
  * layout: workbench (voice profile rail + draft tester) · no new colours, no new fonts
@@ -29,9 +31,10 @@ type Busy = "" | "inspect" | "train" | "draft";
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const size = (b: number) => (b > 1_000_000 ? `${(b / 1_000_000).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1000))} KB`);
-const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "?");
+const day = (iso: string | null, lang = "en") => (iso ? new Date(iso).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { year: "numeric", month: "short", day: "numeric" }) : "?");
 
 export function StylePage() {
+  const { t, lang } = useI18n();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -55,7 +58,7 @@ export function StylePage() {
 
   const pick = (list: File[]) => {
     const ok = list.filter((f) => /\.(txt|zip)$/i.test(f.name));
-    if (ok.length !== list.length) toast.error("Only .txt and .zip exports are accepted");
+    if (ok.length !== list.length) toast.error(t("style.onlyExports"));
     setFiles((prev) => [...prev, ...ok.filter((n) => !prev.some((p) => p.name === n.name && p.size === n.size))]);
     setInspected(null);
   };
@@ -78,7 +81,7 @@ export function StylePage() {
       f.append("me", me);
       setProfile(await api.upload<Profile>("/style/train", f));
       setInspected(null); setFiles([]); setAddMore(false); setResult(null);
-      toast.success("Style learned. Raw chats were not stored.");
+      toast.success(t("style.learned"));
     } catch (e) { toast.error((e as Error).message); } finally { setBusy(""); }
   };
 
@@ -92,7 +95,7 @@ export function StylePage() {
   const forget = async () => {
     await api.delete("/style/profile");
     setProfile(null); setResult(null);
-    toast.success("Style and examples deleted");
+    toast.success(t("style.deleted"));
   };
 
   const showImporter = loaded && (!profile || addMore);
@@ -101,16 +104,15 @@ export function StylePage() {
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="max-w-2xl">
-          <h1 className="text-2xl font-semibold tracking-tight">AI Style</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("style.title")}</h1>
           <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-            Drafts that sound like you, built from your own WhatsApp exports. Only statistics and anonymized question-and-reply pairs are kept, never the raw chats.
-            Nothing is sent without your approval.
+            {t("style.intro")}
           </p>
         </div>
         {profile && (
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setAddMore((v) => !v)}>{addMore ? "Cancel" : "Add more chats"}</Button>
-            <Button variant="ghost" size="sm" onClick={forget} className="text-destructive hover:text-destructive"><Trash2 className="mr-1.5 h-4 w-4" />Delete</Button>
+            <Button variant="outline" size="sm" onClick={() => setAddMore((v) => !v)}>{addMore ? t("style.cancel") : t("style.addMore")}</Button>
+            <Button variant="ghost" size="sm" onClick={forget} className="text-destructive hover:text-destructive"><Trash2 className="mr-1.5 h-4 w-4" />{t("style.delete")}</Button>
           </div>
         )}
       </header>
@@ -127,23 +129,23 @@ export function StylePage() {
           <VoiceProfile profile={profile} />
           <section aria-labelledby="try-title" className="min-w-0 space-y-5">
             <div>
-              <h2 id="try-title" className="text-base font-semibold">Try a message</h2>
-              <p className="text-sm text-muted-foreground">Paste what a customer wrote. The draft and the evidence behind it appear below.</p>
+              <h2 id="try-title" className="text-base font-semibold">{t("style.try.title")}</h2>
+              <p className="text-sm text-muted-foreground">{t("style.try.sub")}</p>
             </div>
             <div className="space-y-2">
               <Textarea
                 value={incoming}
                 onChange={(e) => setIncoming(e.target.value)}
                 onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") draft(); }}
-                placeholder="e.g. Kak, harga paket website berapa ya?"
+                placeholder={t("style.try.placeholder")}
                 rows={3}
-                aria-label="Customer message"
+                aria-label={t("style.try.aria")}
               />
               <div className="flex items-center justify-between gap-3">
-                <span className="hidden text-xs text-muted-foreground sm:inline">Ctrl/⌘ + Enter to draft</span>
+                <span className="hidden text-xs text-muted-foreground sm:inline">{t("style.try.hint")}</span>
                 <Button onClick={draft} disabled={!incoming.trim() || busy !== ""} size="sm" className="ml-auto">
                   {busy === "draft" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {busy === "draft" ? "Writing…" : "Draft reply"}
+                  {busy === "draft" ? t("style.try.writing") : t("style.try.button")}
                 </Button>
               </div>
             </div>
@@ -162,6 +164,7 @@ function Importer(props: {
   me: string; setMe: (s: string) => void; busy: Busy; inspect: () => void; train: () => void; first: boolean;
 }) {
   const { files, pick, remove, inspected, me, setMe, busy, inspect, train, first } = props;
+  const { t, lang } = useI18n();
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
 
@@ -174,9 +177,9 @@ function Importer(props: {
     <section aria-label="Import chats" className="grid gap-px overflow-hidden rounded-xl border bg-border md:grid-cols-2">
       <div className="space-y-4 bg-card p-5 sm:p-6">
         <div>
-          <h2 className="text-base font-semibold">{first ? "Start with your chats" : "Add more chats"}</h2>
+          <h2 className="text-base font-semibold">{first ? t("style.import.titleFirst") : t("style.import.titleMore")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            In WhatsApp open a chat, then <span className="text-foreground">More → Export chat → Without media</span>. Zip files work too. More conversations give a more accurate voice.
+            {t("style.import.how")} <span className="text-foreground">{t("style.import.howPath")}</span>{t("style.import.howTail")}
           </p>
         </div>
 
@@ -190,8 +193,8 @@ function Importer(props: {
           )}
         >
           <Upload className="h-5 w-5 text-muted-foreground" aria-hidden />
-          <p className="text-sm">Drop .txt or .zip exports here</p>
-          <Button type="button" variant="outline" size="sm" onClick={() => input.current?.click()}>Choose files</Button>
+          <p className="text-sm">{t("style.import.drop")}</p>
+          <Button type="button" variant="outline" size="sm" onClick={() => input.current?.click()}>{t("style.import.choose")}</Button>
           <input ref={input} type="file" multiple accept=".txt,.zip" className="sr-only" aria-label="Chat export files"
             onChange={(e) => { pick(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
         </div>
@@ -214,30 +217,30 @@ function Importer(props: {
 
         <Button onClick={inspect} disabled={!files.length || busy !== ""} size="sm" variant={inspected ? "outline" : "default"}>
           {busy === "inspect" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {busy === "inspect" ? "Reading…" : inspected ? "Read again" : "Read files"}
+          {busy === "inspect" ? t("style.import.reading") : inspected ? t("style.import.readAgain") : t("style.import.read")}
         </Button>
       </div>
 
       <div className="space-y-4 bg-card p-5 sm:p-6">
         {!inspected ? (
           <div className="flex h-full min-h-[10rem] flex-col justify-center text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">What happens next</p>
+            <p className="font-medium text-foreground">{t("style.import.next")}</p>
             <ol className="mt-2 list-decimal space-y-1 pl-5">
-              <li>Prospex reads the files and lists who wrote in them.</li>
-              <li>You pick which one is you.</li>
-              <li>Your replies become the voice. Their messages are used only as context.</li>
+              <li>{t("style.import.next1")}</li>
+              <li>{t("style.import.next2")}</li>
+              <li>{t("style.import.next3")}</li>
             </ol>
           </div>
         ) : (
           <>
             <div>
-              <h2 className="text-base font-semibold">Which one is you?</h2>
+              <h2 className="text-base font-semibold">{t("style.import.whoTitle")}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {inspected.reduce((n, r) => n + r.messages, 0).toLocaleString()} messages across {inspected.length} {inspected.length === 1 ? "file" : "files"}
-                {inspected[0]?.from && <> · {day(inspected.map((r) => r.from).filter(Boolean).sort()[0] ?? null)} to {day(inspected.map((r) => r.to).filter(Boolean).sort().at(-1) ?? null)}</>}
+                {t("style.import.summary", { messages: inspected.reduce((n, r) => n + r.messages, 0).toLocaleString(), files: inspected.length })}
+                {inspected[0]?.from && <> · {day(inspected.map((r) => r.from).filter(Boolean).sort()[0] ?? null, lang)} – {day(inspected.map((r) => r.to).filter(Boolean).sort().at(-1) ?? null, lang)}</>}
               </p>
             </div>
-            <div role="radiogroup" aria-label="Your name in the chats" className="space-y-1.5">
+            <div role="radiogroup" aria-label={t("style.import.whoLabel")} className="space-y-1.5">
               {senders.map(([name, n]) => {
                 const on = me === name;
                 return (
@@ -258,7 +261,7 @@ function Importer(props: {
             </div>
             <Button onClick={train} disabled={!me || busy !== ""} size="sm">
               {busy === "train" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {busy === "train" ? "Learning… this can take a few minutes" : "Learn my style"}
+              {busy === "train" ? t("style.import.learning") : t("style.import.learn")}
             </Button>
           </>
         )}
@@ -296,41 +299,41 @@ function Words({ title, words }: { title: string; words: string[] }) {
 }
 
 function VoiceProfile({ profile }: { profile: Profile }) {
+  const { t, lang } = useI18n();
   const s = profile.stats;
   return (
-    <aside aria-label="Learned voice" className="space-y-5 lg:sticky lg:top-6 lg:self-start">
+    <aside aria-label={t("style.voiceOf")} className="space-y-5 lg:sticky lg:top-6 lg:self-start">
       <div>
-        <div className="text-xs text-muted-foreground">Voice of</div>
+        <div className="text-xs text-muted-foreground">{t("style.voiceOf")}</div>
         <div className="truncate text-lg font-semibold">{profile.ownerName}</div>
         <div className="mt-0.5 text-xs text-muted-foreground">
-          <span className="font-mono tabular-nums">{profile.messageCount.toLocaleString()}</span> messages ·{" "}
-          <span className="font-mono tabular-nums">{profile.exampleCount.toLocaleString()}</span> reply examples · updated {day(profile.updatedAt)}
+          {t("style.stats.line", { messages: profile.messageCount.toLocaleString(), examples: profile.exampleCount.toLocaleString(), date: day(profile.updatedAt, lang) })}
         </div>
       </div>
 
       <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border text-sm">
         <div className="bg-card p-3">
-          <dt className="text-xs text-muted-foreground">Typical reply</dt>
-          <dd className="mt-0.5"><span className="font-mono text-xl font-semibold tabular-nums">{Math.round(s.medianChars)}</span> <span className="text-xs text-muted-foreground">chars</span></dd>
+          <dt className="text-xs text-muted-foreground">{t("style.typical")}</dt>
+          <dd className="mt-0.5"><span className="font-mono text-xl font-semibold tabular-nums">{Math.round(s.medianChars)}</span> <span className="text-xs text-muted-foreground">{t("style.chars")}</span></dd>
         </div>
         <div className="bg-card p-3">
-          <dt className="text-xs text-muted-foreground">Average</dt>
-          <dd className="mt-0.5"><span className="font-mono text-xl font-semibold tabular-nums">{Math.round(s.avgChars)}</span> <span className="text-xs text-muted-foreground">chars</span></dd>
+          <dt className="text-xs text-muted-foreground">{t("style.average")}</dt>
+          <dd className="mt-0.5"><span className="font-mono text-xl font-semibold tabular-nums">{Math.round(s.avgChars)}</span> <span className="text-xs text-muted-foreground">{t("style.chars")}</span></dd>
         </div>
       </dl>
 
       <div className="space-y-3.5">
-        <Meter label="Uses emoji" value={s.emojiRate} />
-        <Meter label="Starts lowercase" value={s.lowercaseStartRate} />
-        <Meter label="No final punctuation" value={s.noEndPunctuationRate} />
-        <Meter label="Exclamation marks" value={s.exclamationRate} />
-        <Meter label="Multi-line" value={s.multiLineRate} />
+        <Meter label={t("style.m.emoji")} value={s.emojiRate} />
+        <Meter label={t("style.m.lower")} value={s.lowercaseStartRate} />
+        <Meter label={t("style.m.noPunct")} value={s.noEndPunctuationRate} />
+        <Meter label={t("style.m.exclaim")} value={s.exclamationRate} />
+        <Meter label={t("style.m.multi")} value={s.multiLineRate} />
       </div>
 
       <div className="space-y-3.5">
-        <Words title="Often opens with" words={s.topOpeners.slice(0, 6).map((o) => o.word)} />
-        <Words title="Often ends with" words={s.topClosers.slice(0, 6).map((o) => o.word)} />
-        <Words title="Favourite emoji" words={s.topEmoji.slice(0, 6).map((o) => o.emoji)} />
+        <Words title={t("style.opens")} words={s.topOpeners.slice(0, 6).map((o) => o.word)} />
+        <Words title={t("style.ends")} words={s.topClosers.slice(0, 6).map((o) => o.word)} />
+        <Words title={t("style.emoji")} words={s.topEmoji.slice(0, 6).map((o) => o.emoji)} />
       </div>
     </aside>
   );
@@ -345,10 +348,11 @@ const confidenceTone: Record<string, string> = {
 };
 
 function DraftResult({ r }: { r: { draft: string; trace: Trace } }) {
+  const { t: tr } = useI18n();
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try { await navigator.clipboard.writeText(r.draft); setCopied(true); setTimeout(() => setCopied(false), 1500); }
-    catch { toast.error("Could not copy"); }
+    catch { toast.error(tr("style.copyFail")); }
   };
   const t = r.trace;
 
@@ -356,50 +360,48 @@ function DraftResult({ r }: { r: { draft: string; trace: Trace } }) {
     <div className="space-y-5 animate-in fade-in-0 slide-in-from-bottom-1 duration-200">
       <figure className="rounded-xl border border-primary/40 bg-primary/5 p-4">
         <figcaption className="mb-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-          <span>Draft · needs your approval before it is sent</span>
+          <span>{tr("style.draft.caption")}</span>
           <button type="button" onClick={copy}
             className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
-            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}{copied ? "Copied" : "Copy"}
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}{copied ? tr("style.copied") : tr("style.copy")}
           </button>
         </figcaption>
         <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{r.draft}</p>
       </figure>
 
       <div>
-        <h3 className="text-sm font-semibold">How this draft was made</h3>
+        <h3 className="text-sm font-semibold">{tr("style.trace.title")}</h3>
         <ol className="mt-3 space-y-5 border-l pl-5">
-          <TraceStep title="Your habits applied" note="from your learned profile">
+          <TraceStep title={tr("style.trace.habits")} note={tr("style.trace.habitsNote")}>
             <p className="text-sm text-muted-foreground">
-              Replies around <span className="font-mono text-foreground">{Math.round(t.style.medianChars)}</span> chars,{" "}
-              emoji in <span className="font-mono text-foreground">{pct(t.style.emojiRate)}</span> of messages,{" "}
-              lowercase starts <span className="font-mono text-foreground">{pct(t.style.lowercaseStartRate)}</span>.
+              {tr("style.trace.habitsLine", { chars: Math.round(t.style.medianChars), emoji: pct(t.style.emojiRate), lower: pct(t.style.lowercaseStartRate) })}
             </p>
           </TraceStep>
 
-          <TraceStep title="Your real replies in similar situations" note={`${t.examples.length} used`}>
-            {t.examples.length === 0 ? <p className="text-sm text-muted-foreground">No close match found.</p> : (
+          <TraceStep title={tr("style.trace.examples")} note={tr("style.trace.used", { n: t.examples.length })}>
+            {t.examples.length === 0 ? <p className="text-sm text-muted-foreground">{tr("style.trace.noExamples")}</p> : (
               <ul className="space-y-2">
                 {t.examples.map((e, i) => (
                   <li key={i} className="rounded-lg border p-3 text-sm">
-                    <div className="mb-2 flex items-center gap-2" title="Embedding similarity">
+                    <div className="mb-2 flex items-center gap-2" title={tr("style.trace.similarity")}>
                       <div className="h-1 w-16 rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: pct(Math.max(0, Math.min(1, e.similarity))) }} /></div>
                       <span className="font-mono text-xs tabular-nums text-muted-foreground">{e.similarity.toFixed(2)}</span>
                     </div>
-                    <p className="text-muted-foreground"><span className="mr-1.5 text-xs uppercase tracking-wide">Them</span>{e.incoming}</p>
-                    <p className="mt-1"><span className="mr-1.5 text-xs uppercase tracking-wide text-primary">You</span>{e.reply}</p>
+                    <p className="text-muted-foreground"><span className="mr-1.5 text-xs uppercase tracking-wide">{tr("style.trace.them")}</span>{e.incoming}</p>
+                    <p className="mt-1"><span className="mr-1.5 text-xs uppercase tracking-wide text-primary">{tr("style.trace.you")}</span>{e.reply}</p>
                   </li>
                 ))}
               </ul>
             )}
           </TraceStep>
 
-          <TraceStep title="Business facts found" note={
+          <TraceStep title={tr("style.trace.facts")} note={
             <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium", confidenceTone[t.knowledge.confidence] ?? confidenceTone.none)}>
-              {t.knowledge.confidence} confidence
+              {tr("style.trace.confidence", { level: t.knowledge.confidence })}
             </span>
           }>
             {t.knowledge.hits.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nothing in the knowledge base matched, so the model was told not to state prices or policies.</p>
+              <p className="text-sm text-muted-foreground">{tr("style.trace.noFacts")}</p>
             ) : (
               <ul className="space-y-2">
                 {t.knowledge.hits.map((h, i) => (

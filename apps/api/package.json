@@ -21,6 +21,7 @@
     "@prisma/client": "^6.0.0",
     "@prospex/database": "workspace:*",
     "@prospex/types": "workspace:*",
+    "@whiskeysockets/baileys": "6.7.23",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.17.0",
     "class-transformer": "^0.5.1",
@@ -30,6 +31,7 @@
     "joi": "^18.2.3",
     "multer": "^2.4.0",
     "openai": "^4.67.3",
+    "pino": "^10.4.0",
     "playwright": "^1.48.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"

@@ -36,3 +36,6 @@ apps/web/next-env.d.ts
 
 # Legacy pre-monorepo scripts (kept locally, not part of the repository)
 _legacy/
+
+# local dev login (never commit)
+.local-dev-login.txt
