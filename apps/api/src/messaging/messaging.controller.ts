@@ -80,7 +80,8 @@ export class MessagingController {
 
   @Get("outbox/generate/status")
   generationStatus(@WorkspaceId() ws: string) {
-    return this.messaging.generationStatus(ws);
+    // always a JSON object: an empty body breaks clients that call res.json()
+    return this.messaging.generationStatus(ws) ?? { running: false, total: 0, done: 0, created: 0, failed: 0, skipped: { noValidPhone: 0, optedOut: 0, duplicateNumber: 0 }, firstError: null };
   }
 
   @Post("outbox/followups/run")

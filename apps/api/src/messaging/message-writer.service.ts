@@ -6,11 +6,14 @@ import { KnowledgeService } from "../ai/knowledge.service";
 import { StyleService } from "../ai/style.service";
 import { buildDraftMessages, buildOutreachMessages } from "../ai/chat-import/style-prompt";
 import type { StyleStats } from "../ai/chat-import/style-stats";
+import { draftRisks } from "./draft-risk";
 import { OPT_OUT_HINT_EN, OPT_OUT_HINT_ID } from "./opt-out";
 
 export interface WrittenMessage {
   text: string;
   trace: { styled: boolean; examples: number; knowledge: string; model: string; latencyMs: number };
+  /** Things in the draft a reviewer should double-check (links, prices, discounts...). Empty when nothing stands out. */
+  risks: string[];
 }
 
 type LeadWithCampaign = Lead & { campaign: Pick<Campaign, "yourService" | "language"> };
@@ -76,6 +79,7 @@ export class MessageWriterService {
     const hint = language === "english" ? OPT_OUT_HINT_EN : OPT_OUT_HINT_ID;
     return {
       text: `${body.text}\n\n${hint}`,
+      risks: draftRisks(body.text, facts.hits.map((h) => h.content)),
       trace: { styled: !!stats, examples: examples.length, knowledge: facts.confidence, model: this.ai.chatModel, latencyMs: Date.now() - started },
     };
   }
@@ -102,7 +106,7 @@ export class MessageWriterService {
       history,
     });
     const body = await this.generate(workspaceId, "reply", incoming, messages, facts.hits.map((h) => h.sourceId), facts.confidence);
-    return { text: body.text, trace: { styled: true, examples: examples.length, knowledge: facts.confidence, model: this.ai.chatModel, latencyMs: Date.now() - started } };
+    return { text: body.text, risks: draftRisks(body.text, facts.hits.map((h) => h.content)), trace: { styled: true, examples: examples.length, knowledge: facts.confidence, model: this.ai.chatModel, latencyMs: Date.now() - started } };
   }
 
   private async generate(workspaceId: string, kind: string, input: string, messages: { role: "system" | "user"; content: string }[], sourceIds: string[], confidence: string) {

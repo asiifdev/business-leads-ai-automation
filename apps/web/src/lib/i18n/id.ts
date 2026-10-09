@@ -154,5 +154,5 @@ export const id: Record<MessageKey, string> = {
   "outbox.empty.attention": "Tidak ada yang perlu perhatian.",
   "outbox.rejectedN": "{n} tidak disetujui: {reason}",
   "outbox.error.load": "Gagal memuat Kotak Keluar",
-  "outbox.flagged": "Pesan ini berisi teks yang tampak seperti perintah untuk AI. Baca draf dengan teliti sebelum menyetujui.",
+  "outbox.flagged": "Perlu dicek lebih teliti sebelum disetujui: draf ini atau pesan yang dijawab memuat tautan, harga, diskon, atau teks yang terbaca seperti perintah untuk AI.",
 };

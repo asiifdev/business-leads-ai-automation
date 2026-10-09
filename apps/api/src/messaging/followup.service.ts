@@ -56,7 +56,7 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
         const number = done + 1;
         const w = await this.writer.outreach(workspaceId, lead, { number, of: FOLLOW_UP_DELAYS_DAYS.length, previousMessage: last.body, daysSince: Math.floor((now - last.sentAt!.getTime()) / DAY) });
         await this.prisma.outboundMessage.create({
-          data: { workspaceId, leadId: lead.id, toPhone: phone, body: w.text, aiBody: w.text, source: "ai_followup", status: "draft", context: { followUp: number, trace: w.trace } },
+          data: { workspaceId, leadId: lead.id, toPhone: phone, body: w.text, aiBody: w.text, source: "ai_followup", status: "draft", context: { followUp: number, flagged: w.risks.length > 0, risks: w.risks, trace: w.trace } },
         });
         created++;
       } catch (e) {

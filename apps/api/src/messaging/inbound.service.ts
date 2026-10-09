@@ -67,7 +67,7 @@ export class InboundService implements OnModuleInit {
       const incoming = msg.text.slice(0, 1000); // bound what reaches the model
       const w = await this.writer.reply(workspaceId, lead, incoming, history);
       await this.prisma.outboundMessage.create({
-        data: { workspaceId, leadId: lead.id, toPhone: msg.phone, body: w.text, aiBody: w.text, source: "ai_reply", status: "draft", context: { incoming: msg.text.slice(0, 500), flagged: looksLikeInjection(msg.text), trace: w.trace } },
+        data: { workspaceId, leadId: lead.id, toPhone: msg.phone, body: w.text, aiBody: w.text, source: "ai_reply", status: "draft", context: { incoming: msg.text.slice(0, 500), flagged: looksLikeInjection(msg.text) || w.risks.length > 0, risks: w.risks, trace: w.trace } },
       });
     } catch (e) {
       this.logger.warn(`Reply draft skipped for lead ${lead.id}: ${(e as Error).message}`);

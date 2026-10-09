@@ -173,7 +173,7 @@ export class MessagingService {
         try {
           const w = await this.writer.outreach(workspaceId, lead);
           await this.prisma.outboundMessage.create({
-            data: { workspaceId, leadId: lead.id, toPhone: phone, body: w.text, aiBody: w.text, source: "ai_outreach", status: "draft", context: { trace: w.trace } },
+            data: { workspaceId, leadId: lead.id, toPhone: phone, body: w.text, aiBody: w.text, source: "ai_outreach", status: "draft", context: { flagged: w.risks.length > 0, risks: w.risks, trace: w.trace } },
           });
           if (!lead.phoneE164) await this.prisma.lead.update({ where: { id: lead.id }, data: { phoneE164: phone } });
           job.created++;
