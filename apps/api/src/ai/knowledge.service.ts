@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AiClientService } from "./ai-client.service";
@@ -22,6 +22,8 @@ const TOP_K = 8;
 
 @Injectable()
 export class KnowledgeService {
+  private readonly logger = new Logger(KnowledgeService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly ai: AiClientService,
@@ -64,11 +66,14 @@ export class KnowledgeService {
         select: { id: true, title: true, status: true, chunkCount: true },
       });
     } catch (err) {
+      // Provider errors can contain internal URLs, model names or response bodies:
+      // log the detail server-side and keep only a generic message in the database and API.
+      this.logger.error(`Indexing source ${source.id} failed`, err as Error);
       await this.prisma.knowledgeSource.update({
         where: { id: source.id },
-        data: { status: "failed", error: (err as Error).message.slice(0, 500) },
+        data: { status: "failed", error: "Indexing failed. Check the AI provider settings and try again." },
       });
-      throw err;
+      throw new ServiceUnavailableException("Indexing failed. Check the AI provider settings and try again.");
     }
   }
 
