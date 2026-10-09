@@ -454,7 +454,7 @@ kill -9 <PID>
 
 ### Pesan disetujui tapi tidak terkirim
 
-Periksa berurutan: (1) status harus "Terhubung" dan pengiriman tidak dijeda, (2) apakah sedang jam tenang, (3) batas per jam atau per hari sudah tercapai (lihat meter "Jam ini" dan "Hari ini"), (4) jeda acak antar pesan belum lewat. Tab **Antrean** menunjukkan urutannya, dan tulisan di panel WhatsApp menjelaskan alasan menunggunya.
+Periksa berurutan: (1) status harus "Terhubung" dan pengiriman tidak dijeda, (2) apakah sedang jam tenang, (3) batas per jam atau per hari sudah tercapai (lihat meter "Jam ini" dan "Hari ini"), (4) jeda acak antar pesan belum lewat. Tab **Antrean** menunjukkan urutannya, dan panel WhatsApp menampilkan jam tenang serta meter batas jam ini dan hari ini.
 
 ### Harus scan QR lagi setiap deploy
 
