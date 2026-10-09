@@ -38,6 +38,12 @@ const MEDIA_ONLY = [
 ];
 const DELETED = /^(this message was deleted|you deleted this message|pesan ini dihapus|anda menghapus pesan ini)$/i;
 
+/** Largest export accepted (characters). Real exports are a few MB; this bounds work on hostile input. */
+export const MAX_EXPORT_CHARS = 50_000_000;
+/** Headers and media placeholders are short; longer lines are never matched against these patterns. */
+const MAX_HEADER_CHARS = 400;
+const MAX_MEDIA_PLACEHOLDER_CHARS = 200;
+
 const clean = (s: string) => s.replace(INVISIBLE, "").trim();
 
 interface Header {
@@ -52,7 +58,8 @@ interface Header {
 }
 
 function matchHeader(line: string): Header | null {
-  const m = ANDROID.exec(line) ?? IOS.exec(line);
+  const head = line.slice(0, MAX_HEADER_CHARS);
+  const m = ANDROID.exec(head) ?? IOS.exec(head);
   if (!m) return null;
   return {
     a: +m[1], b: +m[2], y: +m[3], hour: +m[4], minute: +m[5], second: m[6] ? +m[6] : 0,
@@ -89,6 +96,7 @@ function splitSender(rest: string): { sender: string; text: string } | null {
 }
 
 export function parseWhatsAppExport(raw: string): ParsedChat {
+  if (raw.length > MAX_EXPORT_CHARS) throw new RangeError("WhatsApp export is too large");
   const lines = raw.replace(/^\ufeff/, "").replace(/\r\n?/g, "\n").split("\n");
   const found: { header: Header; lineIndex: number }[] = [];
   lines.forEach((l, i) => {
@@ -125,7 +133,7 @@ export function parseWhatsAppExport(raw: string): ParsedChat {
   for (const m of messages) {
     const text = clean(m.text);
     if (!text || DELETED.test(text)) continue;
-    out.push({ ...m, text, isMedia: MEDIA_ONLY.some((re) => re.test(text)) });
+    out.push({ ...m, text, isMedia: text.length <= MAX_MEDIA_PLACEHOLDER_CHARS && MEDIA_ONLY.some((re) => re.test(text)) });
   }
   const senders = [...new Set(out.map((m) => m.sender))];
   return { messages: out, senders, skippedLines: skipped, systemLines: system, dateOrder };
