@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Post, UploadedFiles, UseGuards, UseInterceptors } from "@nestjs/common";
 import { FilesInterceptor } from "@nestjs/platform-express";
+import { Throttle } from "@nestjs/throttler";
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 import { memoryStorage } from "multer";
@@ -15,7 +16,7 @@ class TrainDto {
   @IsString() @MinLength(1) @MaxLength(200) me!: string;
 }
 
-const upload = FilesInterceptor("files", 20, { storage: memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
+const upload = FilesInterceptor("files", 8, { storage: memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
 
 @ApiTags("Style")
 @ApiBearerAuth()
@@ -25,6 +26,7 @@ export class StyleController {
   constructor(private readonly style: StyleService) {}
 
   @Post("inspect")
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(upload)
   @ApiOperation({ summary: "Read WhatsApp exports (.txt/.zip) and list participants. Nothing is stored." })
@@ -33,6 +35,7 @@ export class StyleController {
   }
 
   @Post("train")
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(upload)
   @ApiOperation({ summary: "Learn the owner's writing style from exports; stores statistics and anonymized examples only" })
