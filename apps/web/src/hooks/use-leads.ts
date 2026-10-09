@@ -23,10 +23,9 @@ export interface Lead {
   campaign?: { id: string; name: string };
   marketingContent?: {
     email?: { subject: string; body: string };
-    whatsapp?: string;
-    instagram?: string;
     linkedin?: { connectionNote: string };
     coldCall?: { opening: string };
+    source?: "llm";
   };
   aiAnalysis?: {
     factors?: string[];

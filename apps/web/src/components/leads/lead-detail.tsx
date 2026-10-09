@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Phone, Globe, MapPin, Star, Mail, MessageCircle, Loader2, Copy, Instagram } from "lucide-react";
+import { ArrowLeft, Phone, Globe, MapPin, Star, Mail, Loader2, Copy } from "lucide-react";
 import { useLead } from "@/hooks/use-leads";
 import { api } from "@/lib/api";
 
@@ -140,10 +140,10 @@ export function LeadDetail({ id }: { id: string }) {
           </Card>
 
           {/* AI Marketing Content */}
-          {lead.marketingContent && (
+          {lead.marketingContent?.source === "llm" && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">AI-Generated Outreach</CardTitle>
+                <CardTitle className="text-base">Email and call notes</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {lead.marketingContent.email && (
@@ -160,37 +160,6 @@ export function LeadDetail({ id }: { id: string }) {
                       <p className="whitespace-pre-wrap">{lead.marketingContent.email.body}</p>
                     </div>
                   </div>
-                )}
-                {lead.marketingContent.whatsapp && (
-                  <>
-                    <Separator />
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <MessageCircle className="w-4 h-4 text-success" />
-                        <span className="text-sm font-medium">WhatsApp</span>
-                        <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs opacity-60 hover:opacity-100" onClick={() => navigator.clipboard.writeText(lead.marketingContent!.whatsapp!)}>
-                          Copy
-                        </Button>
-                      </div>
-                      <div className="bg-muted/50 rounded-lg p-3 text-xs leading-relaxed whitespace-pre-wrap">
-                        {lead.marketingContent.whatsapp}
-                      </div>
-                    </div>
-                  </>
-                )}
-                {lead.marketingContent.instagram && (
-                  <>
-                    <Separator />
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Instagram className="w-4 h-4 text-pink-500" />
-                        <span className="text-sm font-medium">Instagram DM</span>
-                      </div>
-                      <div className="bg-muted/50 rounded-lg p-3 text-xs leading-relaxed">
-                        {lead.marketingContent.instagram}
-                      </div>
-                    </div>
-                  </>
                 )}
               </CardContent>
             </Card>

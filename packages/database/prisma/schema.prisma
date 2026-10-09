@@ -29,6 +29,10 @@ model Workspace {
   aiRuns           AiRun[]
   styleProfile     StyleProfile?
   styleExamples    StyleExample[]
+  whatsappAccount  WhatsappAccount?
+  outboundMessages OutboundMessage[]
+  inboundMessages  InboundMessage[]
+  messageOptOuts   MessageOptOut[]
 
   @@map("workspaces")
 }
@@ -188,6 +192,8 @@ model Lead {
 
   activities LeadActivity[]
   followUps  FollowUp[]
+  outbound   OutboundMessage[]
+  inbound    InboundMessage[]
 
   @@map("leads")
 }
@@ -375,4 +381,90 @@ model StyleExample {
 
   @@index([workspaceId, embeddingModel])
   @@map("style_examples")
+}
+
+
+// ============ MESSAGING: APPROVAL QUEUE + WHATSAPP ============
+// Every outgoing message starts as a draft. Nothing is sent until a person approves it.
+
+model WhatsappAccount {
+  id                 String   @id @default(cuid())
+  provider           String   @default("baileys") // baileys | cloud_api (official API, planned)
+  status             String   @default("disconnected") // disconnected | connecting | qr | connected | logged_out
+  phone              String?
+  hourlyLimit        Int      @default(10)
+  dailyLimit         Int      @default(80)
+  quietStartHour     Int      @default(21)
+  quietEndHour       Int      @default(7)
+  timezone           String   @default("Asia/Jakarta")
+  defaultCountryCode String   @default("62")
+  paused             Boolean  @default(false)
+  nextSendAt         DateTime?
+  lastError          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String    @unique
+
+  @@map("whatsapp_accounts")
+}
+
+model OutboundMessage {
+  id                String    @id @default(cuid())
+  channel           String    @default("whatsapp")
+  toPhone           String
+  body              String
+  aiBody            String? // what the model wrote, kept to measure how much people edit
+  source            String // ai_outreach | ai_reply | ai_followup | manual
+  status            String    @default("draft") // draft | approved | sending | sent | failed | rejected | cancelled
+  context           Json?
+  editedByUser      Boolean   @default(false)
+  attempts          Int       @default(0)
+  error             String?
+  providerMessageId String?
+  approvedAt        DateTime?
+  sentAt            DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  lead        Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  leadId      String?
+
+  @@index([workspaceId, status, createdAt])
+  @@index([workspaceId, sentAt])
+  @@index([leadId])
+  @@map("outbound_messages")
+}
+
+model InboundMessage {
+  id                String   @id @default(cuid())
+  fromPhone         String
+  body              String
+  providerMessageId String
+  receivedAt        DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  lead        Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  leadId      String?
+
+  @@unique([workspaceId, providerMessageId])
+  @@index([workspaceId, fromPhone, receivedAt])
+  @@map("inbound_messages")
+}
+
+model MessageOptOut {
+  id        String   @id @default(cuid())
+  phone     String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+
+  @@unique([workspaceId, phone])
+  @@map("message_opt_outs")
 }
