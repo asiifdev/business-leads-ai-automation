@@ -17,7 +17,11 @@ export function describeStyle(s: StyleStats): string {
   const lines = [
     `Panjang balasan: rata-rata ${s.avgChars} karakter (median ${s.medianChars}), sekitar ${s.avgWords} kata. Jangan jauh lebih panjang dari itu.`,
     `Emoji muncul di ${pct(s.emojiRate)} pesan${s.topEmoji.length ? ` (paling sering: ${s.topEmoji.slice(0, 3).map((e) => e.emoji).join(" ")})` : ""}.`,
-    `Tanda seru di ${pct(s.exclamationRate)} pesan; pesan diawali huruf kecil di ${pct(s.lowercaseStartRate)}; tanpa tanda baca di akhir pada ${pct(s.noEndPunctuationRate)}.`,
+    `Tanda seru di ${pct(s.exclamationRate)} pesan; tanpa tanda baca di akhir pada ${pct(s.noEndPunctuationRate)}.`,
+    s.lowercaseStartRate < 0.5
+      ? `Awal pesan: kebanyakan (${pct(1 - s.lowercaseStartRate)}) diawali huruf besar dan hanya ${pct(s.lowercaseStartRate)} huruf kecil. Awali dengan huruf besar.`
+      : `Awal pesan: kebanyakan (${pct(s.lowercaseStartRate)}) diawali huruf kecil.`,
+    "Nama orang, bisnis, dan tempat selalu ditulis dengan huruf kapital yang benar.",
     `Pesan multi-baris hanya ${pct(s.multiLineRate)}.`,
   ];
   if (s.topOpeners.length) lines.push(`Kata pembuka yang sering dipakai: ${s.topOpeners.slice(0, 5).map((o) => o.word).join(", ")}.`);
@@ -123,7 +127,8 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
     shots ? `\nCONTOH BALASAN ASLI PEMILIK (untuk menangkap nada, bukan isi):\n${shots}` : "",
     "",
     "ATURAN:",
-    "- Jangan mengarang fakta tentang penerima di luar data di atas. Jangan memuji secara umum (\"bisnis Anda keren\").",
+    "- Jangan mengarang fakta tentang penerima di luar data di atas. Dilarang menyebut bisnis mereka ramai, laris, enak, terkenal, atau sejenisnya kecuali tertulis di data. Jangan memuji secara umum.",
+    "- Sebut tepat satu fakta spesifik dari data apa adanya (mis. rating dan jumlah ulasan, belum ada website, atau lokasi), lalu hubungkan dengan penawaran.",
     "- Jangan menjanjikan hasil atau angka. Jangan menulis seperti iklan atau broadcast.",
     "- Satu pesan pendek, tanpa baris tanda tangan, tanpa placeholder seperti [Nama].",
     `- Bahasa: ${id ? "Indonesia" : "English"}. Jangan menambahkan kalimat berhenti/opt-out, itu ditambahkan sistem.`,

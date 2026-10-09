@@ -39,3 +39,6 @@ _legacy/
 
 # local dev login (never commit)
 .local-dev-login.txt
+
+# WhatsApp linked-device sessions (credentials)
+.wa-auth/

@@ -12,6 +12,6 @@ import { MarketingAiService } from "./marketing-ai.service";
   imports: [AuthModule],
   controllers: [KnowledgeController, StyleController],
   providers: [LeadIntelligenceService, MarketingAiService, AiClientService, KnowledgeService, StyleService],
-  exports: [LeadIntelligenceService, MarketingAiService, AiClientService, KnowledgeService],
+  exports: [LeadIntelligenceService, MarketingAiService, AiClientService, KnowledgeService, StyleService],
 })
 export class AiModule {}

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { normalizePhone } from "../messaging/phone";
 import { PrismaService } from "../prisma/prisma.service";
 import { UpdateCrmDto } from "./dto/update-crm.dto";
 
@@ -100,6 +101,9 @@ export class LeadsService {
     campaignId: string;
     workspaceId: string;
   }>) {
-    return this.prisma.lead.createMany({ data: leads, skipDuplicates: true });
+    return this.prisma.lead.createMany({
+      data: leads.map((l) => ({ ...l, phoneE164: normalizePhone(l.phone) })),
+      skipDuplicates: true,
+    });
   }
 }

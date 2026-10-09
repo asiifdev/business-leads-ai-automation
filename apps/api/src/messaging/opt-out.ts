@@ -17,3 +17,4 @@ export function isOptOut(text: string): boolean {
 
 /** Line added to first-contact drafts so the recipient always has a way out. */
 export const OPT_OUT_HINT_ID = "Kalau tidak berkenan, balas STOP.";
+export const OPT_OUT_HINT_EN = "If you'd rather not hear from me, reply STOP.";

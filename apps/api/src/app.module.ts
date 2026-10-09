@@ -14,6 +14,7 @@ import { SettingsModule } from "./settings/settings.module";
 import { ExportModule } from "./export/export.module";
 import { AuthModule } from "./auth/auth.module";
 import { WorkspaceModule } from "./workspace/workspace.module";
+import { MessagingModule } from "./messaging/messaging.module";
 
 @Module({
   imports: [
@@ -34,6 +35,8 @@ import { WorkspaceModule } from "./workspace/workspace.module";
         THROTTLE_TTL_MS: Joi.number().default(60000),
         THROTTLE_LIMIT: Joi.number().default(60),
         AUTH_THROTTLE_LIMIT: Joi.number().default(10),
+        WA_AUTH_DIR: Joi.string().allow("").default(""),
+        WHATSAPP_DISABLED: Joi.string().valid("true", "false").default("false"),
       }),
       validationOptions: { abortEarly: true },
     }),
@@ -53,6 +56,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
     ExportModule,
     AuthModule,
     WorkspaceModule,
+    MessagingModule,
   ],
   controllers: [AppController],
   providers: [
