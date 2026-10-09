@@ -33,3 +33,6 @@ coverage/
 apps/marketing/next-env.d.ts
 apps/web/next-env.d.ts
 apps/web/next-env.d.ts
+
+# Legacy pre-monorepo scripts (kept locally, not part of the repository)
+_legacy/

@@ -2,9 +2,11 @@
 <div align="center">
   <h1>Prospex</h1>
   <p><strong>Open-source AI-powered GTM automation platform</strong></p>
-  <p>Find leads · Score them with AI · Generate personalized outreach · Close deals</p>
+  <p>Find leads · Score them with AI · Draft outreach in <em>your</em> voice · Approve · Close deals</p>
+  <p><a href="https://alatpintar.id">Hosted version (no install)</a> · <a href="#quickstart">Self-host</a> · <a href="#roadmap">Roadmap</a> · <a href="COMMERCIAL-LICENSE.md">Commercial license</a></p>
 
-  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+  [![GitHub stars](https://img.shields.io/github/stars/asiifdev/business-leads-ai-automation?style=social)](https://github.com/asiifdev/business-leads-ai-automation/stargazers)
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
   [![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
   [![NestJS](https://img.shields.io/badge/NestJS-10-red.svg)](https://nestjs.com/)
@@ -16,7 +18,19 @@
 
 Prospex is a **self-hosted, open-source** platform that combines lead discovery, AI-powered outreach generation, and CRM management in one dashboard.
 
-Think Apollo.io + Instantly.ai — but open-source, self-hosted, and free.
+Think Apollo.io + Instantly.ai — but open-source, self-hosted, and built so that **nothing is sent without your approval**.
+
+> **Don't want to run servers?** The managed version at **[alatpintar.id](https://alatpintar.id)** runs Prospex for you. Self-hosting stays free forever under the AGPL.
+
+> ⭐ If Prospex is useful, a star helps other people find it.
+
+### Why Prospex
+
+- **Human-in-the-loop by design.** AI prepares message drafts; you approve, edit or reject before anything is sent. No bulk blasting, so your number stays safe.
+- **Writes like you.** Optionally import your own WhatsApp chat exports (the official *Export chat* feature) so drafts match your tone, vocabulary and emoji habits. Everything can run locally with Ollama.
+- **Grounded answers.** Replies use your own knowledge base (RAG with pgvector) and never invent prices or policies.
+- **Agent-ready.** REST API and API keys today, MCP server on the roadmap so AI agents can read and update your pipeline.
+- **Self-hosted, multi-tenant, MIT-free of lock-in.** PostgreSQL, Redis, Docker Compose.
 
 ### Features
 
@@ -44,6 +58,7 @@ Think Apollo.io + Instantly.ai — but open-source, self-hosted, and free.
 
 ---
 
+<a id="quickstart"></a>
 ## Quickstart
 
 ### Prerequisites
@@ -197,9 +212,24 @@ pnpm --filter @prospex/database db:studio   # Prisma Studio (DB browser)
 
 ---
 
+## Roadmap
+
+- [x] Google Maps lead discovery, AI scoring, outreach drafts, CRM pipeline
+- [ ] Knowledge base + RAG (pgvector)
+- [ ] Import WhatsApp chat exports to learn your writing style (optional)
+- [ ] Approval queue and send via WhatsApp (Baileys), one message at a time
+- [ ] Function-calling agent and MCP server
+- [ ] Proposals and invoices
+
+See the open issues to help or to vote on what comes next.
+
+---
+
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Prospex is licensed under the **GNU AGPL-3.0-or-later** — see [LICENSE](LICENSE). Self-hosting and modifying are free; if you offer a modified version as a network service you must publish your changes. A [commercial license](COMMERCIAL-LICENSE.md) is available if the AGPL does not fit your use.
+
+Scraping websites and sending messages may be restricted by the terms of those services and by privacy laws (GDPR, Indonesia's UU PDP). You are responsible for how you use this software; see [DISCLAIMER.md](DISCLAIMER.md).
 
 ---
 

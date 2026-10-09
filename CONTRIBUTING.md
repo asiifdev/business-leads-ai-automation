@@ -127,3 +127,8 @@ Be respectful, constructive, and inclusive. We follow the [Contributor Covenant]
 ---
 
 **Every contribution, big or small, makes Prospex better for business owners worldwide. Thank you!**
+
+
+## License of contributions
+
+Prospex is licensed under AGPL-3.0-or-later and also offered under a [commercial license](COMMERCIAL-LICENSE.md). By opening a pull request you confirm that you wrote the change (or may submit it) and that you license it under the AGPL-3.0 and allow the project owner to also distribute it under the commercial license.
