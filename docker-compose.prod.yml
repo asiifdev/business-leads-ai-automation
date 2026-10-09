@@ -44,8 +44,12 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      WA_AUTH_DIR: /data/wa-auth
       PORT: 3001
       NEXT_PUBLIC_APP_URL: ${APP_URL:-http://localhost:3000}
+    volumes:
+      - wa_auth:/data/wa-auth   # linked WhatsApp sessions: lose this and every number must be re-linked
     depends_on:
       postgres:
         condition: service_healthy
@@ -86,3 +90,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  wa_auth:

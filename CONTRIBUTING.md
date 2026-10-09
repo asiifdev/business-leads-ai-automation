@@ -59,7 +59,7 @@ packages/
 
 ## What We Don't Accept
 
-- Features designed for spam or bulk unsolicited messaging
+- Features designed for spam or bulk unsolicited messaging, or that remove the human approval step before a message is sent
 - Bypassing rate limits or ToS of scraped services
 - Privacy-violating data collection
 
@@ -86,8 +86,10 @@ docs: update quickstart in README
 
 1. Run `pnpm --filter @prospex/api exec tsc --noEmit` — zero TS errors
 2. Run `pnpm --filter @prospex/web exec tsc --noEmit` — zero TS errors
-3. Test the happy path manually in the browser
-4. Update `docs/USER_GUIDE.md` if you changed user-facing behavior
+3. Run `pnpm --filter @prospex/api test`, all tests must pass
+4. Test the happy path manually in the browser. If you touched sending or inbound handling, also run `apps/api/scripts/pipeline-check.ts` (see `docs/architecture.md`)
+5. Add new UI text to both `apps/web/src/lib/i18n/en.ts` and `id.ts`
+6. Update `docs/USER_GUIDE.md` (and `docs/whatsapp-outbox.md` for sending changes) if you changed user-facing behavior
 
 ## Pull Request Template
 

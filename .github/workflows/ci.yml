@@ -26,6 +26,7 @@ jobs:
       - run: pnpm --filter @prospex/database exec prisma generate
       - run: pnpm --filter @prospex/api exec tsc --noEmit
       - run: pnpm --filter @prospex/web exec tsc --noEmit
+      - run: pnpm --filter @prospex/api test
 
   # ─── Job 2: Build ────────────────────────────────────────────────────────────
   build:
@@ -51,7 +52,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        image: pgvector/pgvector:pg16   # migrations create the pgvector extension
         env:
           POSTGRES_USER: prospex
           POSTGRES_PASSWORD: prospex
@@ -78,7 +79,8 @@ jobs:
       REDIS_URL: redis://localhost:6380
       JWT_SECRET: ci-test-secret-do-not-use-in-prod
       ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
-      OPENAI_API_KEY: ""          # intentionally empty — AI falls back to mock
+      OPENAI_API_KEY: ""          # intentionally empty — AI features stay off, scraping and scoring still run
+      WHATSAPP_DISABLED: "true"   # no sender, no Baileys connections, no follow-up scheduler in CI
       NEXT_PUBLIC_API_URL: http://localhost:3001/api
       THROTTLE_LIMIT: "1000"     # the E2E suite's rapid requests from a single IP would otherwise hit the production rate limit
       AUTH_THROTTLE_LIMIT: "1000" # auth routes have their own stricter brute-force limit — same reasoning

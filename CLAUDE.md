@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Prospex — a self-hosted, open-source GTM automation platform (Google Maps lead scraping + AI-scored leads + AI-generated outreach + CRM pipeline). Turborepo/pnpm monorepo.
+Prospex — a self-hosted, open-source outreach platform for selling to local businesses: Google Maps lead scraping, scoring, AI drafts in the owner's own voice, a human-approval Outbox, WhatsApp sending (Baileys) with pacing limits, replies and follow-ups as drafts, and a CRM pipeline. Turborepo/pnpm monorepo.
 
 ## Commands
 
@@ -28,12 +28,14 @@ pnpm --filter @prospex/web exec tsc --noEmit          # typecheck web — must b
 pnpm build                                             # turbo build (all apps)
 pnpm lint                                              # turbo lint (all apps)
 
+pnpm --filter @prospex/api test                        # unit tests (node:test via tsx): parser, style stats, send policy, opt-out, draft risk
+DATABASE_URL=... WORKSPACE_ID=... pnpm --filter @prospex/api exec tsx scripts/pipeline-check.ts   # sender + inbound against a real DB with a fake WhatsApp provider
 pnpm test:e2e                                          # Playwright e2e against localhost:3000/3001 (servers must already be running)
 pnpm test:e2e:ui                                       # Playwright UI mode
 npx playwright test tests/e2e/leads.spec.ts            # run a single e2e spec
 ```
 
-There are no unit test suites — `tests/e2e/*.spec.ts` (Playwright) is the only automated test layer, run against a fully built+running stack (see `.github/workflows/ci.yml` for the exact boot sequence: build API/web, start both, poll `/api/health`, then run tests).
+Tests: `apps/api` has unit tests next to the code (`*.test.ts`, run with `pnpm --filter @prospex/api test`) and `scripts/pipeline-check.ts`; `tests/e2e/*.spec.ts` (Playwright) runs against a fully built+running stack (see `.github/workflows/ci.yml`: build API/web, start both, poll `/api/health`, then run tests). Set `WHATSAPP_DISABLED=true` in CI so the sender and Baileys stay off.
 
 Env files: copy `.env.example` to `apps/api/.env` and `packages/database/.env`. Required vars are validated at API boot via Joi in `apps/api/src/app.module.ts` (`DATABASE_URL`, `JWT_SECRET` ≥16 chars, `ENCRYPTION_KEY` base64, etc.) — the API will refuse to start if these are missing/invalid.
 
@@ -50,14 +52,27 @@ Env files: copy `.env.example` to `apps/api/.env` and `packages/database/.env`. 
 ### Multi-tenancy
 Everything in Prisma is scoped under `Workspace` (`packages/database/prisma/schema.prisma`): `Campaign`, `Lead`, `Contact`, `Integration`, `ApiKey` all carry a `workspaceId`. `WorkspaceMember` links `User`↔`Workspace` with a `role`. Auth (`apps/api/src/auth`) uses JWT sessions (`Session`/`Account` models, bcrypt) plus a separate `ApiKeyGuard` for API-key auth (`apps/api/src/auth/api-key.guard.ts`) — most endpoints resolve the acting workspace via the `@CurrentWorkspace()` decorator, not just the user.
 
-### Campaign → scrape → score → content pipeline
-This is the core async flow, and touches four modules together:
-1. `POST /api/scraper/campaigns/:id/start` (`apps/api/src/scraper/scraper.controller.ts`) enqueues a BullMQ job on the `scraper` queue (Redis-backed, configured in `scraper.module.ts`).
-2. `ScraperProcessor` (`scraper.processor.ts`) is the worker: it drives `GoogleMapsScraperService` (Playwright-based Google Maps scraping) to collect raw leads, updates `Campaign.status`/`progress` as it goes (`draft → running → completed|failed`).
-3. Raw leads are scored via `LeadIntelligenceService` (`apps/api/src/ai`), then per-lead AI outreach content (email/WhatsApp/IG DM/LinkedIn/cold-call script) is generated via `MarketingAiService`.
-4. Both AI services wrap the OpenAI SDK but are provider-agnostic — `OPENAI_BASE_URL` can point at OpenRouter or a local Ollama instance, and leaving `OPENAI_API_KEY` empty makes them fall back to deterministic mock content (this is what CI does, and it's the intended way to develop without burning API credits).
+### Campaign → scrape → score pipeline
+1. `POST /api/scraper/campaigns/:id/start` (`apps/api/src/scraper/scraper.controller.ts`) enqueues a BullMQ job on the `scraper` queue (Redis-backed, `scraper.module.ts`).
+2. `ScraperProcessor` is the worker: it drives `GoogleMapsScraperService` (Playwright) and updates `Campaign.status`/`progress` (`draft → running → completed|failed`).
+3. Raw leads are scored by `LeadIntelligenceService` (rule-based, no AI needed). For HIGH-priority leads `MarketingAiService` may add email/LinkedIn/call notes (`marketingContent.source === "llm"`); it returns `null` when no AI provider is configured. It never produces canned text, and it no longer writes WhatsApp/Instagram messages.
 
-When changing anything in this pipeline, check all four pieces (`scraper.controller`, `scraper.processor`, the two `ai` services, `campaigns.service` for status transitions) since progress/state is threaded through by hand rather than via a saga/state machine.
+State is threaded through by hand rather than a state machine, so when changing this pipeline check `scraper.controller`, `scraper.processor`, the `ai` services and `campaigns.service`.
+
+### AI (`apps/api/src/ai`)
+- `AiClientService`: OpenAI-compatible chat and embeddings (`OPENAI_BASE_URL` can point at OpenRouter or Ollama). With `OPENAI_API_KEY` empty `enabled` is false and AI features refuse to run.
+- `KnowledgeService`: chunks and vectors (pgvector), two-tier confidence (high/low/none) so drafts do not state facts the knowledge base lacks.
+- `StyleService` + `chat-import/`: parse WhatsApp exports, compute style statistics, store anonymized (incoming → reply) pairs with embeddings, retrieve similar pairs. Never store raw chats. Vectors are only compared within the same `embeddingModel` and `dimensions`.
+- `chat-import/style-prompt.ts` builds prompts. Text from outside (scraped listings, customers, exported chats) must stay inside `<data_*>` / `<pesan_pelanggan>` delimiters and go through `clip()`; do not interpolate it into instructions.
+
+### Messaging (`apps/api/src/messaging`)
+Read `docs/architecture.md` and `docs/whatsapp-outbox.md` first. Invariants to keep:
+- **Nothing sends without approval.** Drafts (`ai_outreach`, `ai_reply`, `ai_followup`, `manual`) enter the queue only through `MessagingService.approve`.
+- **Claim, then send.** `SenderService` claims a message with `updateMany(status: approved → sending)`. A message found in `sending` after a restart is marked failed, never resent.
+- **Send policy is pure** (`send-policy.ts`) and unit tested. Change limits there, not inline.
+- **WhatsApp is behind `WhatsappProvider`.** Add the official Cloud API as another implementation.
+- **Opt-out is absolute.** `message_opt_outs` is checked at approve time and again at send time.
+- Inbound text from customers is untrusted: keep it delimited in prompts, and keep `draftRisks`/`looksLikeInjection` flagging.
 
 ### Secrets at rest
 Integration secrets (e.g. a workspace's own OpenAI key under `Settings → Integrations`) are encrypted with AES-256-GCM using `ENCRYPTION_KEY` before being stored — never store or log third-party API keys in plaintext.
@@ -66,10 +81,10 @@ Integration secrets (e.g. a workspace's own OpenAI key under `Settings → Integ
 - Global `ValidationPipe({ transform: true, whitelist: true })` — DTOs (`*/dto/*.dto.ts`, `class-validator`) are the contract; unknown properties are stripped, not just ignored.
 - Global `HttpExceptionFilter` (`apps/api/src/common/filters`) normalizes error responses.
 - Global `ThrottlerGuard` (60 req/60s default) applies to every route unless overridden.
-- Module-per-domain layout under `apps/api/src/*` (`campaigns`, `leads`, `analytics`, `export`, `settings`, `workspace`) — each is `*.module.ts` + `*.controller.ts` + `*.service.ts` + optional `dto/`; follow this shape for new domains.
+- Module-per-domain layout under `apps/api/src/*` (`campaigns`, `leads`, `analytics`, `export`, `settings`, `workspace`, `ai`, `messaging`) — each is `*.module.ts` + `*.controller.ts` + `*.service.ts` + optional `dto/`; follow this shape for new domains.
 
 ### Frontend
-`apps/web` uses shadcn/ui primitives (`src/components/ui`) + Tailwind, feature components grouped by domain under `src/components/{leads,campaigns,analytics,settings,integrations,dashboard,auth,layout}` mirroring the API's module boundaries. Talks to the API via `NEXT_PUBLIC_API_URL` (must include the `/api` path).
+`apps/web` uses shadcn/ui primitives (`src/components/ui`) + Tailwind, feature components grouped by domain under `src/components/{leads,campaigns,analytics,settings,integrations,dashboard,auth,layout,style,outbox}` mirroring the API's module boundaries. UI text goes through `useI18n().t(key)`: add every new string to `src/lib/i18n/en.ts` and `id.ts` (Indonesian must define every key). Server components may import only from `src/lib/i18n/lang.ts` (the rest is a client module). Talks to the API via `NEXT_PUBLIC_API_URL` (must include the `/api` path).
 
 ## Conventions
 - Conventional Commits (`feat(leads): ...`, `fix(auth): ...`) — see `CONTRIBUTING.md`.

@@ -28,6 +28,14 @@ This software is provided for **educational and legitimate business purposes onl
 - **API Limits**: Respect rate limits and usage quotas
 - **Content Guidelines**: Ensure generated content complies with OpenAI policies
 
+## 💬 WhatsApp and Messaging
+
+- **Linked-device WhatsApp (Baileys) is unofficial.** WhatsApp can restrict or ban a number that it considers automated or unwanted. Use a dedicated business number, keep the pace low, and expect that a ban is possible. Prospex reduces the risk (approval, pacing, quiet hours, STOP handling) but cannot remove it.
+- **Consent and opt-out.** You decide who you contact. Check what the law in your country and the recipient's country requires before sending a first message (GDPR, Indonesia's UU PDP, anti-spam rules). Prospex adds an opt-out line and honours STOP, but that does not replace a legal basis for contacting someone.
+- **AI drafts are drafts.** You approve every message and you are responsible for its content, including any claim about price, results or availability.
+- **Chat exports contain other people's data.** If you use AI Style, only upload chats you are entitled to use. Prospex stores statistics and anonymized pairs, not raw chats, but the files pass through the server during import, and, with a hosted AI provider, text is sent to that provider. Use a local model (Ollama) if that is not acceptable.
+- **Delete on request.** If someone asks to be removed, add them to the opt-out list (reply STOP does this automatically) and delete their lead.
+
 ## 📋 User Responsibilities
 
 ### Before Using This Tool:

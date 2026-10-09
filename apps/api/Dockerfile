@@ -41,7 +41,9 @@ COPY --from=builder /app/pnpm-workspace.yaml ./
 # Install Playwright Chromium browser
 RUN pnpm --filter @prospex/api exec playwright install chromium
 
-RUN addgroup --system prospex && adduser --system --ingroup prospex prospex
+RUN addgroup --system prospex && adduser --system --ingroup prospex prospex \
+    && mkdir -p /data/wa-auth && chown prospex:prospex /data/wa-auth
+ENV WA_AUTH_DIR=/data/wa-auth
 USER prospex
 
 WORKDIR /app/apps/api
