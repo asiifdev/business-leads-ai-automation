@@ -1,9 +1,15 @@
 import { Module } from "@nestjs/common";
+import { AuthModule } from "../auth/auth.module";
+import { AiClientService } from "./ai-client.service";
+import { KnowledgeController } from "./knowledge.controller";
+import { KnowledgeService } from "./knowledge.service";
 import { LeadIntelligenceService } from "./lead-intelligence.service";
 import { MarketingAiService } from "./marketing-ai.service";
 
 @Module({
-  providers: [LeadIntelligenceService, MarketingAiService],
-  exports: [LeadIntelligenceService, MarketingAiService],
+  imports: [AuthModule],
+  controllers: [KnowledgeController],
+  providers: [LeadIntelligenceService, MarketingAiService, AiClientService, KnowledgeService],
+  exports: [LeadIntelligenceService, MarketingAiService, AiClientService, KnowledgeService],
 })
 export class AiModule {}

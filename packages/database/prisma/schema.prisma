@@ -24,6 +24,9 @@ model Workspace {
   contacts     Contact[]
   integrations Integration[]
   apiKeys      ApiKey[]
+  knowledgeSources KnowledgeSource[]
+  knowledgeChunks  KnowledgeChunk[]
+  aiRuns           AiRun[]
 
   @@map("workspaces")
 }
@@ -269,4 +272,65 @@ model ApiKey {
   workspaceId String
 
   @@map("api_keys")
+}
+
+// ============ AI: KNOWLEDGE (RAG) ============
+// Embeddings use pgvector. The column is an unconstrained `vector` so any
+// embedding model works; every chunk records which model/dimension produced
+// it and searches only compare chunks of the same model and dimension.
+
+model KnowledgeSource {
+  id          String   @id @default(cuid())
+  title       String
+  kind        String   @default("text") // text | faq | catalog | document
+  status      String   @default("ready") // processing | ready | failed
+  error       String?
+  chunkCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  chunks      KnowledgeChunk[]
+
+  @@index([workspaceId])
+  @@map("knowledge_sources")
+}
+
+model KnowledgeChunk {
+  id             String   @id @default(cuid())
+  content        String
+  position       Int
+  embeddingModel String
+  dimensions     Int
+  embedding      Unsupported("vector")?
+  createdAt      DateTime @default(now())
+
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  source      KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  sourceId    String
+
+  @@index([workspaceId, embeddingModel])
+  @@map("knowledge_chunks")
+}
+
+// One row per AI generation, for debugging and quality review.
+model AiRun {
+  id         String   @id @default(cuid())
+  kind       String   // draft | search | agent
+  model      String?
+  input      String?
+  output     String?
+  sourceIds  String[]
+  confidence String?  // high | low | none
+  latencyMs  Int?
+  error      String?
+  createdAt  DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+
+  @@index([workspaceId, createdAt])
+  @@map("ai_runs")
 }

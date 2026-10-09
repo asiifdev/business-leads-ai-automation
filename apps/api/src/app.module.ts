@@ -29,6 +29,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
         OPENAI_API_KEY: Joi.string().allow("").default(""),
         OPENAI_MODEL: Joi.string().default("gpt-4o-mini"),
         OPENAI_BASE_URL: Joi.string().allow("").default(""),
+        EMBEDDING_MODEL: Joi.string().default("text-embedding-3-small"),
         NEXT_PUBLIC_APP_URL: Joi.string().default("http://localhost:3000"),
         THROTTLE_TTL_MS: Joi.number().default(60000),
         THROTTLE_LIMIT: Joi.number().default(60),
