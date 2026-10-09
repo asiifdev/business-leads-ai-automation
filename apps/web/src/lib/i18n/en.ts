@@ -154,6 +154,7 @@ export const en = {
   "outbox.empty.attention": "Nothing needs attention.",
   "outbox.rejectedN": "{n} not approved: {reason}",
   "outbox.error.load": "Could not load the Outbox",
+  "outbox.flagged": "This message contains text that looks like instructions to the AI. Read the draft carefully before approving.",
 } as const;
 
 export type MessageKey = keyof typeof en;

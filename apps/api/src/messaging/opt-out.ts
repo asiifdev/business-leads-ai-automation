@@ -18,3 +18,18 @@ export function isOptOut(text: string): boolean {
 /** Line added to first-contact drafts so the recipient always has a way out. */
 export const OPT_OUT_HINT_ID = "Kalau tidak berkenan, balas STOP.";
 export const OPT_OUT_HINT_EN = "If you'd rather not hear from me, reply STOP.";
+
+const INJECTION = [
+  /ignore\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier)/i,
+  /abaikan\s+(semua\s+|seluruh\s+)?(instruksi|perintah|aturan)/i,
+  /(system|developer)\s+prompt/i,
+  /\byou\s+are\s+now\b/i,
+  /\b(kamu|anda)\s+(sekarang\s+)?(adalah|menjadi)\b.*\b(asisten|ai|bot)\b/i,
+  /\bact\s+as\b/i,
+  /<\/?(system|pesan_pelanggan|instructions?)>/i,
+];
+
+/** True when an incoming message looks like it tries to give instructions to the AI. The draft is still written, but flagged for the reviewer. */
+export function looksLikeInjection(text: string): boolean {
+  return INJECTION.some((p) => p.test(text));
+}

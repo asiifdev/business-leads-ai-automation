@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { MessageWriterService } from "./message-writer.service";
-import { isOptOut } from "./opt-out";
+import { isOptOut, looksLikeInjection } from "./opt-out";
 import { normalizePhone } from "./phone";
 import { WHATSAPP_PROVIDER, type InboundWhatsappMessage, type WhatsappProvider } from "./whatsapp.provider";
 
@@ -64,9 +64,10 @@ export class InboundService implements OnModuleInit {
     if (pending > 0) return;
     try {
       const history = await this.history(workspaceId, lead.id, msg.phone);
-      const w = await this.writer.reply(workspaceId, lead, msg.text, history);
+      const incoming = msg.text.slice(0, 1000); // bound what reaches the model
+      const w = await this.writer.reply(workspaceId, lead, incoming, history);
       await this.prisma.outboundMessage.create({
-        data: { workspaceId, leadId: lead.id, toPhone: msg.phone, body: w.text, aiBody: w.text, source: "ai_reply", status: "draft", context: { incoming: msg.text.slice(0, 500), trace: w.trace } },
+        data: { workspaceId, leadId: lead.id, toPhone: msg.phone, body: w.text, aiBody: w.text, source: "ai_reply", status: "draft", context: { incoming: msg.text.slice(0, 500), flagged: looksLikeInjection(msg.text), trace: w.trace } },
       });
     } catch (e) {
       this.logger.warn(`Reply draft skipped for lead ${lead.id}: ${(e as Error).message}`);

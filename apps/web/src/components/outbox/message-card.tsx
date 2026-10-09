@@ -57,6 +57,8 @@ export function MessageCard({ m, position, busy, onApprove, onReject, onCancel, 
         </blockquote>
       )}
 
+      {m.context?.flagged && <p className="mt-2 rounded-md bg-warning/15 px-3 py-2 text-xs text-warning-foreground">{t("outbox.flagged")}</p>}
+
       {editing ? (
         <div className="mt-3 space-y-2">
           <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={5} maxLength={1000} aria-label={t("outbox.edit")} />
