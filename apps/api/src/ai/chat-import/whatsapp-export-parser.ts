@@ -34,6 +34,7 @@ const MEDIA_ONLY = [
   /^<lampiran: .+>$/i,
   /^(image|video|audio|sticker|gif|document|stiker|gambar|dokumen)\s+(omitted|tidak disertakan)$/i,
   /^.+\.(jpg|jpeg|png|webp|mp4|opus|m4a|pdf|vcf)\s*\((file attached|file terlampir)\)$/i,
+  /^(?:IMG|VID|PTT|AUD|STK|DOC)-\d{8}-WA\d+\.\w+$/i,
   /^(missed voice call|missed video call|panggilan suara tak terjawab|panggilan video tak terjawab)$/i,
 ];
 const DELETED = /^(this message was deleted|you deleted this message|pesan ini dihapus|anda menghapus pesan ini)$/i;

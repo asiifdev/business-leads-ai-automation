@@ -27,6 +27,8 @@ model Workspace {
   knowledgeSources KnowledgeSource[]
   knowledgeChunks  KnowledgeChunk[]
   aiRuns           AiRun[]
+  styleProfile     StyleProfile?
+  styleExamples    StyleExample[]
 
   @@map("workspaces")
 }
@@ -333,4 +335,44 @@ model AiRun {
 
   @@index([workspaceId, createdAt])
   @@map("ai_runs")
+}
+
+// ============ AI: WRITING STYLE ============
+// Built from the owner's own WhatsApp chat exports. Raw chats are never stored:
+// only measured statistics and anonymized (incoming -> reply) example pairs.
+
+model StyleProfile {
+  id             String   @id @default(cuid())
+  ownerName      String
+  stats          Json
+  messageCount   Int
+  exampleCount   Int
+  embeddingModel String
+  dimensions     Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String    @unique
+  examples    StyleExample[]
+
+  @@map("style_profiles")
+}
+
+model StyleExample {
+  id             String   @id @default(cuid())
+  incoming       String
+  reply          String
+  embeddingModel String
+  dimensions     Int
+  embedding      Unsupported("vector")?
+  createdAt      DateTime @default(now())
+
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  profile     StyleProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId   String
+
+  @@index([workspaceId, embeddingModel])
+  @@map("style_examples")
 }

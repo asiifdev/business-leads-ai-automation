@@ -47,3 +47,8 @@ test("garbage before the first header is counted, not crashed on", () => {
   assert.equal(r.skippedLines, 1);
   assert.equal(r.messages.length, 1);
 });
+
+test("bare media file names are media placeholders", () => {
+  const r = parseWhatsAppExport("01/02/26 10.00 - Budi: IMG-20260201-WA0003.jpg\n01/02/26 10.01 - Budi: PTT-20260201-WA0001.opus");
+  assert.equal(r.messages.every((m) => m.isMedia), true);
+});

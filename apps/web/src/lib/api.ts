@@ -40,6 +40,27 @@ export const api = {
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 
+  /** Multipart upload (browser sets the boundary, so no Content-Type header). */
+  async upload<T>(path: string, form: FormData): Promise<T> {
+    const token = getToken();
+    const res = await fetch(`${API_URL}${path}`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    if (res.status === 401) {
+      localStorage.removeItem("prospex_token");
+      localStorage.removeItem("prospex_user");
+      window.location.href = "/login";
+      throw new Error("Unauthorized");
+    }
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: "Upload failed" }));
+      throw new Error(error.message || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
   /** Fetch a file with auth header and trigger browser download */
   async download(path: string, filename: string): Promise<void> {
     const token = getToken();
