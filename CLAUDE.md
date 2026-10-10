@@ -84,6 +84,9 @@ Read `docs/architecture.md` and `docs/whatsapp-outbox.md` first. Invariants to k
 - **Opt-out is absolute.** `message_opt_outs` is checked at approve time and again at send time.
 - Inbound text from customers is untrusted: keep it delimited in prompts, and keep `draftRisks`/`looksLikeInjection` flagging.
 
+### Email (`apps/api/src/email`)
+Read `docs/email-channel.md` first. Same rules as WhatsApp: drafts need approval (`MessagingService.approve` branches on `channel`), the sender claims `approved -> sending` atomically, opt-outs (`email_opt_outs`) are checked at draft, approve and send. Extra invariants: every message carries the footer and `List-Unsubscribe` headers; the unsubscribe GET never changes state; the SMTP host goes through `resolvePublic` and only allowed ports; never return `passwordEnc` to a client. WhatsApp code must filter `channel: "whatsapp"` (counts, queue, follow-ups, crash recovery) because both channels share `outbound_messages`.
+
 ### Secrets at rest
 Integration secrets (e.g. a workspace's own OpenAI key under `Settings → Integrations`) are encrypted with AES-256-GCM using `ENCRYPTION_KEY` before being stored — never store or log third-party API keys in plaintext.
 

@@ -35,7 +35,7 @@ If Prospex is useful to you, a star helps other people find it.
 | **Score** | A 0 to 100 ranking from signals in the listing (reachable by phone, rating weighted by review count, review volume) plus an AI judgement of how well the business fits your offer, with the reason shown. No hard-coded industry or city weights. |
 | **Draft** | The AI writes the first message from the lead's real data, your own style, the matching angle from your brief and your knowledge base. Standard spelling, one fact, one benefit, one easy question, an opt-out line. |
 | **Approve** | Read, edit, approve or reject each draft in the Outbox. Nothing is sent before this step. |
-| **Send** | Approved messages go out through WhatsApp one at a time: hourly and daily caps, quiet hours, random gaps, and a typing indicator before each one. |
+| **Send** | Approved messages go out through WhatsApp one at a time: hourly and daily caps, quiet hours, random gaps, and a typing indicator before each one. Email works the same way through your own SMTP account, with an unsubscribe link in every message ([docs/email-channel.md](docs/email-channel.md)). |
 | **Reply and follow up** | A reply updates the lead, cancels pending follow-ups, and creates a reply draft for you. Leads that stay silent get up to two follow-up drafts, after 3 and 5 days. A recipient who writes STOP is never contacted again. |
 
 Every feature, its purpose, its limits and how far it has been verified: [docs/features.md](docs/features.md), [editions](docs/editions.md).
@@ -100,7 +100,7 @@ WhatsApp bans numbers that behave like bulk senders. Prospex is built around not
 
 Pace decides the calendar. At the defaults (10 per hour, 80 per day) a list of 1,500 leads takes about 19 days. Raising the daily cap to 140, the most that 10 per hour allows between 07:00 and 21:00, shortens it to about 11 days. Start with a batch of 30 to 50 leads, watch the reply rate and the account, then scale up. Details and the reasoning are in [docs/whatsapp-outbox.md](docs/whatsapp-outbox.md).
 
-**Two ways to connect WhatsApp.** Today Prospex connects as a linked device (Baileys), which works with any number but is unofficial, so use a dedicated business number. An adapter for the official WhatsApp Business Cloud API is planned; the sender already talks to WhatsApp through one provider interface, so adding it does not change the queue. The hosted version will offer both.
+**Two ways to connect WhatsApp.** Today Prospex connects as a linked device (Baileys), which works with any number but is unofficial, so use a dedicated business number. The official WhatsApp Business Cloud API is planned as a hosted-only feature (alatpintar.id subscribers), delivered as a separate private connector that is not built yet. The sender already talks to WhatsApp through one provider interface, and the Outbox settings show the option locked outside the hosted edition. See [docs/editions.md](docs/editions.md).
 
 ## Tech stack
 
@@ -183,6 +183,9 @@ With `OPENAI_API_KEY` empty, scraping and rule-based scoring still work, and the
 | `SCRAPER_MODE` | `live` | `fixture` returns clearly labelled test leads without phone numbers. For tests and demos only. |
 | `PLAYWRIGHT_NO_SANDBOX` | unset | Set to `true` only where Chromium cannot create its sandbox (most containers; the Docker image sets it). Outside containers keep the sandbox on: the browser opens pages chosen by users. |
 | `WA_AUTH_DIR` | `./.wa-auth` | Where linked-device sessions are stored. Mount it as a volume in production and treat it like a password. |
+| `PUBLIC_API_URL` | (localhost) | Public base URL of the API. Unsubscribe links in emails point here. |
+| `EMAIL_DISABLED` | `false` | Set to `true` to turn off the email sender (used in CI). |
+| `EDITION` | `community` | `community` or `hosted`. See [docs/editions.md](docs/editions.md). |
 | `WHATSAPP_DISABLED` | `false` | Set to `true` to turn off the sender, WhatsApp connections and follow-up scheduling (used in CI). |
 
 ## Production

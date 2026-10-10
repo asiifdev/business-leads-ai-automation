@@ -55,6 +55,7 @@ Details: [ai-style.md](ai-style.md).
 | **WhatsApp connection** | Links a number as a device (Baileys) by QR code. Sessions survive restarts. | Outbox | Verified: pairing, resuming after restart, one real message sent and one real reply received. Not yet tested at volume |
 | **Paced sending** | One message at a time: hourly and daily caps (default 10 and 80), quiet hours (default 21:00 to 07:00), random gaps, a typing indicator, a check that the number is on WhatsApp. Pause any time. | Outbox | Simulated |
 | **Safety stops** | Three failures in a row pause the account. A message interrupted mid-send is marked failed and never resent automatically. A number that replies STOP (or similar) is blocked for good. | Outbox | Simulated |
+| **Email channel** | The same review and approval flow over your own SMTP account: AI draft plus subject, edit, approve, paced sending with an unsubscribe link and postal address in every message. Addresses come from contact enrichment. | Outbox → Email | Verified against a local TLS SMTP server. Not tried with a real provider; replies are not read. See [email-channel.md](email-channel.md) |
 | **Replies** | A reply from a known lead updates the CRM status, cancels pending follow-ups and creates a reply draft with the customer's message quoted. Unknown numbers are stored, never answered. | Outbox | Receiving a real reply and storing it is verified. Matching to a lead, drafting the answer and STOP handling are simulated |
 | **Follow-ups** | Drafts after 3 and 5 days of silence, at most two. Also approved by you. | Outbox | Simulated |
 
@@ -90,7 +91,7 @@ Details: [whatsapp-outbox.md](whatsapp-outbox.md).
 Prospex covers one part of marketing well: **finding local businesses, understanding your offer, and conversations by WhatsApp**. It is not yet a full marketing suite. Not built:
 
 - Official WhatsApp Business Cloud API. Routing, the entitlement check (hosted plans only) and the settings choice exist; the connector is not built. See [editions.md](editions.md).
-- Email, Instagram, LinkedIn or SMS sending. Email and LinkedIn notes are generated for high-priority leads but not sent.
+- Instagram, LinkedIn or SMS sending. Email is built (see above) but does not read replies or send follow-ups; LinkedIn notes are generated for high-priority leads but not sent.
 - Content and SEO writing, social posts and calendars, ads, landing pages, reviews and reputation, attribution beyond the CRM counters.
 - Teams with several users per workspace (the Settings screen shows the current user only), workspace deletion, and per-workspace AI keys (the Settings screen stores them, the AI features read the server `.env`).
 - Proposals and invoices, an agent or MCP server.

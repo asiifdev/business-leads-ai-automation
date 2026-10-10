@@ -44,7 +44,7 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
       if (created >= PER_RUN) break;
       const phone = lead.phoneE164!;
       if (optOuts.has(phone)) continue;
-      const msgs = await this.prisma.outboundMessage.findMany({ where: { workspaceId, leadId: lead.id, source: { in: ["ai_outreach", "ai_followup", "manual"] } }, orderBy: { createdAt: "desc" } });
+      const msgs = await this.prisma.outboundMessage.findMany({ where: { workspaceId, leadId: lead.id, channel: "whatsapp", source: { in: ["ai_outreach", "ai_followup", "manual"] } }, orderBy: { createdAt: "desc" } });
       if (msgs.some((m) => ["draft", "approved", "sending"].includes(m.status))) continue; // something is already in flight
       const sent = msgs.filter((m) => m.status === "sent" && m.sentAt);
       if (!sent.length) continue;

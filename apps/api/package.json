@@ -30,6 +30,7 @@
     "helmet": "^8.2.0",
     "joi": "^18.2.3",
     "multer": "^2.4.0",
+    "nodemailer": "^10.1.0",
     "openai": "^4.67.3",
     "pino": "^10.4.0",
     "playwright": "^1.48.0",
@@ -45,6 +46,7 @@
     "@types/express": "^5.0.0",
     "@types/multer": "^2.3.0",
     "@types/node": "^22.9.0",
+    "@types/nodemailer": "^8.0.2",
     "tsx": "^4.19.0",
     "typescript": "^5.6.3"
   },

@@ -2,12 +2,16 @@ import { BadRequestException, Inject, Injectable, Logger, NotFoundException } fr
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { MessageWriterService } from "./message-writer.service";
+import { isValidEmail } from "./email-address";
 import { normalizePhone } from "./phone";
 import { inQuietHours, localHour, startOfLocalDay } from "./send-policy";
 import { WHATSAPP_PROVIDER, type RoutedWhatsappProvider } from "./whatsapp.provider";
 import { EntitlementsService } from "../entitlements/entitlements.service";
 
 export const MAX_BODY = 1000;
+export const MAX_EMAIL_BODY = 4000;
+
+export { isValidEmail };
 export const MAX_GENERATE = 200;
 export const MAX_BULK = 200;
 
@@ -56,10 +60,10 @@ export class MessagingService {
     const live = this.wa.state(workspaceId);
     const now = new Date();
     const [sentLastHour, sentToday, drafts, approved] = await Promise.all([
-      this.prisma.outboundMessage.count({ where: { workspaceId, status: "sent", sentAt: { gte: new Date(now.getTime() - 3_600_000) } } }),
-      this.prisma.outboundMessage.count({ where: { workspaceId, status: "sent", sentAt: { gte: startOfLocalDay(now, account.timezone) } } }),
-      this.prisma.outboundMessage.count({ where: { workspaceId, status: "draft" } }),
-      this.prisma.outboundMessage.count({ where: { workspaceId, status: "approved" } }),
+      this.prisma.outboundMessage.count({ where: { workspaceId, channel: "whatsapp", status: "sent", sentAt: { gte: new Date(now.getTime() - 3_600_000) } } }),
+      this.prisma.outboundMessage.count({ where: { workspaceId, channel: "whatsapp", status: "sent", sentAt: { gte: startOfLocalDay(now, account.timezone) } } }),
+      this.prisma.outboundMessage.count({ where: { workspaceId, channel: "whatsapp", status: "draft" } }),
+      this.prisma.outboundMessage.count({ where: { workspaceId, channel: "whatsapp", status: "approved" } }),
     ]);
     return {
       account: {
@@ -125,8 +129,8 @@ export class MessagingService {
 
   // ---------- outbox ----------
 
-  async list(workspaceId: string, status: string | undefined, limit: number) {
-    const where: Prisma.OutboundMessageWhereInput = { workspaceId, ...(status ? { status: { in: status.split(",") } } : {}) };
+  async list(workspaceId: string, status: string | undefined, limit: number, channel?: string) {
+    const where: Prisma.OutboundMessageWhereInput = { workspaceId, ...(channel === "email" || channel === "whatsapp" ? { channel } : {}), ...(status ? { status: { in: status.split(",") } } : {}) };
     const approvedFirst = status?.split(",").includes("approved");
     return this.prisma.outboundMessage.findMany({
       where,
@@ -136,8 +140,8 @@ export class MessagingService {
     });
   }
 
-  async counts(workspaceId: string) {
-    const rows = await this.prisma.outboundMessage.groupBy({ by: ["status"], where: { workspaceId }, _count: { _all: true } });
+  async counts(workspaceId: string, channel?: string) {
+    const rows = await this.prisma.outboundMessage.groupBy({ by: ["status"], where: { workspaceId, ...(channel === "email" || channel === "whatsapp" ? { channel } : {}) }, _count: { _all: true } });
     return Object.fromEntries(rows.map((r) => [r.status, r._count._all]));
   }
 
@@ -236,22 +240,36 @@ export class MessagingService {
     });
   }
 
-  async edit(workspaceId: string, id: string, body: string) {
+  async edit(workspaceId: string, id: string, body: string, subject?: string) {
     const text = body.trim();
     if (!text) throw new BadRequestException("Message is empty");
-    if (text.length > MAX_BODY) throw new BadRequestException(`Message is longer than ${MAX_BODY} characters`);
     const m = await this.owned(workspaceId, id);
+    const max = m.channel === "email" ? MAX_EMAIL_BODY : MAX_BODY;
+    if (text.length > max) throw new BadRequestException(`Message is longer than ${max} characters`);
     if (m.status !== "draft") throw new BadRequestException("Only drafts can be edited");
-    return this.prisma.outboundMessage.update({ where: { id }, data: { body: text, editedByUser: text !== (m.aiBody ?? "") } });
+    const sub = m.channel === "email" && subject !== undefined ? subject.trim().replace(/[\r\n]+/g, " ").slice(0, 200) : undefined;
+    if (sub === "") throw new BadRequestException("Subject is empty");
+    return this.prisma.outboundMessage.update({ where: { id }, data: { body: text, ...(sub ? { subject: sub } : {}), editedByUser: text !== (m.aiBody ?? "") || (!!sub && sub !== m.subject) } });
   }
 
   async approve(workspaceId: string, ids: string[]) {
     const account = await this.account(workspaceId);
     const msgs = await this.prisma.outboundMessage.findMany({ where: { workspaceId, id: { in: ids.slice(0, MAX_BULK) }, status: "draft" } });
     const optOuts = new Set((await this.prisma.messageOptOut.findMany({ where: { workspaceId }, select: { phone: true } })).map((o) => o.phone));
+    const mailOptOuts = new Set((await this.prisma.emailOptOut.findMany({ where: { workspaceId }, select: { email: true } })).map((o) => o.email));
+    const mailAccount = msgs.some((m) => m.channel === "email") ? await this.prisma.emailAccount.findUnique({ where: { workspaceId } }) : null;
     const ok: string[] = [];
     const rejected: { id: string; reason: string }[] = [];
     for (const m of msgs) {
+      if (m.channel === "email") {
+        const to = (m.toEmail ?? "").trim().toLowerCase();
+        if (!mailAccount) rejected.push({ id: m.id, reason: "email account is not set up" });
+        else if (!isValidEmail(to)) rejected.push({ id: m.id, reason: "invalid email address" });
+        else if (mailOptOuts.has(to)) rejected.push({ id: m.id, reason: "recipient opted out" });
+        else if (!m.subject?.trim() || !m.body.trim() || m.body.length > MAX_EMAIL_BODY) rejected.push({ id: m.id, reason: "invalid text" });
+        else ok.push(m.id);
+        continue;
+      }
       if (!normalizePhone(m.toPhone, account.defaultCountryCode)) rejected.push({ id: m.id, reason: "invalid number" });
       else if (optOuts.has(m.toPhone)) rejected.push({ id: m.id, reason: "recipient opted out" });
       else if (!m.body.trim() || m.body.length > MAX_BODY) rejected.push({ id: m.id, reason: "invalid text" });
@@ -275,7 +293,7 @@ export class MessagingService {
   async retry(workspaceId: string, id: string) {
     const m = await this.owned(workspaceId, id);
     if (m.status !== "failed") throw new BadRequestException("Only failed messages can be retried");
-    if (/not on whatsapp|opted out/i.test(m.error ?? "")) throw new BadRequestException("This number cannot be messaged");
+    if (/not on whatsapp|opted out|rejected this address|recipients were rejected/i.test(m.error ?? "")) throw new BadRequestException("This number cannot be messaged");
     return this.prisma.outboundMessage.update({ where: { id }, data: { status: "approved", approvedAt: new Date(), error: null, attempts: 0 } });
   }
 

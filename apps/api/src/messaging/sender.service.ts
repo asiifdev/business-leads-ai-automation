@@ -32,7 +32,7 @@ export class SenderService implements OnModuleInit, OnModuleDestroy {
     if (this.config.get<string>("WHATSAPP_DISABLED") === "true") return;
     // A message stuck in "sending" means the process died mid-send. It may have been delivered, so never auto-retry it.
     const stuck = await this.prisma.outboundMessage.updateMany({
-      where: { status: "sending" },
+      where: { channel: "whatsapp", status: "sending" },
       data: { status: "failed", error: "Interrupted while sending. Check WhatsApp before retrying: it may already have been delivered." },
     });
     if (stuck.count) this.logger.warn(`${stuck.count} message(s) were interrupted mid-send and marked failed`);
@@ -63,13 +63,13 @@ export class SenderService implements OnModuleInit, OnModuleDestroy {
   private async process(a: WhatsappAccount) {
     const now = new Date();
     const [sentLastHour, sentToday] = await Promise.all([
-      this.prisma.outboundMessage.count({ where: { workspaceId: a.workspaceId, status: "sent", sentAt: { gte: new Date(now.getTime() - 3_600_000) } } }),
-      this.prisma.outboundMessage.count({ where: { workspaceId: a.workspaceId, status: "sent", sentAt: { gte: startOfLocalDay(now, a.timezone) } } }),
+      this.prisma.outboundMessage.count({ where: { workspaceId: a.workspaceId, channel: "whatsapp", status: "sent", sentAt: { gte: new Date(now.getTime() - 3_600_000) } } }),
+      this.prisma.outboundMessage.count({ where: { workspaceId: a.workspaceId, channel: "whatsapp", status: "sent", sentAt: { gte: startOfLocalDay(now, a.timezone) } } }),
     ]);
     const d = decide({ now, timezone: a.timezone, hourlyLimit: a.hourlyLimit, dailyLimit: a.dailyLimit, quietStartHour: a.quietStartHour, quietEndHour: a.quietEndHour, sentLastHour, sentToday, nextSendAt: a.nextSendAt, paused: a.paused });
     if (!d.ok) return;
 
-    const next = await this.prisma.outboundMessage.findFirst({ where: { workspaceId: a.workspaceId, status: "approved" }, orderBy: { approvedAt: "asc" } });
+    const next = await this.prisma.outboundMessage.findFirst({ where: { workspaceId: a.workspaceId, channel: "whatsapp", status: "approved" }, orderBy: { approvedAt: "asc" } });
     if (!next) return;
     const claimed = await this.prisma.outboundMessage.updateMany({ where: { id: next.id, status: "approved" }, data: { status: "sending", attempts: { increment: 1 } } });
     if (claimed.count !== 1) return;

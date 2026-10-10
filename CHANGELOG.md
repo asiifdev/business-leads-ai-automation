@@ -5,6 +5,9 @@
 - Added `EDITION` and an entitlements service; `GET /entitlements`; 402 `UPGRADE_REQUIRED`.
 - Added a per-workspace WhatsApp gateway and a connection-type choice in Outbox settings. The official API option is locked outside hosted plans.
 - Fixed: a group message could be attributed to a private number; only private chats now yield one.
+- Added contact enrichment: emails, WhatsApp numbers and profiles read from each lead's own website (including `wa.me/<username>` pages), automatic after a scrape, with a browser fallback.
+- Added the email channel (SMTP, approval flow, pacing, unsubscribe link and headers): docs/email-channel.md. Replies are not read yet.
+- Fixed: WhatsApp counts, queue and follow-ups now filter by channel so email rows cannot be sent over WhatsApp.
 - Added docs/editions.md. The official connector is not built.
 
 ## Unreleased (2026-10)

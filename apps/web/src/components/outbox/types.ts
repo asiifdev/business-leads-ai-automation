@@ -14,7 +14,7 @@ export interface Overview {
 }
 
 export interface OutboxMessage {
-  id: string; toPhone: string; body: string; aiBody: string | null; source: "ai_outreach" | "ai_reply" | "ai_followup" | "manual";
+  id: string; channel: "whatsapp" | "email"; toPhone: string; toEmail: string | null; subject: string | null; body: string; aiBody: string | null; source: "ai_outreach" | "ai_reply" | "ai_followup" | "manual";
   status: "draft" | "approved" | "sending" | "sent" | "failed" | "rejected" | "cancelled";
   editedByUser: boolean; error: string | null; sentAt: string | null; createdAt: string;
   context: { incoming?: string; flagged?: boolean; risks?: string[]; followUp?: number; trace?: { styled: boolean; examples: number; knowledge: string } } | null;
@@ -23,7 +23,19 @@ export interface OutboxMessage {
 
 export interface GenerationJob {
   running: boolean; total: number; done: number; created: number; failed: number;
-  skipped: { noValidPhone: number; optedOut: number; duplicateNumber: number }; firstError: string | null;
+  /** Reasons leads were left out: noValidPhone, optedOut, duplicateNumber (WhatsApp) or noEmail, optedOut, duplicateAddress (email). */
+  skipped: Record<string, number>; firstError: string | null;
 }
 
 export type Counts = Record<string, number>;
+
+export interface EmailOverview {
+  account: {
+    host: string; port: number; secure: boolean; username: string; hasPassword: boolean; fromName: string; fromEmail: string; replyTo: string | null; postalAddress: string;
+    hourlyLimit: number; dailyLimit: number; quietStartHour: number; quietEndHour: number; timezone: string; paused: boolean;
+    status: "untested" | "ready" | "error"; lastError: string | null; verifiedAt: string | null;
+  } | null;
+  usage: { sentLastHour: number; sentToday: number; drafts: number; approved: number; leadsWithEmail: number };
+  quietNow: boolean;
+  etaHours: number | null;
+}

@@ -82,3 +82,10 @@ test("phoneFromKey reads the number from senderPn when the chat is addressed by 
   assert.equal(phoneFromKey({ remoteJid: "123@newsletter", senderPn: "6282134462498@s.whatsapp.net" }), null);
   assert.equal(phoneFromKey({ remoteJid: undefined, senderPn: "6282134462498@s.whatsapp.net" }), null);
 });
+
+test("isValidEmail accepts ordinary addresses and rejects obvious junk", async () => {
+  const { isValidEmail } = await import("./email-address");
+  assert.equal(isValidEmail("halo@tokokamera.id"), true);
+  assert.equal(isValidEmail("a.b+c@sub.example.co.id"), true);
+  for (const bad of ["", "halo", "halo@", "@x.id", "a b@x.id", "a@@x.id", "a@x", "a@x.c", `${"a".repeat(65)}@x.id`]) assert.equal(isValidEmail(bad), false, bad);
+});

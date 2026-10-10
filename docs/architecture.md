@@ -26,6 +26,8 @@ Everything is scoped to a `Workspace`. Every table that holds customer data has 
 | `ai` | OpenAI-compatible client, lead scoring and per-business fit judgement, knowledge base (chunks and vectors), AI Style (chat-export parser, statistics, retrieval), spelling clean-up |
 | `marketing` | Marketing Brief: sources (websites, text, PDF, DOCX, Markdown), safe fetching and site crawling, guarded page renderer, brief generation and grounding |
 | `messaging` | Outbox, WhatsApp provider, sender, inbound handling, follow-ups, draft writer |
+| `email` | Email channel: SMTP account (encrypted password), draft generation with subjects, sender with the same pacing rules, public unsubscribe page |
+| `entitlements` | Edition and plan checks (community or hosted), see [editions.md](editions.md) |
 | `analytics`, `export` | Reporting and CSV/JSON/vCard export |
 
 ## Marketing brief in detail
@@ -96,6 +98,10 @@ HIGH from 70, MEDIUM from 50
 - **One provider interface.** The official WhatsApp Cloud API is a new class, not a rewrite.
 - **Untrusted text stays data.** Scraped listings, customer replies and exported chats are delimited in prompts, and the model's output is scanned before you see it.
 - **No canned content, no invented leads.** When no AI provider is configured Prospex produces no draft, and when scraping fails it fails the campaign. `SCRAPER_MODE=fixture` (tests only) returns labelled leads without phone numbers.
+
+## Email in detail
+
+Email reuses the `outbound_messages` table with `channel = "email"` (`toEmail`, `subject`), the approval flow in `MessagingService` and the pure `send-policy.ts`. It has its own account table (`email_accounts`, password encrypted), its own opt-out table (`email_opt_outs`) and its own sender (`EmailSenderService`), so WhatsApp and email each count their own quota. Details and limits: [email-channel.md](email-channel.md).
 
 ## AI Style and knowledge base
 

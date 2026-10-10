@@ -16,7 +16,8 @@ class ManualDto {
   @IsOptional() @IsString() leadId?: string;
 }
 class EditDto {
-  @IsString() @MinLength(1) @MaxLength(MAX_BODY) body!: string;
+  @IsString() @MinLength(1) @MaxLength(4000) body!: string;
+  @IsOptional() @IsString() @MaxLength(200) subject?: string;
 }
 class GenerateDto {
   @IsOptional() @IsString() campaignId?: string;
@@ -68,13 +69,13 @@ export class MessagingController {
 
   @Get("outbox")
   @ApiOperation({ summary: "Messages by status (comma separated), newest first" })
-  list(@WorkspaceId() ws: string, @Query("status") status?: string, @Query("limit") limit?: string) {
-    return this.messaging.list(ws, status, Number(limit) || 100);
+  list(@WorkspaceId() ws: string, @Query("status") status?: string, @Query("limit") limit?: string, @Query("channel") channel?: string) {
+    return this.messaging.list(ws, status, Number(limit) || 100, channel);
   }
 
   @Get("outbox/counts")
-  counts(@WorkspaceId() ws: string) {
-    return this.messaging.counts(ws);
+  counts(@WorkspaceId() ws: string, @Query("channel") channel?: string) {
+    return this.messaging.counts(ws, channel);
   }
 
   @Post("outbox/generate")
@@ -119,7 +120,7 @@ export class MessagingController {
 
   @Patch("outbox/:id")
   edit(@WorkspaceId() ws: string, @Param("id") id: string, @Body() dto: EditDto) {
-    return this.messaging.edit(ws, id, dto.body);
+    return this.messaging.edit(ws, id, dto.body, dto.subject);
   }
 
   @Post("outbox/:id/retry")

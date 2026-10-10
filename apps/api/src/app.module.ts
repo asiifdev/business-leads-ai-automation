@@ -16,6 +16,7 @@ import { AuthModule } from "./auth/auth.module";
 import { WorkspaceModule } from "./workspace/workspace.module";
 import { MessagingModule } from "./messaging/messaging.module";
 import { MarketingModule } from "./marketing/marketing.module";
+import { EmailModule } from "./email/email.module";
 import { EntitlementsModule } from "./entitlements/entitlements.module";
 
 @Module({
@@ -34,6 +35,9 @@ import { EntitlementsModule } from "./entitlements/entitlements.module";
         OPENAI_BASE_URL: Joi.string().allow("").default(""),
         OPENAI_REASONING_EFFORT: Joi.string().allow("").default(""),
         EMBEDDING_MODEL: Joi.string().default("text-embedding-3-small"),
+        PUBLIC_API_URL: Joi.string().uri().optional(),
+        EMAIL_DISABLED: Joi.string().valid("true", "false").optional(),
+        EMAIL_ALLOW_PRIVATE_SMTP: Joi.string().valid("true", "false").optional(),
         NEXT_PUBLIC_APP_URL: Joi.string().default("http://localhost:3000"),
         THROTTLE_TTL_MS: Joi.number().default(60000),
         THROTTLE_LIMIT: Joi.number().default(60),
@@ -65,6 +69,7 @@ import { EntitlementsModule } from "./entitlements/entitlements.module";
     WorkspaceModule,
     MessagingModule,
     MarketingModule,
+    EmailModule,
     EntitlementsModule,
   ],
   controllers: [AppController],

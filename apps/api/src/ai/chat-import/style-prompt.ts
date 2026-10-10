@@ -108,6 +108,8 @@ export interface OutreachPromptInput {
   brief?: { summary: string; angle?: { segment: string; pain: string; hook: string; benefit: string }; proof: string[]; wordsToAvoid: string[] };
   /** 0 = first contact; 1, 2... = follow-up number. */
   followUp?: { number: number; of: number; previousMessage: string; daysSince: number };
+  /** Defaults to whatsapp. Email gets a longer, more formal message with no "Kak". */
+  channel?: "whatsapp" | "email";
 }
 
 function leadLines(l: LeadFacts): string {
@@ -126,16 +128,27 @@ function leadLines(l: LeadFacts): string {
 export function buildOutreachMessages(input: OutreachPromptInput): { role: "system" | "user"; content: string }[] {
   const id = input.language === "indonesian";
   const fu = input.followUp;
+  const email = input.channel === "email";
   const shots = (input.examples ?? []).map((e, i) => `Contoh ${i + 1}\nPelanggan: ${clip(e.incoming, 500)}\nBalasan saya: ${normalizeDraft(clip(e.reply, 500))}`).join("\n\n");
   const facts = input.knowledge?.length
     ? `FAKTA BISNIS YANG BOLEH DIPAKAI:\n${input.knowledge.map((k) => `- ${k}`).join("\n")}`
     : "Tidak ada fakta bisnis tambahan: jangan menyebut harga, paket, promo, jadwal, atau hasil yang dijanjikan.";
   const system = [
-    `Kamu menulis ${fu ? `PESAN TINDAK LANJUT ke-${fu.number} (dari maksimal ${fu.of})` : "PESAN PERTAMA"} WhatsApp atas nama pemilik bisnis ini: ${input.businessDescription}`,
+    `Kamu menulis ${fu ? `PESAN TINDAK LANJUT ke-${fu.number} (dari maksimal ${fu.of})` : "PESAN PERTAMA"} ${email ? "EMAIL (hanya isi, tanpa subjek)" : "WhatsApp"} atas nama pemilik bisnis ini: ${input.businessDescription}`,
     `Yang ditawarkan: ${input.offer}`,
     fu
-      ? `Penerima belum membalas pesan sebelumnya (${fu.daysSince} hari lalu):\n"${fu.previousMessage}"\nAwali dengan "Halo, Kak,". Tulis tindak lanjut yang singkat dan tidak memaksa. Jangan mengulang isi pesan sebelumnya. ${fu.number >= fu.of ? "Ini yang terakhir: tutup dengan sopan dan katakan tidak akan mengganggu lagi." : "Berikan satu alasan baru atau pertanyaan ringan."}`
-      : [
+      ? `Penerima belum membalas pesan sebelumnya (${fu.daysSince} hari lalu):\n"${fu.previousMessage}"\nAwali dengan ${email ? "\"Halo,\"" : "\"Halo, Kak,\""}. Tulis tindak lanjut yang singkat dan tidak memaksa. Jangan mengulang isi pesan sebelumnya. ${fu.number >= fu.of ? "Ini yang terakhir: tutup dengan sopan dan katakan tidak akan mengganggu lagi." : "Berikan satu alasan baru atau pertanyaan ringan."}`
+      : email
+        ? [
+            "Penerima belum mengenal pemilik dan belum pernah menghubungi lebih dulu. Ini email penjualan pertama: tulis dengan jelas dan meyakinkan, bukan obrolan santai. Susun dalam 4 sampai 6 kalimat pendek (sekitar 400 sampai 700 karakter), dipisah paragraf pendek:",
+            `1. Salam dan perkenalan dalam satu kalimat: "Halo, perkenalkan saya dari tim ${input.businessDescription}." Jangan memakai kata "Kak". Jangan menyapa dengan nama bisnis penerima.`,
+            "2. Pengamatan spesifik: satu fakta dari data penerima, ditulis apa adanya dengan angkanya (mis. rating dan jumlah ulasan di Google Maps, atau belum ada website).",
+            "3. Manfaat nyata: satu sampai dua kalimat tentang apa yang ditawarkan dan apa yang bisa dilakukan pelanggan penerima dengannya. Jangan menjanjikan hasil atau angka.",
+            "4. Ajakan: satu langkah berikutnya yang kecil, mis. \"Boleh saya kirim contohnya?\" atau \"Apakah lebih baik kami jelaskan lewat telepon singkat?\".",
+            "Hindari kata ragu dan jargon: mungkin, sepertinya, barangkali, digitalisasi, solusi, terstruktur, inovatif, optimal, terdepan.",
+            "Jangan menulis baris tanda tangan, nama pengirim, alamat, atau tautan berhenti berlangganan: sistem menambahkannya.",
+          ].join("\n")
+        : [
           "Penerima belum mengenal pemilik dan belum pernah menghubungi lebih dulu. Ini pesan penjualan pertama: tulis dengan jelas dan meyakinkan, bukan obrolan santai. Susun empat bagian dalam 3 sampai 4 kalimat pendek (sekitar 250 sampai 400 karakter):",
           `1. Salam dan perkenalan dalam satu kalimat: "Halo, Kak, perkenalkan saya dari tim ${input.businessDescription}." Sapaan "Kak" dipakai karena nama kontak tidak diketahui. Jangan menyapa dengan nama bisnis penerima.`,
           "2. Pengamatan spesifik: satu fakta dari data penerima, ditulis apa adanya dengan angkanya (mis. rating dan jumlah ulasan di Google Maps, atau belum ada website).",
@@ -170,12 +183,12 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
     "- Jangan mengarang fakta tentang penerima di luar data di atas. Dilarang menyebut bisnis mereka ramai, laris, diminati, populer, enak, terkenal, bagus, terbaik, atau sejenisnya kecuali tertulis di data; sebut angka (rating, jumlah ulasan) apa adanya. Jangan memuji secara umum.",
     "- Sebut tepat satu fakta spesifik dari data apa adanya (mis. rating dan jumlah ulasan, belum ada website, atau lokasi), lalu hubungkan dengan penawaran.",
     "- Jangan menjanjikan hasil atau angka. Jangan menulis seperti iklan atau broadcast.",
-    "- Satu pesan pendek, tanpa baris tanda tangan, tanpa placeholder seperti [Nama].",
+    email ? "- Tanpa baris tanda tangan, tanpa placeholder seperti [Nama]. Tanpa emoji." : "- Satu pesan pendek, tanpa baris tanda tangan, tanpa placeholder seperti [Nama].",
     `- Bahasa: ${id ? "Indonesia" : "English"}. Jangan menambahkan kalimat berhenti/opt-out, itu ditambahkan sistem.`,
-    "Tulis HANYA isi pesan, tanpa penjelasan, tanpa tanda kutip, tanpa label.",
+    `Tulis HANYA isi ${email ? "email" : "pesan"}, tanpa penjelasan, tanpa tanda kutip, tanpa label.`,
   ].filter((x) => x !== "").join("\n");
   return [
     { role: "system", content: system },
-    { role: "user", content: fu ? "Tulis pesan tindak lanjutnya." : "Tulis pesan pertamanya." },
+    { role: "user", content: email ? (fu ? "Tulis email tindak lanjutnya." : "Tulis email pertamanya.") : fu ? "Tulis pesan tindak lanjutnya." : "Tulis pesan pertamanya." },
   ];
 }

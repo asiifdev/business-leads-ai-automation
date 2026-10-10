@@ -82,6 +82,7 @@ jobs:
       OPENAI_API_KEY: ""          # intentionally empty — AI features stay off, scraping and scoring still run
       SCRAPER_MODE: "fixture"      # labelled test leads without phone numbers; CI must not scrape Google
       WHATSAPP_DISABLED: "true"   # no sender, no Baileys connections, no follow-up scheduler in CI
+      EMAIL_DISABLED: "true"      # no email sender in CI
       NEXT_PUBLIC_API_URL: http://localhost:3001/api
       THROTTLE_LIMIT: "1000"     # the E2E suite's rapid requests from a single IP would otherwise hit the production rate limit
       AUTH_THROTTLE_LIMIT: "1000" # auth routes have their own stricter brute-force limit — same reasoning

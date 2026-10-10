@@ -372,6 +372,17 @@ Penjelasan teknis lengkap: [whatsapp-outbox.md](whatsapp-outbox.md) (bahasa Ingg
 
 ---
 
+### Kirim lewat email
+
+Di Kotak Keluar, pilih **Email** di atas daftar pesan. Alurnya sama dengan WhatsApp: AI menulis draf dan subjek, Anda meninjau, mengubah, lalu menyetujui. Tidak ada yang terkirim tanpa persetujuan.
+
+1. Tekan **Atur email** dan isi akun SMTP Anda (server, port, nama pengguna, sandi, alamat pengirim) serta **alamat surat** Anda. Alamat itu dicetak di bawah setiap email, dan banyak negara mewajibkannya. Banyak penyedia memerlukan *sandi aplikasi*, bukan sandi biasa.
+2. Tekan **Uji koneksi**. Ini hanya login, tidak mengirim apa pun.
+3. Tekan **Tulis draf**. Lead yang dapat diemail adalah yang alamatnya ditemukan di website mereka (lihat "Cari kontak" di halaman campaign dan lead).
+4. Tinjau, setujui, dan email keluar satu per satu dengan jeda dan jam tenang.
+
+Setiap email memuat tautan berhenti berlangganan. Orang yang berhenti tidak akan dikirimi lagi. Agar tautan itu bisa dibuka penerima, isi `PUBLIC_API_URL` di server. Balasan masuk ke kotak masuk email Anda sendiri; Prospex belum membacanya. Atur SPF, DKIM dan DMARC pada domain pengirim, dan mulai dengan jumlah kecil. Rincian dan batasan: [email-channel.md](email-channel.md).
+
 ## 9. CRM Pipeline
 
 ### Update status lead

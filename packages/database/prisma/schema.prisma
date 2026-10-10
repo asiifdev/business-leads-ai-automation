@@ -31,6 +31,8 @@ model Workspace {
   styleExamples    StyleExample[]
   marketingBrief   MarketingBrief?
   whatsappAccount  WhatsappAccount?
+  emailAccount     EmailAccount?
+  emailOptOuts     EmailOptOut[]
   outboundMessages OutboundMessage[]
   inboundMessages  InboundMessage[]
   messageOptOuts   MessageOptOut[]
@@ -421,8 +423,10 @@ model WhatsappAccount {
 
 model OutboundMessage {
   id                String    @id @default(cuid())
-  channel           String    @default("whatsapp")
-  toPhone           String
+  channel           String    @default("whatsapp") // whatsapp | email
+  toPhone           String    @default("") // empty for email
+  toEmail           String? // email channel only
+  subject           String? // email channel only
   body              String
   aiBody            String? // what the model wrote, kept to measure how much people edit
   source            String // ai_outreach | ai_reply | ai_followup | manual
@@ -446,6 +450,50 @@ model OutboundMessage {
   @@index([workspaceId, sentAt])
   @@index([leadId])
   @@map("outbound_messages")
+}
+
+// SMTP sending account of a workspace (email channel). The password is encrypted at rest.
+model EmailAccount {
+  id            String    @id @default(cuid())
+  host          String
+  port          Int       @default(587)
+  secure        Boolean   @default(false) // true = implicit TLS (port 465), false = STARTTLS
+  username      String
+  passwordEnc   String
+  fromName      String
+  fromEmail     String
+  replyTo       String?
+  postalAddress String // printed in every message, required by anti-spam laws in many countries
+  hourlyLimit   Int       @default(8)
+  dailyLimit    Int       @default(40)
+  quietStartHour Int      @default(20)
+  quietEndHour  Int       @default(7)
+  timezone      String    @default("Asia/Jakarta")
+  paused        Boolean   @default(false)
+  status        String    @default("untested") // untested | ready | error
+  lastError     String?
+  verifiedAt    DateTime?
+  nextSendAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String    @unique
+
+  @@map("email_accounts")
+}
+
+model EmailOptOut {
+  id        String   @id @default(cuid())
+  email     String // lower case
+  reason    String?
+  createdAt DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+
+  @@unique([workspaceId, email])
+  @@map("email_opt_outs")
 }
 
 model InboundMessage {
