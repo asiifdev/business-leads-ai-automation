@@ -203,6 +203,7 @@ export const en = {
   "email.addressHint": "Printed at the bottom of every email. Anti-spam laws in many countries require it.",
   "email.remove": "Remove account",
   "email.saved": "Email account saved. Test the connection before sending.",
+  "email.gen.none": "No leads to draft: none has an email address from its website yet. Press Find contacts on the campaign page first.",
   "email.gen.eligible": "{n} leads have an email address found on their website and no email draft yet.",
 } as const;
 

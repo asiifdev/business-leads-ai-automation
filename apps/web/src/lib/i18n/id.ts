@@ -203,5 +203,6 @@ export const id: Record<keyof typeof en, string> = {
   "email.addressHint": "Dicetak di bagian bawah setiap email. Undang-undang anti-spam di banyak negara mewajibkannya.",
   "email.remove": "Hapus akun",
   "email.saved": "Akun email tersimpan. Uji koneksi sebelum mengirim.",
+  "email.gen.none": "Tidak ada lead untuk dibuatkan draf: belum ada yang punya alamat email dari websitenya. Tekan Cari kontak di halaman kampanye dulu.",
   "email.gen.eligible": "{n} lead punya alamat email dari website mereka dan belum punya draf email.",
 };

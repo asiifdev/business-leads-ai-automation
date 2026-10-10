@@ -85,7 +85,7 @@ export function OutboxPage() {
   const generate = () => run(async () => {
     const j = await api.post<GenerationJob>(channel === "email" ? "/email/outbox/generate" : "/messaging/outbox/generate", { ...(campaignId ? { campaignId } : {}), limit: howMany });
     setJob(j);
-    if (j.total === 0) toast.info(t("outbox.gen.none"));
+    if (j.total === 0) toast.info(t(channel === "email" ? "email.gen.none" : "outbox.gen.none"));
   });
   const followUps = () => run(async () => {
     const r = await api.post<{ created: number }>("/messaging/outbox/followups/run", {});
