@@ -10,7 +10,7 @@ import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { BriefSections } from "./brief-sections";
 import { SourceMaterial } from "./source-material";
-import { hasBrief, type Brief, type BriefResponse } from "./types";
+import { hasBrief, type Brief, type BriefContent, type BriefResponse } from "./types";
 
 /* Hallmark · component: page (Marketing Brief) · genre: modern-minimal · theme: existing Prospex tokens
  * layout: one reading column; sources and generate first, then the brief as plain sections
@@ -22,6 +22,8 @@ export function BriefPage() {
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<BriefContent | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -41,12 +43,14 @@ export function BriefPage() {
     } catch (e) { toast.error(t("mkt.gen.failed", { err: (e as Error).message })); } finally { setBusy(false); }
   };
 
+  const startEdit = () => { if (brief) { setDraft(structuredClone(brief.content)); setEditing(true); } };
   const save = async () => {
     if (!brief) return;
     setBusy(true);
     try {
-      const b = await api.put<Brief>("/marketing/brief", { summary, content: brief.content });
+      const b = await api.put<Brief>("/marketing/brief", { summary, content: editing && draft ? draft : brief.content });
       setBrief(b);
+      setEditing(false);
       toast.success(t("mkt.brief.saved"));
     } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
   };
@@ -82,7 +86,19 @@ export function BriefPage() {
         <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">{t("mkt.brief.empty")}</p>
       ) : (
         <>
-          <p className="text-xs text-muted-foreground">{t("mkt.brief.version", { n: brief.version, date: new Date(brief.updatedAt).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { dateStyle: "medium" }) })}</p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">{t("mkt.brief.version", { n: brief.version, date: new Date(brief.updatedAt).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { dateStyle: "medium" }) })}</p>
+            <div className="flex gap-2">
+              {editing ? (
+                <>
+                  <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>{t("camp.form.cancel")}</Button>
+                  <Button size="sm" disabled={busy} onClick={save}>{t("mkt.brief.saveAll")}</Button>
+                </>
+              ) : (
+                <Button size="sm" variant="outline" onClick={startEdit}>{t("mkt.brief.edit")}</Button>
+              )}
+            </div>
+          </div>
 
           <section className="space-y-2">
             <Label htmlFor="brief-summary">{t("mkt.brief.summary")}</Label>
@@ -93,7 +109,7 @@ export function BriefPage() {
             </div>
           </section>
 
-          <BriefSections content={brief.content} />
+          <BriefSections content={brief.content} edit={editing && draft ? { content: draft, onChange: setDraft } : undefined} />
 
           {brief.pagesRead.length > 0 && (
             <details className="rounded-xl border bg-card p-4 sm:p-5">

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { coerceBrief, extractJson, groundBrief, isCustomerBusinessTerm, mergeRaw } from "./brief-schema";
+import { coerceBrief, dedupeGaps, extractJson, groundBrief, isCustomerBusinessTerm, mergeRaw } from "./brief-schema";
 import { buildBriefMessages, sourceDigest } from "./brief-prompt";
 
 test("extractJson handles fences and surrounding prose", () => {
@@ -129,4 +129,17 @@ test("search terms with a slash keep the first part, and topics such as 'manajem
   const b = coerceBrief({ summary: "Kami membuat sistem sewa.", campaign: { target: "Toko elektronik/Retail", searchQueries: ["Toko elektronik/Retail", "toko handphone"] } });
   assert.deepEqual(b.campaign.searchQueries, ["Toko elektronik", "toko handphone"]);
   assert.equal(b.campaign.target, "Toko elektronik");
+});
+
+test("a NEED marker written into a field becomes a gap and the field is emptied", () => {
+  const b = coerceBrief({ summary: "Kami membuat sistem sewa.", offer: { pricing: "Rp 150.000", callToAction: "[NEED: ajakan bertindak spesifik]" }, voice: { wordsToUse: ["sewa", "[NEED: kata kunci]"] } });
+  assert.equal(b.content.offer.callToAction, "");
+  assert.equal(b.content.offer.pricing, "Rp 150.000");
+  assert.deepEqual(b.content.voice.wordsToUse, ["sewa"]);
+  assert.ok(b.content.gaps.includes("[NEED: ajakan bertindak spesifik]") && b.content.gaps.includes("[NEED: kata kunci]"));
+});
+
+test("dedupeGaps removes near-repeats and keeps distinct items", () => {
+  const out = dedupeGaps(["[NEED: Harga pasti untuk paket Booking dan Care]", "[NEED: Daftar harga lengkap untuk paket Booking dan Care]", "[NEED: Batasan geografis layanan selain Yogyakarta]", "[NEED: Harga pasti untuk paket Booking dan Care]"]);
+  assert.deepEqual(out, ["[NEED: Harga pasti untuk paket Booking dan Care]", "[NEED: Batasan geografis layanan selain Yogyakarta]"]);
 });

@@ -155,7 +155,7 @@ export function CreateCampaignForm() {
         {brief && aiFilled.size > 0 && (
           <section className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm" aria-live="polite">
             <p className="font-medium">{t("mkt.gen.done")}</p>
-            <p className="mt-1 text-muted-foreground">{t("mkt.gen.basedOn", { pages: brief.pagesRead.length || brief.sources.length, sources: brief.sources.length })}</p>
+            <p className="mt-1 text-muted-foreground">{brief.pagesRead.length > 0 ? t("mkt.gen.basedOn", { pages: brief.pagesRead.length, sources: brief.sources.length }) : t("mkt.gen.basedOnSources", { sources: brief.sources.length })}</p>
             {brief.content.gaps.length > 0 && (
               <div className="mt-3">
                 <p className="text-xs font-medium">{t("mkt.gen.gaps")}</p>

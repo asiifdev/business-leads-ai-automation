@@ -82,4 +82,10 @@ export const marketingEn = {
   "mkt.f.benefit": "Benefit",
   "mkt.src.saved": "Saved sources (tick the ones to use)",
   "mkt.src.addedOn": "Added {date}",
+  "mkt.gen.basedOnSources": "Based on {sources} source(s).",
+  "mkt.brief.edit": "Edit sections",
+  "mkt.brief.editDone": "Done editing",
+  "mkt.brief.saveAll": "Save changes",
+  "mkt.brief.onePerLine": "One item per line",
+  "mkt.brief.removeGap": "Remove",
 } as const;

@@ -130,6 +130,17 @@ export function coerceBrief(raw: unknown, language: "indonesian" | "english" = "
     queries = [...new Set([...queries, ...fromAngles])].slice(0, 6);
   }
   const rawTarget = str(c.target, 80).split("/")[0].trim();
+  // a "[NEED: ...]" written into a field is a gap, not a value
+  const needs: string[] = [];
+  const clean = <T extends Record<string, unknown>>(o: T): T => {
+    for (const [k, v] of Object.entries(o)) {
+      if (typeof v === "string" && /^\s*\[NEED:/i.test(v)) { needs.push(v.trim()); (o as Record<string, unknown>)[k] = ""; }
+      else if (Array.isArray(v)) (o as Record<string, unknown>)[k] = v.filter((x) => (typeof x === "string" && /^\s*\[NEED:/i.test(x) ? (needs.push(x.trim()), false) : true));
+    }
+    return o;
+  };
+  [content.overview, content.audience, content.problems, content.differentiation, content.proof, content.offer, content.voice].forEach(clean);
+  content.gaps = dedupeGaps([...content.gaps, ...needs]);
   const campaign: CampaignSuggestion = {
     name: str(c.name, 80),
     target: isCustomerBusinessTerm(rawTarget) ? rawTarget : queries[0] ?? "",
@@ -145,6 +156,21 @@ export function coerceBrief(raw: unknown, language: "indonesian" | "english" = "
   if (!summary) summary = clip([content.overview.oneLiner, content.overview.whatItDoes].filter(Boolean).join(" "), SUMMARY_MAX);
   if (!summary) throw new Error("the model did not return a usable brief");
   return { summary, content, campaign };
+}
+
+/** Drops a gap that repeats an earlier one in other words (more than 60% of its significant words already seen). */
+export function dedupeGaps(gaps: string[]): string[] {
+  const words = (g: string) => new Set(g.toLowerCase().replace(/^\[need:\s*|\]$/g, "").split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 4));
+  const kept: { gap: string; w: Set<string> }[] = [];
+  for (const g of gaps) {
+    const w = words(g);
+    const dup = kept.some((k) => {
+      const common = [...w].filter((x) => k.w.has(x)).length;
+      return w.size > 0 && common / w.size > 0.6;
+    });
+    if (!dup) kept.push({ gap: g, w });
+  }
+  return kept.map((k) => k.gap);
 }
 
 const digits = (s: string) => s.replace(/[.,\s]/g, "");
@@ -191,6 +217,6 @@ export function groundBrief(brief: ParsedBrief, sourceText: string): ParsedBrief
   return {
     summary,
     campaign: brief.campaign,
-    content: { ...c, proof, offer: { ...c.offer, pricing }, gaps: [...new Set([...c.gaps, ...dropped])].slice(0, 16) },
+    content: { ...c, proof, offer: { ...c.offer, pricing }, gaps: [...new Set([...c.gaps, ...dropped])].slice(0, 16) }, // c.gaps were already de-duplicated; the dropped-evidence notes share boilerplate on purpose
   };
 }

@@ -84,4 +84,10 @@ export const marketingId: Record<keyof typeof marketingEn, string> = {
   "mkt.f.benefit": "Manfaat",
   "mkt.src.saved": "Sumber tersimpan (centang yang dipakai)",
   "mkt.src.addedOn": "Ditambahkan {date}",
+  "mkt.gen.basedOnSources": "Berdasarkan {sources} sumber.",
+  "mkt.brief.edit": "Edit bagian",
+  "mkt.brief.editDone": "Selesai mengedit",
+  "mkt.brief.saveAll": "Simpan perubahan",
+  "mkt.brief.onePerLine": "Satu butir per baris",
+  "mkt.brief.removeGap": "Hapus",
 };
