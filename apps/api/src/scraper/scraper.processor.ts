@@ -4,6 +4,7 @@ import { Job } from "bullmq";
 import { CampaignsService } from "../campaigns/campaigns.service";
 import { LeadsService } from "../leads/leads.service";
 import { LeadIntelligenceService } from "../ai/lead-intelligence.service";
+import { FitService } from "../ai/fit.service";
 import { MarketingAiService } from "../ai/marketing-ai.service";
 import { GoogleMapsScraperService } from "./google-maps.scraper";
 
@@ -30,6 +31,7 @@ export class ScraperProcessor extends WorkerHost {
     private leadIntelligence: LeadIntelligenceService,
     private marketingAi: MarketingAiService,
     private googleMaps: GoogleMapsScraperService,
+    private fit: FitService,
   ) {
     super();
   }
@@ -52,7 +54,9 @@ export class ScraperProcessor extends WorkerHost {
 
       await this.campaigns.updateStatus(campaignId, "running", 30);
 
-      const scoredLeads = this.leadIntelligence.scoreLeads(rawLeads, data.industry);
+      // Fit is judged per business from its name and real Google Maps category, against the offer and the Marketing Brief (needs an AI provider).
+      const fits = await this.fit.assess(workspaceId, rawLeads.map((l) => ({ name: l.name, category: l.category })), data.yourService, data.language === "english" ? "english" : "indonesian");
+      const scoredLeads = this.leadIntelligence.scoreLeads(rawLeads, fits);
       await this.campaigns.updateStatus(campaignId, "running", 60);
 
       const processedLeads = await Promise.all(
@@ -88,11 +92,13 @@ export class ScraperProcessor extends WorkerHost {
             reviewCount: lead.reviewCount ?? undefined,
             hasWebsite: lead.hasWebsite ?? false,
             referenceUrl: lead.referenceUrl,
+            source: (lead as { source?: string }).source ?? "google_maps",
             lat: lead.lat ?? undefined,
             lng: lead.lng ?? undefined,
             score: lead.score,
             priority: lead.priority,
-            aiAnalysis: { factors: lead.factors, recommendation: lead.recommendation },
+            category: (lead as { category?: string }).category || undefined,
+            aiAnalysis: { factors: lead.factors, recommendation: lead.recommendation, ...(lead.fit ? { fit: lead.fit } : {}) },
             marketingContent,
             campaignId,
             workspaceId,
@@ -119,7 +125,7 @@ export class ScraperProcessor extends WorkerHost {
       this.logger.log(`Campaign ${campaignId} done: ${total} leads, ${priority} priority`);
     } catch (err) {
       this.logger.error(`Campaign ${campaignId} failed: ${err}`);
-      await this.campaigns.updateStatus(campaignId, "failed", undefined, String(err));
+      await this.campaigns.updateStatus(campaignId, "failed", undefined, (err as Error).message ?? String(err));
       throw err; // re-throw so BullMQ can retry if configured
     }
   }
@@ -136,20 +142,29 @@ export class ScraperProcessor extends WorkerHost {
     );
     const perQuery = Math.ceil(data.maxResults / combos.length);
     const results: ReturnType<typeof this.normalizeRaw>[] = [];
+    const errors: string[] = [];
+    const fixtures = process.env.SCRAPER_MODE === "fixture";
 
     for (let i = 0; i < combos.length; i++) {
       const combo = combos[i];
-      try {
-        const raw = await this.googleMaps.scrape(combo.query, perQuery);
-        results.push(...raw.map((b) => this.normalizeRaw(b, data.industry)));
-        this.logger.log(`Query "${combo.query}": ${raw.length} results`);
-      } catch (err) {
-        this.logger.warn(`Scrape failed for "${combo.query}", using mock fallback: ${err}`);
-        results.push(...this.generateMockLeads(data, combo.query, combo.area, perQuery));
+      if (fixtures) {
+        results.push(...this.fixtureLeads(data, combo.query, combo.area, perQuery));
+      } else {
+        try {
+          const raw = await this.googleMaps.scrape(combo.query, perQuery);
+          results.push(...raw.map((b) => this.normalizeRaw(b, data.industry)));
+          this.logger.log(`Query "${combo.query}": ${raw.length} results`);
+        } catch (err) {
+          // A failed search is reported, never replaced with invented businesses.
+          this.logger.warn(`Scrape failed for "${combo.query}": ${err}`);
+          errors.push(String((err as Error).message ?? err));
+        }
       }
       const pct = Math.round(((i + 1) / combos.length) * 28);
       await this.campaigns.updateStatus(campaignId, "running", pct);
     }
+
+    if (results.length === 0 && errors.length > 0) throw new Error(this.explainScrapeError(errors[0]));
 
     // Deduplicate by name+address
     const seen = new Set<string>();
@@ -169,6 +184,7 @@ export class ScraperProcessor extends WorkerHost {
       website: string;
       rating: string;
       reviewCount?: number | null;
+      category?: string;
       hasWebsite: boolean;
       referenceLink?: string;
       lat?: number | null;
@@ -183,33 +199,43 @@ export class ScraperProcessor extends WorkerHost {
       website: raw.website ?? "",
       rating: raw.rating ?? "N/A",
       reviewCount: raw.reviewCount ?? null,
+      category: raw.category ?? "",
       hasWebsite: raw.hasWebsite ?? !!raw.website,
       referenceUrl: raw.referenceLink ?? "",
       lat: raw.lat ?? null,
       lng: raw.lng ?? null,
       industry,
+      source: "google_maps",
     };
   }
 
-  private generateMockLeads(data: ScraperJobData, query: string, area: string, count: number) {
-    const label = query || data.industry;
-    const prefixes = [
-      `${label} Premier`, `Toko ${label} Jaya`, `${label} Makmur`,
-      `Usaha ${label} Sejahtera`, `${label} Berkah`, `${label} Mandiri`,
-      `${label} Maju`, `${label} Bersama`, `${label} Sukses`, `${label} Abadi`,
-    ];
-    return Array.from({ length: Math.min(count, prefixes.length) }, (_, i) => ({
-      name: prefixes[i],
-      address: `Jl. ${area} No. ${10 + i}, ${area}`,
-      phone: `+628${String(10000000 + i * 1234567)}`,
-      website: i % 3 !== 0 ? `www.${label.toLowerCase().replace(/\s+/g, "")}${i + 1}.com` : "",
-      rating: ((3.5 + (i % 3) * 0.4)).toFixed(1),
+  /** Maps the raw browser error to something the operator can act on. */
+  private explainScrapeError(message: string): string {
+    if (/Executable doesn't exist|playwright install|browserType\.launch/i.test(message)) {
+      return "The scraping browser is not installed on the server. Run: pnpm --filter @prospex/api exec playwright install chromium";
+    }
+    return `Google Maps scraping failed: ${message.split("\n")[0].slice(0, 200)}`;
+  }
+
+  /**
+   * Only for tests and demos (SCRAPER_MODE=fixture). Clearly labelled, with no phone number, no website and
+   * source "fixture", so they can never be mistaken for real businesses or be contacted.
+   */
+  private fixtureLeads(data: ScraperJobData, query: string, area: string, count: number) {
+    return Array.from({ length: Math.min(count, 10) }, (_, i) => ({
+      name: `[Test data] ${query} ${i + 1}`,
+      address: `${area}`,
+      phone: "",
+      website: "",
+      rating: (3.5 + (i % 3) * 0.4).toFixed(1),
       reviewCount: 5 + i * 17,
-      hasWebsite: i % 3 !== 0,
+      category: "",
+      hasWebsite: false,
       referenceUrl: "",
       lat: null,
       lng: null,
       industry: data.industry,
+      source: "fixture",
     }));
   }
 }

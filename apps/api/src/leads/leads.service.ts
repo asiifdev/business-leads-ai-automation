@@ -94,6 +94,8 @@ export class LeadsService {
     reviewCount?: number;
     hasWebsite?: boolean;
     referenceUrl?: string;
+    source?: string;
+    category?: string;
     score?: number;
     priority?: string;
     marketingContent?: object;

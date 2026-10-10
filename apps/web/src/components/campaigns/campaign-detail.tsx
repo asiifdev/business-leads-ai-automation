@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ArrowLeft, Download, Users, Star, TrendingUp, MapPin, Loader2, Search, List, Map as MapIcon } from "lucide-react";
 import { useCampaign } from "@/hooks/use-campaigns";
 import { useLeads } from "@/hooks/use-leads";
+import { CampaignConfig } from "@/components/campaigns/campaign-config";
 import { LeadsTable } from "@/components/leads/leads-table";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -122,6 +123,10 @@ export function CampaignDetail({ id }: { id: string }) {
             </CardContent>
           </Card>
         ))}
+      </motion.div>
+
+      <motion.div variants={item}>
+        <CampaignConfig campaign={campaign} />
       </motion.div>
 
       {campaign.status === "running" && (

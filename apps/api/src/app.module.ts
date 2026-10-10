@@ -15,6 +15,7 @@ import { ExportModule } from "./export/export.module";
 import { AuthModule } from "./auth/auth.module";
 import { WorkspaceModule } from "./workspace/workspace.module";
 import { MessagingModule } from "./messaging/messaging.module";
+import { MarketingModule } from "./marketing/marketing.module";
 
 @Module({
   imports: [
@@ -30,12 +31,15 @@ import { MessagingModule } from "./messaging/messaging.module";
         OPENAI_API_KEY: Joi.string().allow("").default(""),
         OPENAI_MODEL: Joi.string().default("gpt-4o-mini"),
         OPENAI_BASE_URL: Joi.string().allow("").default(""),
+        OPENAI_REASONING_EFFORT: Joi.string().allow("").default(""),
         EMBEDDING_MODEL: Joi.string().default("text-embedding-3-small"),
         NEXT_PUBLIC_APP_URL: Joi.string().default("http://localhost:3000"),
         THROTTLE_TTL_MS: Joi.number().default(60000),
         THROTTLE_LIMIT: Joi.number().default(60),
         AUTH_THROTTLE_LIMIT: Joi.number().default(10),
         WA_AUTH_DIR: Joi.string().allow("").default(""),
+        BRIEF_SOURCE_CHARS: Joi.number().default(30000),
+        SCRAPER_MODE: Joi.string().valid("live", "fixture").default("live"),
         WHATSAPP_DISABLED: Joi.string().valid("true", "false").default("false"),
       }),
       validationOptions: { abortEarly: true },
@@ -57,6 +61,7 @@ import { MessagingModule } from "./messaging/messaging.module";
     AuthModule,
     WorkspaceModule,
     MessagingModule,
+    MarketingModule,
   ],
   controllers: [AppController],
   providers: [

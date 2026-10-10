@@ -19,11 +19,14 @@ export class AiClientService {
   private readonly client: OpenAI | null = null;
   readonly chatModel: string;
   readonly embeddingModel: string;
+  /** Optional: "none" | "low" | ... for reasoning models (Ollama gemma/qwen, OpenAI o-series). Unset by default: models that do not support it reject the parameter. */
+  private readonly reasoningEffort?: string;
 
   constructor(config: ConfigService) {
     const apiKey = config.get<string>("OPENAI_API_KEY");
     this.chatModel = config.get<string>("OPENAI_MODEL") || "gpt-4o-mini";
     this.embeddingModel = config.get<string>("EMBEDDING_MODEL") || "text-embedding-3-small";
+    this.reasoningEffort = config.get<string>("OPENAI_REASONING_EFFORT") || undefined;
     if (apiKey) {
       this.client = new OpenAI({ apiKey, baseURL: config.get<string>("OPENAI_BASE_URL") || undefined });
     }
@@ -41,6 +44,7 @@ export class AiClientService {
         messages,
         temperature: opts.temperature ?? 0.7,
         ...(opts.json ? { response_format: { type: "json_object" as const } } : {}),
+        ...(this.reasoningEffort ? ({ reasoning_effort: this.reasoningEffort } as object) : {}),
       }),
     );
     return res.choices[0]?.message?.content ?? "";

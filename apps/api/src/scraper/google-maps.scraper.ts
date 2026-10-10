@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { chromium, Browser, Page } from "playwright";
+import { normalizeRating, pickCategory } from "./maps-parse";
 
 export interface ScrapedBusiness {
   name: string;
@@ -8,6 +9,8 @@ export interface ScrapedBusiness {
   website: string;
   rating: string;
   reviewCount: number | null;
+  /** The category Google Maps shows for this place ("Toko Kamera"), in the language of the Maps interface. */
+  category: string;
   hasWebsite: boolean;
   referenceLink: string;
   lat: number | null;
@@ -88,8 +91,8 @@ export class GoogleMapsScraperService {
       return businesses.slice(0, maxResults);
     } catch (err) {
       this.logger.error(`Google Maps scraping error: ${err}`);
-      await page.close();
-      return [];
+      await page.close().catch(() => undefined);
+      throw err; // the caller reports it; an empty list would hide a broken scrape as "no results"
     }
   }
 
@@ -199,6 +202,7 @@ export class GoogleMapsScraperService {
               phone: phone.replace(/\D/g, "").replace(/^62/, "0").replace(/^0+/, "0"),
               rating: rating || "N/A",
               reviewCount,
+              rows: [...card.querySelectorAll(".W4Efsd")].map((r) => r.textContent?.trim() ?? ""),
               website,
               hasWebsite: !!website,
               referenceLink,
@@ -209,7 +213,12 @@ export class GoogleMapsScraperService {
       )
       .catch(() => []);
 
-    return cards.map((card) => ({ ...card, ...extractLatLng(card.referenceLink) }));
+    return (cards as Array<Omit<ScrapedBusiness, "category" | "lat" | "lng"> & { rows: string[] }>).map(({ rows, ...card }) => ({
+      ...card,
+      rating: card.rating === "N/A" ? "N/A" : normalizeRating(card.rating) || "N/A",
+      category: pickCategory(rows),
+      ...extractLatLng(card.referenceLink),
+    }));
   }
 
   async close(): Promise<void> {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,8 @@ export function OutboxPage() {
   const [items, setItems] = useState<OutboxMessage[] | null>(null);
   const [job, setJob] = useState<GenerationJob | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignOption[]>([]);
-  const [campaignId, setCampaignId] = useState("");
+  const preselected = useSearchParams().get("campaign") ?? "";
+  const [campaignId, setCampaignId] = useState(preselected);
   const [howMany, setHowMany] = useState(20);
   const [busy, setBusy] = useState(false);
   const [confirmAll, setConfirmAll] = useState(false);

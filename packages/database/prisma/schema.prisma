@@ -29,6 +29,7 @@ model Workspace {
   aiRuns           AiRun[]
   styleProfile     StyleProfile?
   styleExamples    StyleExample[]
+  marketingBrief   MarketingBrief?
   whatsappAccount  WhatsappAccount?
   outboundMessages OutboundMessage[]
   inboundMessages  InboundMessage[]
@@ -292,7 +293,9 @@ model ApiKey {
 model KnowledgeSource {
   id          String   @id @default(cuid())
   title       String
-  kind        String   @default("text") // text | faq | catalog | document
+  kind        String   @default("text") // text | faq | catalog | document | url | file
+  url         String? // set when the source was fetched from a web page
+  text        String? // the extracted text, kept so a brief can be regenerated and the source can be shown back to the user
   status      String   @default("ready") // processing | ready | failed
   error       String?
   chunkCount  Int      @default(0)
@@ -469,4 +472,25 @@ model MessageOptOut {
 
   @@unique([workspaceId, phone])
   @@map("message_opt_outs")
+}
+
+
+// ============ MARKETING BRIEF ============
+// The workspace's product-marketing context (what is sold, to whom, why it wins, what is proven).
+// Generated from the user's own sources and reviewed by them; every other marketing module reads it.
+
+model MarketingBrief {
+  id        String   @id @default(cuid())
+  version   Int      @default(1)
+  language  String   @default("indonesian")
+  summary   String // short service/product description used to fill campaigns
+  content   Json // structured sections, see apps/api/src/marketing/brief-schema.ts
+  sourceIds String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String    @unique
+
+  @@map("marketing_briefs")
 }

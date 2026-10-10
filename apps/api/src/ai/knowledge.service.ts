@@ -43,17 +43,32 @@ export class KnowledgeService {
     return { deleted: true };
   }
 
-  async addText(workspaceId: string, input: { title: string; content: string; kind?: string }) {
-    if (!this.ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
-    const chunks = chunkText(input.content);
-    if (chunks.length === 0) throw new NotFoundException("No text to index");
-
-    const source = await this.prisma.knowledgeSource.create({
-      data: { workspaceId, title: input.title, kind: input.kind ?? "text", status: "processing" },
+  /** Creates a source row without indexing it yet (used when reading the content takes a while, e.g. crawling a site). */
+  createPending(workspaceId: string, input: { title: string; kind: string; url?: string }) {
+    return this.prisma.knowledgeSource.create({
+      data: { workspaceId, title: input.title, kind: input.kind, url: input.url ?? null, status: "processing" },
+      select: { id: true, title: true, kind: true, url: true, status: true },
     });
+  }
+
+  async addText(workspaceId: string, input: { title: string; content: string; kind?: string; url?: string }) {
+    if (!this.ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
+    if (chunkText(input.content).length === 0) throw new NotFoundException("No text to index");
+    const source = await this.prisma.knowledgeSource.create({
+      data: { workspaceId, title: input.title, kind: input.kind ?? "text", url: input.url ?? null, text: input.content.slice(0, 200_000), status: "processing" },
+    });
+    return this.index(workspaceId, source.id, input.content);
+  }
+
+  /** Chunks, embeds and stores the text of an existing source, then marks it ready (or failed). */
+  async index(workspaceId: string, sourceId: string, content: string) {
+    const source = { id: sourceId };
+    const chunks = chunkText(content);
     try {
+      if (chunks.length === 0) throw new Error("no text to index");
       const vectors = await this.ai.embed(chunks);
       const dims = vectors[0].length;
+      await this.prisma.knowledgeChunk.deleteMany({ where: { sourceId, workspaceId } });
       for (let i = 0; i < chunks.length; i++) {
         const id = `kc_${source.id}_${i}`;
         await this.prisma.$executeRaw`
@@ -62,7 +77,7 @@ export class KnowledgeService {
       }
       return this.prisma.knowledgeSource.update({
         where: { id: source.id },
-        data: { status: "ready", chunkCount: chunks.length },
+        data: { status: "ready", chunkCount: chunks.length, error: null },
         select: { id: true, title: true, status: true, chunkCount: true },
       });
     } catch (err) {

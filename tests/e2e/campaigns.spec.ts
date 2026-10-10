@@ -49,7 +49,7 @@ test.describe("Campaigns", () => {
     await page.waitForURL(/\/campaigns\/(?!new$)[a-z0-9-]+$/, { timeout: 15000 });
     await expect(page.getByText(CAMPAIGN.name)).toBeVisible();
 
-    // Wait for campaign to complete (scraper uses mock fallback — should finish in < 30s)
+    // Wait for campaign to complete (CI runs with SCRAPER_MODE=fixture, so no real scraping — should finish in < 30s)
     await expect(page.getByText("Completed")).toBeVisible({ timeout: 45000 });
   });
 

@@ -25,6 +25,17 @@
 - Sidebar: fixed a 5px overflow caused by long workspace names, unified the active-item style, removed the stale "New" badge.
 - AI Style page redesigned.
 
+### Fixed
+- **Scraper no longer invents businesses.** When scraping failed (for example the browser was not installed) it used to generate fake companies with made-up phone numbers and websites and list them as real leads. It now fails the campaign with a clear message. `SCRAPER_MODE=fixture` (tests and demos only) returns clearly labelled test leads without phone numbers. `apps/api/scripts/find-mock-leads.ts` finds and marks leftovers from the old behaviour in an existing database.
+- **Ratings in Indonesian format were misread** (`4,6` was parsed as 4). Ratings are normalized when scraped and when scored.
+- **Leads now carry the real Google Maps category** ("Toko Kamera") instead of a label chosen by the campaign.
+- **Lead scores no longer use made-up weights.** The hard-coded industry and city tables are gone. The score uses listing signals (phone, rating, review volume) plus an AI judgement of how well each business (name and real Maps category) fits your offer and Marketing Brief, with the reason shown.
+
+### Added (marketing brief)
+- **Marketing Brief**: sources (websites, pasted text, `.md` and `.txt` files) become a structured product-marketing brief following the `product-marketing` skill, written in three small passes. Evidence (customers, numbers, prices, testimonials) must appear in the sources or it is dropped and listed as `[NEED: ...]`.
+- **Website reading** follows `llms.txt`, `sitemap.xml`, `robots.txt` and home-page links (up to 10 pages), renders JavaScript-only pages in the same Chromium that scrapes Maps, and guards every request against private addresses (SSRF).
+- `OPENAI_REASONING_EFFORT=none` switches off the thinking phase of local reasoning models (about 10x faster for these tasks).
+
 ### Removed
 - The built-in mock content. With no AI provider configured, Prospex now produces no draft instead of a canned message that looks real.
 

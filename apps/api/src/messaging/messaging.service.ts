@@ -138,6 +138,7 @@ export class MessagingService {
       where: {
         workspaceId,
         phone: { not: null },
+        source: "google_maps", // never draft for test fixtures or leads suspected to be invented
         ...(input.campaignId ? { campaignId: input.campaignId } : {}),
         ...(input.leadIds?.length ? { id: { in: input.leadIds.slice(0, MAX_BULK) } } : {}),
         outbound: { none: { source: "ai_outreach", status: { notIn: ["rejected", "cancelled"] } } },

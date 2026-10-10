@@ -10,6 +10,7 @@ export interface Campaign {
   searchQuery?: string;
   searchQueries?: string[];
   yourService: string;
+  maxResults?: number;
   contentStyle: string;
   language: string;
   status: "draft" | "running" | "completed" | "failed" | "paused";

@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { normalizeRating } from "../scraper/maps-parse";
 
 interface LeadData {
   name: string;
@@ -12,95 +13,88 @@ interface LeadData {
   lat?: number | null;
   lng?: number | null;
   industry?: string;
+  /** The category Google Maps shows for the place. */
+  category?: string;
+}
+
+export type FitLevel = "high" | "medium" | "low";
+export interface FitVerdict {
+  fit: FitLevel;
+  reason: string;
 }
 
 export interface LeadIntelligence {
   score: number;
   priority: "HIGH" | "MEDIUM" | "LOW";
+  /** The real Google Maps category when known, otherwise the campaign's target label. */
   category: string;
   factors: string[];
   recommendation: string;
+  fit?: FitVerdict;
 }
 
+/**
+ * A ranking aid, not a prediction. The index uses only signals that come from the scraped listing (reachability,
+ * rating, review volume) plus one judgement: how well the business's real Maps category matches the offer, decided
+ * from the user's Marketing Brief (see FitService). There are no hard-coded industry or city weights: those were
+ * guesses with no data behind them.
+ *
+ *   30 base
+ *   +15 phone (we can reach them)   +3 address
+ *   +5/+10/+15 Bayesian rating (3.5 / 4.0 / 4.5)
+ *   +2/+5/+10 reviews (5 / 20 / 100)
+ *   +20 high fit, +8 medium fit, -15 low fit (0 when fit was not assessed)
+ * HIGH from 70, MEDIUM from 50.
+ */
 @Injectable()
 export class LeadIntelligenceService {
-  private readonly INDUSTRY_SCORES: Record<string, number> = {
-    restaurant: 85, cafe: 90, retail: 75, automotive: 80, healthcare: 85,
-    beauty: 80, education: 75, realestate: 85, event: 80, tech: 90,
-    professional: 85, hotel: 80, spa: 78, gym: 75,
-  };
-
-  private readonly CITY_SCORES: Record<string, number> = {
-    jakarta: 95, surabaya: 85, bandung: 80, medan: 75, yogyakarta: 78,
-    semarang: 72, makassar: 70, palembang: 68, pekanbaru: 65, denpasar: 85,
-  };
-
-  scoreLead(lead: LeadData, targetIndustry?: string): LeadIntelligence {
-    let score = 50;
+  scoreLead(lead: LeadData, fit?: FitVerdict): LeadIntelligence {
+    let score = 30;
     const factors: string[] = [];
 
-    if (lead.phone) { score += 10; factors.push("Has phone number"); }
-    if (lead.website || lead.hasWebsite) { score += 10; factors.push("Has website"); }
-    if (lead.address) { score += 5; factors.push("Has address"); }
+    if (lead.phone) { score += 15; factors.push("Has a phone number"); } else factors.push("No phone number: cannot be reached on WhatsApp");
+    if (lead.address) score += 3;
 
-    const rawRating = parseFloat(lead.rating ?? "0");
+    const rawRating = parseFloat(normalizeRating(lead.rating) || "0");
     if (rawRating > 0) {
-      // Bayesian average: pulls the rating toward a neutral prior (4.0★, worth
-      // PRIOR_WEIGHT "reviews") so a 5★/1-review lead can't outrank a 4.5★/thousands
-      // -review lead just because it has fewer, noisier ratings.
+      // Bayesian average: pulls the rating toward a neutral prior (4.0, worth PRIOR_WEIGHT reviews) so a
+      // 5.0 with 1 review cannot outrank a 4.5 with thousands just because it has fewer, noisier ratings.
       const PRIOR_MEAN = 4.0;
       const PRIOR_WEIGHT = 25;
-      const n = lead.reviewCount ?? 1; // unknown count treated as low-confidence (1 review)
+      const n = lead.reviewCount ?? 1;
       const rating = (PRIOR_WEIGHT * PRIOR_MEAN + n * rawRating) / (PRIOR_WEIGHT + n);
-
       if (rating >= 4.5) score += 15;
       else if (rating >= 4.0) score += 10;
       else if (rating >= 3.5) score += 5;
-
-      const countLabel = lead.reviewCount != null ? ` (${lead.reviewCount} reviews)` : "";
-      factors.push(`Rating: ${rawRating}★${countLabel}`);
-
-      if ((lead.reviewCount ?? 0) >= 100) { score += 5; factors.push("Well-established (100+ reviews)"); }
-      else if ((lead.reviewCount ?? 0) >= 20) { score += 2; factors.push("Established (20+ reviews)"); }
+      factors.push(`Rating ${rawRating}${lead.reviewCount != null ? ` from ${lead.reviewCount} reviews` : ""}`);
     }
+    const reviews = lead.reviewCount ?? 0;
+    if (reviews >= 100) score += 10;
+    else if (reviews >= 20) score += 5;
+    else if (reviews >= 5) score += 2;
 
-    const industryKey = (targetIndustry || lead.industry || "").toLowerCase().replace(/[^a-z]/g, "");
-    const industryScore = this.INDUSTRY_SCORES[industryKey];
-    if (industryScore) {
-      const bonus = (industryScore - 50) / 5;
-      score += bonus;
-      factors.push(`High-value industry: ${targetIndustry || lead.industry}`);
+    if (fit) {
+      score += fit.fit === "high" ? 20 : fit.fit === "medium" ? 8 : -15;
+      factors.push(`Fit with your offer: ${fit.fit}${fit.reason ? ` (${fit.reason})` : ""}`);
+    } else {
+      factors.push("Fit with your offer was not assessed");
     }
-
-    const addressLower = (lead.address || "").toLowerCase();
-    for (const [city, cityScore] of Object.entries(this.CITY_SCORES)) {
-      if (addressLower.includes(city)) {
-        score += (cityScore - 50) / 10;
-        factors.push(`Prime location: ${city}`);
-        break;
-      }
-    }
-
-    if (!lead.hasWebsite && !lead.website) {
-      score += 5;
-      factors.push("No website (digital gap opportunity)");
-    }
+    if (!lead.website && !lead.hasWebsite) factors.push("No website listed on Google Maps");
 
     score = Math.min(100, Math.max(0, Math.round(score)));
-    const priority: "HIGH" | "MEDIUM" | "LOW" = score >= 75 ? "HIGH" : score >= 55 ? "MEDIUM" : "LOW";
-    const category = targetIndustry || lead.industry || "General Business";
+    const priority: "HIGH" | "MEDIUM" | "LOW" = score >= 70 ? "HIGH" : score >= 50 ? "MEDIUM" : "LOW";
+    const category = lead.category || lead.industry || "General Business";
 
-    let recommendation = "";
-    if (priority === "HIGH") recommendation = `High-value ${category} business. Prioritize outreach immediately.`;
-    else if (priority === "MEDIUM") recommendation = `Moderate potential. Include in standard outreach sequence.`;
-    else recommendation = `Lower priority. Contact only if capacity allows.`;
-
-    return { score, priority, category, factors, recommendation };
+    const recommendation =
+      fit?.reason ||
+      (priority === "HIGH" ? "Reachable, well reviewed. Worth contacting first." : priority === "MEDIUM" ? "Moderate signals. Include in the standard sequence." : "Weaker signals. Contact only if capacity allows.");
+    return { score, priority, category, factors, recommendation, fit };
   }
 
-  scoreLeads(leads: LeadData[], targetIndustry?: string): Array<LeadData & LeadIntelligence> {
+  /** Scores and sorts. `fits[i]` is the fit verdict for `leads[i]` (or undefined when it was not assessed). */
+  scoreLeads(leads: LeadData[], fits: (FitVerdict | undefined)[] = []): Array<LeadData & LeadIntelligence> {
     return leads
-      .map((lead) => ({ ...lead, ...this.scoreLead(lead, targetIndustry) }))
+      .map((lead, i) => ({ ...lead, ...this.scoreLead(lead, fits[i]) }))
       .sort((a, b) => b.score - a.score);
   }
 }
