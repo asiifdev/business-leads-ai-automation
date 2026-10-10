@@ -1,4 +1,5 @@
 import type { StyleStats, ReplyPair } from "./style-stats";
+import { normalizeDraft } from "../orthography";
 
 export function cosine(a: number[], b: number[]): number {
   let dot = 0, na = 0, nb = 0;
@@ -19,18 +20,22 @@ export function clip(text: string | null | undefined, max: number): string {
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
+/**
+ * Chat habits (all lowercase, no final punctuation, "gk", "yg") are deliberately NOT imitated: a message to a customer
+ * is written in standard spelling. Only length, word choice, warmth and emoji follow the owner's style.
+ */
+const SPELLING_RULE =
+  "EJAAN: tulis dengan ejaan baku (PUEBI). Awali kalimat dan nama dengan huruf kapital, akhiri kalimat dengan tanda baca, tulis kata utuh (bukan singkatan chat seperti \"gk\", \"yg\", \"sama2\"), dan beri koma sebelum sapaan (\"Baik, Kak\"). Kebiasaan menulis huruf kecil atau tanpa tanda baca di contoh TIDAK boleh ditiru; tiru hanya panjang, pilihan kata, kehangatan, dan emoji.";
+
 /** Human-readable description of measured writing habits, fed to the model as a style guide. */
 export function describeStyle(s: StyleStats): string {
   const lines = [
     `Panjang balasan: rata-rata ${s.avgChars} karakter (median ${s.medianChars}), sekitar ${s.avgWords} kata. Jangan jauh lebih panjang dari itu.`,
     `Emoji muncul di ${pct(s.emojiRate)} pesan${s.topEmoji.length ? ` (paling sering: ${s.topEmoji.slice(0, 3).map((e) => e.emoji).join(" ")})` : ""}.`,
-    `Tanda seru di ${pct(s.exclamationRate)} pesan; tanpa tanda baca di akhir pada ${pct(s.noEndPunctuationRate)}.`,
-    s.lowercaseStartRate < 0.5
-      ? `Awal pesan: kebanyakan (${pct(1 - s.lowercaseStartRate)}) diawali huruf besar dan hanya ${pct(s.lowercaseStartRate)} huruf kecil. Awali dengan huruf besar.`
-      : `Awal pesan: kebanyakan (${pct(s.lowercaseStartRate)}) diawali huruf kecil.`,
-    "Nama orang, bisnis, dan tempat selalu ditulis dengan huruf kapital yang benar.",
+    `Tanda seru di ${pct(s.exclamationRate)} pesan.`,
     `Pesan multi-baris hanya ${pct(s.multiLineRate)}.`,
   ];
+  lines.push(SPELLING_RULE);
   if (s.topOpeners.length) lines.push(`Kata pembuka yang sering dipakai: ${s.topOpeners.slice(0, 5).map((o) => o.word).join(", ")}.`);
   if (s.topClosers.length) lines.push(`Kata penutup yang sering dipakai: ${s.topClosers.slice(0, 5).map((o) => o.word).join(", ")}.`);
   return lines.join("\n");
@@ -50,7 +55,7 @@ export interface DraftPromptInput {
 /** Builds chat messages for drafting a reply in the owner's own voice. */
 export function buildDraftMessages(input: DraftPromptInput): { role: "system" | "user"; content: string }[] {
   const shots = input.examples
-    .map((e, i) => `Contoh ${i + 1}\nPelanggan: ${clip(e.incoming, 500)}\nBalasan saya: ${clip(e.reply, 500)}`)
+    .map((e, i) => `Contoh ${i + 1}\nPelanggan: ${clip(e.incoming, 500)}\nBalasan saya: ${normalizeDraft(clip(e.reply, 500))}`)
     .join("\n\n");
   const facts = input.knowledge?.length
     ? `\nFAKTA YANG BOLEH DIPAKAI (jangan menyebut harga, jadwal, atau kebijakan yang tidak ada di sini):\n${input.knowledge.map((k) => `- ${k}`).join("\n")}\n`
@@ -119,7 +124,7 @@ function leadLines(l: LeadFacts): string {
 export function buildOutreachMessages(input: OutreachPromptInput): { role: "system" | "user"; content: string }[] {
   const id = input.language === "indonesian";
   const fu = input.followUp;
-  const shots = (input.examples ?? []).map((e, i) => `Contoh ${i + 1}\nPelanggan: ${clip(e.incoming, 500)}\nBalasan saya: ${clip(e.reply, 500)}`).join("\n\n");
+  const shots = (input.examples ?? []).map((e, i) => `Contoh ${i + 1}\nPelanggan: ${clip(e.incoming, 500)}\nBalasan saya: ${normalizeDraft(clip(e.reply, 500))}`).join("\n\n");
   const facts = input.knowledge?.length
     ? `FAKTA BISNIS YANG BOLEH DIPAKAI:\n${input.knowledge.map((k) => `- ${k}`).join("\n")}`
     : "Tidak ada fakta bisnis tambahan: jangan menyebut harga, paket, promo, jadwal, atau hasil yang dijanjikan.";
@@ -127,8 +132,16 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
     `Kamu menulis ${fu ? `PESAN TINDAK LANJUT ke-${fu.number} (dari maksimal ${fu.of})` : "PESAN PERTAMA"} WhatsApp atas nama pemilik bisnis ini: ${input.businessDescription}`,
     `Yang ditawarkan: ${input.offer}`,
     fu
-      ? `Penerima belum membalas pesan sebelumnya (${fu.daysSince} hari lalu):\n"${fu.previousMessage}"\nTulis tindak lanjut yang singkat dan tidak memaksa. Jangan mengulang isi pesan sebelumnya. ${fu.number >= fu.of ? "Ini yang terakhir: tutup dengan sopan dan katakan tidak akan mengganggu lagi." : "Berikan satu alasan baru atau pertanyaan ringan."}`
-      : "Penerima belum mengenal pemilik dan belum pernah menghubungi lebih dulu. Perkenalkan diri dalam satu kalimat, kaitkan dengan satu hal spesifik tentang bisnis mereka, lalu ajukan satu pertanyaan atau ajakan kecil.",
+      ? `Penerima belum membalas pesan sebelumnya (${fu.daysSince} hari lalu):\n"${fu.previousMessage}"\nAwali dengan "Halo, Kak,". Tulis tindak lanjut yang singkat dan tidak memaksa. Jangan mengulang isi pesan sebelumnya. ${fu.number >= fu.of ? "Ini yang terakhir: tutup dengan sopan dan katakan tidak akan mengganggu lagi." : "Berikan satu alasan baru atau pertanyaan ringan."}`
+      : [
+          "Penerima belum mengenal pemilik dan belum pernah menghubungi lebih dulu. Ini pesan penjualan pertama: tulis dengan jelas dan meyakinkan, bukan obrolan santai. Susun empat bagian dalam 3 sampai 4 kalimat pendek (sekitar 250 sampai 400 karakter):",
+          `1. Salam dan perkenalan dalam satu kalimat: "Halo, Kak, perkenalkan saya dari tim ${input.businessDescription}." Sapaan "Kak" dipakai karena nama kontak tidak diketahui. Jangan menyapa dengan nama bisnis penerima.`,
+          "2. Pengamatan spesifik: satu fakta dari data penerima, ditulis apa adanya dengan angkanya (mis. rating dan jumlah ulasan di Google Maps, atau belum ada website).",
+          "3. Manfaat nyata: satu kalimat tentang apa yang ditawarkan dan apa yang bisa dilakukan pelanggan penerima dengannya (mis. memesan atau reservasi dari ponsel). Jangan menjanjikan hasil atau angka.",
+          "4. Ajakan: satu pertanyaan ringan yang mudah dijawab ya atau tidak, mis. \"Boleh saya jelaskan singkat, Kak?\".",
+          "Hindari kata ragu dan jargon: mungkin, sepertinya, barangkali, tertarik atau tidak, digitalisasi, solusi, terstruktur, inovatif, optimal, terdepan.",
+          "Contoh bentuk (jangan disalin, sesuaikan dengan data dan penawaran): Halo, Kak, perkenalkan saya dari tim Asiifdev Digital Agency. Saya lihat Kopi Contoh punya rating 4,5 dari 120 ulasan di Google Maps, tapi belum ada website untuk pesan atau reservasi. Kami membuatkan website pemesanan online untuk kafe, jadi pelanggan bisa memesan dari ponsel. Boleh saya jelaskan singkat, Kak?",
+        ].join("\n"),
     "",
     "DATA BISNIS PENERIMA (satu-satunya sumber fakta tentang mereka; berasal dari listing publik):",
     `<data_bisnis>\n${leadLines(input.lead)}\n</data_bisnis>`,
@@ -141,7 +154,8 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
     SECURITY_RULE,
     "",
     "ATURAN:",
-    "- Jangan mengarang fakta tentang penerima di luar data di atas. Dilarang menyebut bisnis mereka ramai, laris, enak, terkenal, atau sejenisnya kecuali tertulis di data. Jangan memuji secara umum.",
+    "- Jangan memakai salam menurut waktu (selamat pagi/siang/sore/malam): waktu pesan dibaca tidak diketahui. Awali dengan \"Halo\".",
+    "- Jangan mengarang fakta tentang penerima di luar data di atas. Dilarang menyebut bisnis mereka ramai, laris, diminati, populer, enak, terkenal, bagus, terbaik, atau sejenisnya kecuali tertulis di data; sebut angka (rating, jumlah ulasan) apa adanya. Jangan memuji secara umum.",
     "- Sebut tepat satu fakta spesifik dari data apa adanya (mis. rating dan jumlah ulasan, belum ada website, atau lokasi), lalu hubungkan dengan penawaran.",
     "- Jangan menjanjikan hasil atau angka. Jangan menulis seperti iklan atau broadcast.",
     "- Satu pesan pendek, tanpa baris tanda tangan, tanpa placeholder seperti [Nama].",

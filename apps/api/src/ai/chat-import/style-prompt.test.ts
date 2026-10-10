@@ -20,7 +20,7 @@ test("cosine similarity", () => {
 test("draft prompt carries style, examples and the no-invention rule", () => {
   const m = buildDraftMessages({ businessDescription: "rental kebaya", style: stats, examples: [{ incoming: "ready?", reply: "ready kak", at: new Date() }], incoming: "tgl 12 ada?" });
   assert.match(m[0].content, /rata-rata 40 karakter/);
-  assert.match(m[0].content, /Balasan saya: ready kak/);
+  assert.match(m[0].content, /Balasan saya: Ready, Kak\./); // examples are shown in standard spelling
   assert.match(m[0].content, /jangan menyebut harga/);
   assert.match(m[1].content, /tgl 12 ada\?/);
 });
@@ -28,4 +28,10 @@ test("draft prompt carries style, examples and the no-invention rule", () => {
 test("knowledge facts are listed when provided", () => {
   const m = buildDraftMessages({ businessDescription: "x", style: stats, examples: [], knowledge: ["Sewa 3 hari Rp150.000"], incoming: "harga?" });
   assert.match(m[0].content, /- Sewa 3 hari Rp150\.000/);
+});
+
+test("sloppy chat habits are never described as something to imitate", () => {
+  const m = buildDraftMessages({ businessDescription: "x", style: { ...stats, lowercaseStartRate: 0.9, noEndPunctuationRate: 0.95 }, examples: [], incoming: "halo" });
+  assert.doesNotMatch(m[0].content, /huruf kecil di|tanpa tanda baca pada|diawali huruf kecil/);
+  assert.match(m[0].content, /ejaan baku \(PUEBI\)/);
 });

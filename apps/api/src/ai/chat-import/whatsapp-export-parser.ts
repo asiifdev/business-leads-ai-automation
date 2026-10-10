@@ -37,6 +37,20 @@ const MEDIA_ONLY = [
   /^(?:IMG|VID|PTT|AUD|STK|DOC)-\d{8}-WA\d+\.\w+$/i,
   /^(missed voice call|missed video call|panggilan suara tak terjawab|panggilan video tak terjawab)$/i,
 ];
+/**
+ * Attachment markers can sit in front of a caption ("IMG-20240101-WA0001.jpg (file attached) caption text").
+ * They are file names, not words the person wrote, so they are removed before any statistics are computed.
+ */
+const INLINE_MARKERS = new RegExp(
+  [
+    "<(?:attached|lampiran):[^>]*>",
+    "<media (?:omitted|tidak disertakan)>",
+    "<(?:this message was edited|pesan ini diedit)>",
+    "(?:(?:IMG|VID|PTT|AUD|STK|DOC)-\\d{8}-WA\\d+\\.\\w+|\\S+\\.(?:jpe?g|png|webp|mp4|opus|m4a|pdf|vcf))(?:\\s*\\((?:file attached|file terlampir)\\))?",
+  ].join("|"),
+  "gi",
+);
+
 const DELETED = /^(this message was deleted|you deleted this message|pesan ini dihapus|anda menghapus pesan ini)$/i;
 
 /** Largest export accepted (characters). Real exports are a few MB; this bounds work on hostile input. */
@@ -134,7 +148,13 @@ export function parseWhatsAppExport(raw: string): ParsedChat {
   for (const m of messages) {
     const text = clean(m.text);
     if (!text || DELETED.test(text)) continue;
-    out.push({ ...m, text, isMedia: text.length <= MAX_MEDIA_PLACEHOLDER_CHARS && MEDIA_ONLY.some((re) => re.test(text)) });
+    const mediaOnly = text.length <= MAX_MEDIA_PLACEHOLDER_CHARS && MEDIA_ONLY.some((re) => re.test(text));
+    const stripped = mediaOnly ? text : clean(text.replace(INLINE_MARKERS, " "));
+    if (!mediaOnly && !stripped) {
+      out.push({ ...m, text, isMedia: true }); // nothing but markers
+      continue;
+    }
+    out.push({ ...m, text: stripped, isMedia: mediaOnly });
   }
   const senders = [...new Set(out.map((m) => m.sender))];
   return { messages: out, senders, skippedLines: skipped, systemLines: system, dateOrder };

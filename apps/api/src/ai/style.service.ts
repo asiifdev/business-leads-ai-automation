@@ -8,6 +8,7 @@ import { buildDraftMessages } from "./chat-import/style-prompt";
 import { buildReplyPairs, computeStyleStats, type StyleStats } from "./chat-import/style-stats";
 import { parseWhatsAppExport, type ParsedChat } from "./chat-import/whatsapp-export-parser";
 import { KnowledgeService } from "./knowledge.service";
+import { normalizeDraft } from "./orthography";
 
 export interface UploadedFile {
   originalname: string;
@@ -172,7 +173,7 @@ export class StyleService {
     });
     if (error) throw new ServiceUnavailableException("The AI provider could not write a draft. Check its settings and try again.");
     return {
-      draft: draft.trim(),
+      draft: normalizeDraft(draft.trim(), { language: "auto", names: [profile.ownerName] }),
       trace: { style: stats, examples, knowledge: facts, model: this.ai.chatModel, latencyMs },
     };
   }

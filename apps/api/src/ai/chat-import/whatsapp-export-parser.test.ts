@@ -52,3 +52,14 @@ test("bare media file names are media placeholders", () => {
   const r = parseWhatsAppExport("01/02/26 10.00 - Budi: IMG-20260201-WA0003.jpg\n01/02/26 10.01 - Budi: PTT-20260201-WA0001.opus");
   assert.equal(r.messages.every((m) => m.isMedia), true);
 });
+
+test("attachment markers in front of a caption are not part of the caption", () => {
+  const chat = parseWhatsAppExport([
+    "12/10/25 09.00 - Budi: IMG-20251012-WA0001.jpg (file attached)",
+    "ini foto barangnya kak",
+    "12/10/25 09.01 - Budi: <attached: 00001-PHOTO-2025.jpg> siap kak",
+    "12/10/25 09.02 - Budi: <Media omitted>",
+  ].join("\n"));
+  assert.deepEqual(chat.messages.map((m) => m.text), ["ini foto barangnya kak", "siap kak", "<Media omitted>"]);
+  assert.deepEqual(chat.messages.map((m) => m.isMedia), [false, false, true]);
+});

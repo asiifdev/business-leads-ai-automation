@@ -103,6 +103,7 @@ async function main() {
 
   // 6. reply from a known lead: status update, follow-ups cancelled, reply draft prepared
   const lead = await prisma.lead.findFirstOrThrow({ where: { workspaceId: ws } });
+  const leadBefore = { phoneE164: lead.phoneE164, crmStatus: lead.crmStatus, repliedAt: lead.repliedAt, contactedAt: lead.contactedAt };
   await prisma.lead.update({ where: { id: lead.id }, data: { phoneE164: "629900000006", crmStatus: "contacted", repliedAt: null } });
   await prisma.outboundMessage.create({ data: { workspaceId: ws, leadId: lead.id, toPhone: "629900000006", body: "fu", source: "ai_followup", status: "draft" } });
   await inbound.handle(ws, { phone: "629900000006", text: "boleh, berapa harganya?", id: "in-reply-1", at: new Date() });
@@ -146,7 +147,7 @@ async function main() {
   await prisma.inboundMessage.deleteMany({ where: { workspaceId: ws, fromPhone: { startsWith: "6299" } } });
   await prisma.messageOptOut.deleteMany({ where: { workspaceId: ws, phone: { startsWith: "6299" } } });
   await prisma.leadActivity.deleteMany({ where: { leadId: lead.id, type: { in: ["replied", "whatsapp_sent", "opted_out"] } } });
-  await prisma.lead.update({ where: { id: lead.id }, data: { crmStatus: "new", repliedAt: null, contactedAt: null } });
+  await prisma.lead.update({ where: { id: lead.id }, data: leadBefore }); // put the lead back exactly as it was (including its real phone)
   await prisma.whatsappAccount.update({ where: { workspaceId: ws }, data: { paused: original.paused, hourlyLimit: original.hourlyLimit, quietStartHour: original.quietStartHour, quietEndHour: original.quietEndHour, nextSendAt: null, lastError: null } });
   if (sender["timer"]) clearInterval(sender["timer"]);
   await prisma.$disconnect();

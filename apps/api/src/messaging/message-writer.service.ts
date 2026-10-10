@@ -7,6 +7,7 @@ import { StyleService } from "../ai/style.service";
 import { buildDraftMessages, buildOutreachMessages } from "../ai/chat-import/style-prompt";
 import type { StyleStats } from "../ai/chat-import/style-stats";
 import { draftRisks } from "./draft-risk";
+import { neutralGreeting, normalizeDraft } from "../ai/orthography";
 import { OPT_OUT_HINT_EN, OPT_OUT_HINT_ID } from "./opt-out";
 
 export interface WrittenMessage {
@@ -75,7 +76,8 @@ export class MessageWriterService {
       followUp,
     });
 
-    const body = await this.generate(workspaceId, followUp ? "followup" : "outreach", `${lead.id}`, messages, facts.hits.map((h) => h.sourceId), facts.confidence);
+    const business = await this.businessDescription(workspaceId);
+    const body = await this.generate(workspaceId, followUp ? "followup" : "outreach", `${lead.id}`, messages, facts.hits.map((h) => h.sourceId), facts.confidence, { language, names: [lead.name, business] });
     const hint = language === "english" ? OPT_OUT_HINT_EN : OPT_OUT_HINT_ID;
     return {
       text: `${body.text}\n\n${hint}`,
@@ -105,16 +107,16 @@ export class MessageWriterService {
       incoming,
       history,
     });
-    const body = await this.generate(workspaceId, "reply", incoming, messages, facts.hits.map((h) => h.sourceId), facts.confidence);
+    const body = await this.generate(workspaceId, "reply", incoming, messages, facts.hits.map((h) => h.sourceId), facts.confidence, { language: lead?.campaign.language === "english" ? "english" : "auto", names: [...(lead ? [lead.name] : []), await this.businessDescription(workspaceId)] });
     return { text: body.text, risks: draftRisks(body.text, facts.hits.map((h) => h.content)), trace: { styled: true, examples: examples.length, knowledge: facts.confidence, model: this.ai.chatModel, latencyMs: Date.now() - started } };
   }
 
-  private async generate(workspaceId: string, kind: string, input: string, messages: { role: "system" | "user"; content: string }[], sourceIds: string[], confidence: string) {
+  private async generate(workspaceId: string, kind: string, input: string, messages: { role: "system" | "user"; content: string }[], sourceIds: string[], confidence: string, norm: { language: "indonesian" | "english" | "auto"; names: string[] }) {
     const started = Date.now();
     let output = "";
     let error: string | undefined;
     try {
-      output = clean(await this.ai.chat(messages));
+      output = normalizeDraft(neutralGreeting(clean(await this.ai.chat(messages))), norm);
       if (!output) error = "empty output";
       else if (PLACEHOLDER.test(output)) error = "output contains a template placeholder";
     } catch (e) {
