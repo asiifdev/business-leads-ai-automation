@@ -51,10 +51,10 @@ Details: [ai-style.md](ai-style.md).
 | Feature | What it does and why | Where | Status |
 |---------|----------------------|-------|--------|
 | **Outbox** | Every message starts as a draft. You approve, edit or reject. Nothing is sent without approval. | Outbox | Verified |
-| **WhatsApp connection** | Links a number as a device (Baileys) by QR code. Sessions survive restarts. | Outbox | QR pairing verified. Sending a real message is **not yet confirmed** |
+| **WhatsApp connection** | Links a number as a device (Baileys) by QR code. Sessions survive restarts. | Outbox | Verified: pairing, resuming after restart, one real message sent and one real reply received. Not yet tested at volume |
 | **Paced sending** | One message at a time: hourly and daily caps (default 10 and 80), quiet hours (default 21:00 to 07:00), random gaps, a typing indicator, a check that the number is on WhatsApp. Pause any time. | Outbox | Simulated |
 | **Safety stops** | Three failures in a row pause the account. A message interrupted mid-send is marked failed and never resent automatically. A number that replies STOP (or similar) is blocked for good. | Outbox | Simulated |
-| **Replies** | A reply from a known lead updates the CRM status, cancels pending follow-ups and creates a reply draft with the customer's message quoted. Unknown numbers are stored, never answered. | Outbox | Simulated |
+| **Replies** | A reply from a known lead updates the CRM status, cancels pending follow-ups and creates a reply draft with the customer's message quoted. Unknown numbers are stored, never answered. | Outbox | Receiving a real reply and storing it is verified. Matching to a lead, drafting the answer and STOP handling are simulated |
 | **Follow-ups** | Drafts after 3 and 5 days of silence, at most two. Also approved by you. | Outbox | Simulated |
 
 Details: [whatsapp-outbox.md](whatsapp-outbox.md).

@@ -54,6 +54,8 @@ Then, for the oldest approved message:
 
 ## When someone replies
 
+WhatsApp increasingly addresses chats with an opaque `@lid` identifier instead of the phone number. Prospex reads the real number from the message's `senderPn` field, so replies are matched by phone number as before. (A real test found this: replies were silently dropped until the fix.)
+
 Incoming text messages are stored and matched to a lead by phone number. Then:
 
 - **STOP, berhenti, unsubscribe and similar**: the number is added to the opt-out list, its pending drafts and approved messages are cancelled, and it is never messaged again, even if you approve something later.

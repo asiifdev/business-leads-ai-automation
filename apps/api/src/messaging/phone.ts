@@ -25,3 +25,11 @@ export function phoneFromJid(jid: string | null | undefined): string | null {
   const user = jid.split("@")[0].split(":")[0];
   return /^\d{8,15}$/.test(user) ? user : null;
 }
+
+/**
+ * The sender's phone number of an incoming message. WhatsApp increasingly addresses chats with an opaque "@lid"
+ * instead of the phone number; in that case the real number travels in `senderPn` (or `participantPn`).
+ */
+export function phoneFromKey(key: { remoteJid?: string | null; senderPn?: string | null; participantPn?: string | null }): string | null {
+  return phoneFromJid(key.remoteJid) ?? phoneFromJid(key.senderPn) ?? phoneFromJid(key.participantPn);
+}

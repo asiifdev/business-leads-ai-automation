@@ -255,7 +255,7 @@ Done:
 
 Next:
 
-- [ ] Confirm sending against a real number and fix whatever that finds (the sender is tested with a stand-in WhatsApp; QR pairing is verified)
+- [ ] Test sending at volume on a dedicated number (one real message and one real reply are verified; the pacing logic is tested with a stand-in WhatsApp)
 - [ ] Official WhatsApp Business Cloud API provider
 - [ ] Per-workspace AI provider keys for the AI features (the Settings screen stores them encrypted today, but the AI features read the server `.env`)
 - [ ] Knowledge base screen (sources are managed from the Marketing brief page today)

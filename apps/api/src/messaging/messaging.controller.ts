@@ -10,6 +10,11 @@ import { MAX_BODY, MAX_BULK, MAX_GENERATE, MessagingService } from "./messaging.
 class IdsDto {
   @IsArray() @ArrayNotEmpty() @ArrayMaxSize(MAX_BULK) @IsString({ each: true }) ids!: string[];
 }
+class ManualDto {
+  @IsString() @MinLength(6) @MaxLength(32) phone!: string;
+  @IsString() @MinLength(1) @MaxLength(MAX_BODY) body!: string;
+  @IsOptional() @IsString() leadId?: string;
+}
 class EditDto {
   @IsString() @MinLength(1) @MaxLength(MAX_BODY) body!: string;
 }
@@ -88,6 +93,12 @@ export class MessagingController {
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
   runFollowUps(@WorkspaceId() ws: string) {
     return this.followUps.run(ws);
+  }
+
+  @Post("outbox/manual")
+  @ApiOperation({ summary: "Create a one-off message as a draft. It still has to be approved before it is sent." })
+  manual(@WorkspaceId() ws: string, @Body() dto: ManualDto) {
+    return this.messaging.createManual(ws, dto);
   }
 
   @Post("outbox/approve")

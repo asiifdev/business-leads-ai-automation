@@ -26,6 +26,8 @@
 - AI Style page redesigned.
 
 ### Fixed
+- **Replies were silently dropped** when WhatsApp addressed the chat with an opaque `@lid` identifier instead of a phone number. The number is now read from `senderPn`. Found by sending a real test message and replying to it.
+- Manual one-off messages: `POST /api/messaging/outbox/manual` creates a draft (still needs approval).
 - **The page could scroll as a whole** (and "stick") because an invisible file input escaped the scroll area. The main area is now the containing block.
 - **Scraper no longer invents businesses.** When scraping failed (for example the browser was not installed) it used to generate fake companies with made-up phone numbers and websites and list them as real leads. It now fails the campaign with a clear message. `SCRAPER_MODE=fixture` (tests and demos only) returns clearly labelled test leads without phone numbers. `apps/api/scripts/find-mock-leads.ts` finds and marks leftovers from the old behaviour in an existing database.
 - **Ratings in Indonesian format were misread** (`4,6` was parsed as 4). Ratings are normalized when scraped and when scored.

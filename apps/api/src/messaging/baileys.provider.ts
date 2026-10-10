@@ -6,7 +6,7 @@ import { join } from "node:path";
 import makeWASocket, { Browsers, DisconnectReason, fetchLatestBaileysVersion, useMultiFileAuthState, type WASocket } from "@whiskeysockets/baileys";
 import pino from "pino";
 import { PrismaService } from "../prisma/prisma.service";
-import { phoneFromJid } from "./phone";
+import { phoneFromKey } from "./phone";
 import { ProviderUnavailableError, type InboundWhatsappMessage, type WaStatus, type WhatsappProvider } from "./whatsapp.provider";
 
 interface Session {
@@ -142,10 +142,16 @@ export class BaileysProvider implements WhatsappProvider, OnModuleInit, OnModule
       void this.onConnection(workspaceId, session, u).catch((e) => this.logger.error(`connection.update failed: ${e}`));
     });
     sock.ev.on("messages.upsert", ({ messages, type }) => {
+      // Metadata only (never content or numbers): enough to tell why an incoming message was or was not used.
+      for (const m of messages) {
+        const jid = m.key.remoteJid ?? "";
+        const kind = jid.endsWith("@s.whatsapp.net") ? "phone" : jid.endsWith("@lid") ? "lid" : jid.endsWith("@g.us") ? "group" : jid.endsWith("@broadcast") ? "broadcast" : "other";
+        this.logger.log(`incoming event: type=${type} fromMe=${!!m.key.fromMe} address=${kind} text=${!!(m.message?.conversation || m.message?.extendedTextMessage?.text)} phoneResolved=${!!phoneFromKey(m.key as { remoteJid?: string | null; senderPn?: string | null; participantPn?: string | null })}`);
+      }
       if (type !== "notify" || this.sessions.get(workspaceId) !== session) return;
       for (const m of messages) {
         if (m.key.fromMe || !m.key.id) continue;
-        const phone = phoneFromJid(m.key.remoteJid);
+        const phone = phoneFromKey(m.key as { remoteJid?: string | null; senderPn?: string | null; participantPn?: string | null });
         const text = m.message?.conversation ?? m.message?.extendedTextMessage?.text ?? "";
         if (!phone || !text.trim() || !this.inbound) continue;
         const at = new Date(Number(m.messageTimestamp ?? 0) * 1000 || Date.now());

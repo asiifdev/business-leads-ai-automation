@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizePhone, phoneFromJid } from "./phone";
+import { normalizePhone, phoneFromJid, phoneFromKey } from "./phone";
 import { isOptOut, looksLikeInjection } from "./opt-out";
 import { draftRisks } from "./draft-risk";
 import { decide, inQuietHours, nextGapMs, startOfLocalDay, typingDelayMs, localHour } from "./send-policy";
@@ -69,4 +69,12 @@ test("draftRisks flags unsupported links, prices and discounts but not facts fro
   assert.deepEqual(draftRisks("Paket mulai Rp 2.000.000", ["Paket mulai Rp 2.000.000 per bulan"]), []);
   assert.deepEqual(draftRisks("Transfer ke rekening BCA saya", []), ["bank details"]);
   assert.deepEqual(draftRisks("Halo, boleh kita bahas minggu depan?", []), []);
+});
+
+test("phoneFromKey reads the number from senderPn when the chat is addressed by an opaque LID", () => {
+  assert.equal(phoneFromKey({ remoteJid: "628123456789@s.whatsapp.net" }), "628123456789");
+  assert.equal(phoneFromKey({ remoteJid: "1234567890123@lid", senderPn: "6282134462498@s.whatsapp.net" }), "6282134462498");
+  assert.equal(phoneFromKey({ remoteJid: "1234567890123@lid", participantPn: "6281355550000@s.whatsapp.net" }), "6281355550000");
+  assert.equal(phoneFromKey({ remoteJid: "1234567890123@lid" }), null);
+  assert.equal(phoneFromKey({ remoteJid: "120363@g.us", senderPn: "6281@s.whatsapp.net" }), null);
 });

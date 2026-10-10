@@ -196,6 +196,23 @@ export class MessagingService {
     return (await this.prisma.outboundMessage.count({ where: { workspaceId, toPhone: phone, status: { in: ["draft", "approved", "sending", "sent"] }, source: "ai_outreach" } })) > 0;
   }
 
+  /** A one-off message written by a person (a test, a quick note). It is a draft like any other and still needs approval. */
+  async createManual(workspaceId: string, input: { phone: string; body: string; leadId?: string }) {
+    const account = await this.account(workspaceId);
+    const phone = normalizePhone(input.phone, account.defaultCountryCode);
+    if (!phone) throw new BadRequestException("That phone number is not valid");
+    const body = input.body.trim();
+    if (!body) throw new BadRequestException("Message is empty");
+    if (body.length > MAX_BODY) throw new BadRequestException(`Message is longer than ${MAX_BODY} characters`);
+    if (await this.prisma.messageOptOut.findUnique({ where: { workspaceId_phone: { workspaceId, phone } } })) {
+      throw new BadRequestException("This number has opted out and cannot be messaged");
+    }
+    if (input.leadId && !(await this.prisma.lead.findFirst({ where: { id: input.leadId, workspaceId }, select: { id: true } }))) throw new NotFoundException("Lead not found");
+    return this.prisma.outboundMessage.create({
+      data: { workspaceId, leadId: input.leadId ?? null, toPhone: phone, body, aiBody: null, source: "manual", status: "draft", context: { manual: true } },
+    });
+  }
+
   async edit(workspaceId: string, id: string, body: string) {
     const text = body.trim();
     if (!text) throw new BadRequestException("Message is empty");
