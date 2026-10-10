@@ -42,6 +42,9 @@ async function msg(phone: string, body: string, status = "approved", extra: Reco
 }
 
 async function main() {
+  // CI turns the real senders off for the whole job, and ConfigService prefers process.env over the values passed below.
+  delete process.env.WHATSAPP_DISABLED;
+  delete process.env.EMAIL_DISABLED;
   await prisma.$connect();
   // Everything happens in a throwaway workspace: it has no WhatsApp connection, so only the fake provider below ever "sends".
   const stamp = Date.now().toString(36);
@@ -146,7 +149,7 @@ async function main() {
   const stuck = await msg("629900000009", "macet", "sending");
   await new SenderService(prisma, new ConfigService({ WHATSAPP_DISABLED: "false" }), wa, entitlements).onModuleInit();
   const rec = await prisma.outboundMessage.findUniqueOrThrow({ where: { id: stuck.id } });
-  check("message stuck in 'sending' is marked failed, not resent", rec.status === "failed" && /interrupted/i.test(rec.error ?? ""));
+  check("message stuck in 'sending' is marked failed, not resent", rec.status === "failed" && /interrupted/i.test(rec.error ?? ""), `status=${rec.status} error=${rec.error}`);
 
   // cleanup: deleting the workspace removes everything this run created
   await prisma.workspace.delete({ where: { id: ws } });
