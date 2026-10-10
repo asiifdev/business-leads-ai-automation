@@ -123,3 +123,10 @@ test("a campaign suggestion made of roles and services falls back to the outreac
   assert.equal(none.campaign.target, "");
   assert.ok(none.content.gaps.some((g) => /jenis bisnis pelanggan/.test(g)));
 });
+
+test("search terms with a slash keep the first part, and topics such as 'manajemen inventaris' are not business types", () => {
+  assert.equal(isCustomerBusinessTerm("manajemen inventaris retail"), false);
+  const b = coerceBrief({ summary: "Kami membuat sistem sewa.", campaign: { target: "Toko elektronik/Retail", searchQueries: ["Toko elektronik/Retail", "toko handphone"] } });
+  assert.deepEqual(b.campaign.searchQueries, ["Toko elektronik", "toko handphone"]);
+  assert.equal(b.campaign.target, "Toko elektronik");
+});

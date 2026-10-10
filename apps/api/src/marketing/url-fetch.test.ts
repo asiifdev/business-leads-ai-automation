@@ -37,6 +37,8 @@ test("htmlToText stays linear on hostile input", () => {
     "<!--".repeat(200_000),
     "<p>a</p>".repeat(250_000),
     "<" .repeat(500_000),
+    "<a ".repeat(500_000),
+    "<p".repeat(700_000),
     "<style>" + "x".repeat(1_900_000),
   ];
   for (const html of cases) {

@@ -1,14 +1,49 @@
 import { BadRequestException } from "@nestjs/common";
 import { unzipSync } from "fflate";
+import { pathToFileURL } from "node:url";
+import { Worker } from "node:worker_threads";
 
 export const MAX_TEXT_FILE_BYTES = 1_000_000;
 export const MAX_DOCUMENT_BYTES = 10_000_000;
 const MAX_TEXT_CHARS = 200_000;
 const MAX_PDF_PAGES = 60;
-const MAX_DOCX_XML_BYTES = 20_000_000;
+const MAX_DOCX_XML_BYTES = 8_000_000;
 const PDF_TIMEOUT_MS = 25_000;
 
 const XML_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+
+/** Removes tags in one forward pass (a regex like /<[^>]+>/ turns quadratic on text full of "<" without ">"). Paragraph ends become newlines. */
+function stripXml(xml: string, maxChars: number): string {
+  const out: string[] = [];
+  let size = 0;
+  let i = 0;
+  const n = xml.length;
+  while (i < n && size < maxChars) {
+    const lt = xml.indexOf("<", i);
+    if (lt < 0) {
+      out.push(xml.slice(i));
+      break;
+    }
+    if (lt > i) {
+      const t = xml.slice(i, lt);
+      out.push(t);
+      size += t.length;
+    }
+    const gt = xml.slice(lt, lt + 2_048).indexOf(">");
+    if (gt < 0) { // not a tag: keep the "<" as text and move on
+      out.push("<");
+      size++;
+      i = lt + 1;
+      continue;
+    }
+    const tag = xml.slice(lt + 1, lt + gt);
+    if (tag === "/w:p") out.push("\n");
+    else if (tag.startsWith("w:tab")) out.push("\t");
+    else if (tag.startsWith("w:br")) out.push("\n");
+    i = lt + gt + 1;
+  }
+  return out.join("");
+}
 
 /** Text of a .docx: only word/document.xml is unzipped (and size-checked first), so a zip bomb cannot expand. */
 export function docxToText(buffer: Buffer): string {
@@ -26,12 +61,8 @@ export function docxToText(buffer: Buffer): string {
     throw new BadRequestException(/too large/.test((e as Error).message) ? "That document is too large once opened" : "That file is not a valid .docx document");
   }
   if (!xml) throw new BadRequestException("That file is not a valid .docx document");
-  const text = xml
-    .replace(/<\/w:p>/g, "\n")
-    .replace(/<w:tab\/>/g, "\t")
-    .replace(/<w:br[^>]*\/>/g, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
+  return stripXml(xml, MAX_TEXT_CHARS * 2)
+    .replace(/&(#x[0-9a-f]{1,6}|#\d{1,7}|[a-z]{2,6});/gi, (m, e: string) => {
       if (e[0] === "#") {
         const cp = e[1].toLowerCase() === "x" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
         return Number.isFinite(cp) && cp > 0 && cp < 0x110000 ? String.fromCodePoint(cp) : "";
@@ -43,27 +74,55 @@ export function docxToText(buffer: Buffer): string {
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  return text;
 }
 
-// unpdf is ES-module only; the API is compiled to CommonJS, so it is loaded with a runtime import.
-const importEsm = new Function("s", "return import(s)") as (s: string) => Promise<typeof import("unpdf")>;
-
-export async function pdfToText(buffer: Buffer): Promise<string> {
-  const work = (async () => {
-    const { getDocumentProxy, extractText } = await importEsm("unpdf");
-    const pdf = await getDocumentProxy(new Uint8Array(buffer));
-    if (pdf.numPages > MAX_PDF_PAGES) throw new BadRequestException(`That PDF has ${pdf.numPages} pages. Up to ${MAX_PDF_PAGES} are supported: export the relevant pages.`);
-    const { text } = await extractText(pdf, { mergePages: true });
-    return text;
-  })();
-  const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new BadRequestException("Reading that PDF took too long")), PDF_TIMEOUT_MS));
+/**
+ * PDF parsing is CPU work that cannot be interrupted from the same thread, so it runs in a worker that is killed on
+ * timeout and limited in memory: a hostile PDF can hurt only its own worker, never the API's event loop.
+ * (unpdf is an ES module and the API is CommonJS, hence the dynamic import inside the worker.)
+ */
+const PDF_WORKER = `
+const { parentPort, workerData } = require("node:worker_threads");
+(async () => {
   try {
-    return await Promise.race([work, timeout]);
+    const { getDocumentProxy, extractText } = await import(workerData.entry);
+    const pdf = await getDocumentProxy(new Uint8Array(workerData.buffer));
+    if (pdf.numPages > workerData.maxPages) return parentPort.postMessage({ error: "pages", pages: pdf.numPages });
+    const { text } = await extractText(pdf, { mergePages: true });
+    parentPort.postMessage({ text: String(text).slice(0, workerData.maxChars) });
   } catch (e) {
-    if (e instanceof BadRequestException) throw e;
-    throw new BadRequestException("That PDF could not be read. It may be damaged or password protected.");
+    parentPort.postMessage({ error: "read" });
   }
+})();
+`;
+
+export function pdfToText(buffer: Buffer): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const entry = pathToFileURL(require.resolve("unpdf").replace(/index\.cjs$/, "index.mjs")).href;
+    const worker = new Worker(PDF_WORKER, {
+      eval: true,
+      workerData: { buffer: new Uint8Array(buffer), entry, maxPages: MAX_PDF_PAGES, maxChars: MAX_TEXT_CHARS * 2 },
+      resourceLimits: { maxOldGenerationSizeMb: 384, maxYoungGenerationSizeMb: 64 },
+    });
+    let done = false;
+    const finish = (fn: () => void) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      void worker.terminate();
+      fn();
+    };
+    const timer = setTimeout(() => finish(() => reject(new BadRequestException("Reading that PDF took too long"))), PDF_TIMEOUT_MS);
+    worker.on("message", (m: { text?: string; error?: string; pages?: number }) =>
+      finish(() => {
+        if (m.error === "pages") reject(new BadRequestException(`That PDF has ${m.pages} pages. Up to ${MAX_PDF_PAGES} are supported: export the relevant pages.`));
+        else if (m.error) reject(new BadRequestException("That PDF could not be read. It may be damaged or password protected."));
+        else resolve(m.text ?? "");
+      }),
+    );
+    worker.on("error", () => finish(() => reject(new BadRequestException("That PDF could not be read. It may be damaged or too large to process."))));
+    worker.on("exit", () => finish(() => reject(new BadRequestException("That PDF could not be read."))));
+  });
 }
 
 /** Plain text from an uploaded document. Supports .md, .markdown, .txt, .docx and .pdf. */

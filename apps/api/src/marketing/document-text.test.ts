@@ -44,3 +44,25 @@ test("pdf: reads the text of a real PDF and refuses damaged ones", async () => {
   assert.match(await pdfToText(Buffer.from(pdf)), /Sistem manajemen sewa kamera/);
   await assert.rejects(pdfToText(Buffer.from("%PDF-1.4 rusak")), /could not be read/);
 });
+
+test("hostile documents are processed in linear time", () => {
+  const bombs = [
+    "<".repeat(2_000_000),
+    "<w:p>".repeat(500_000),
+    "<w:t".repeat(400_000),
+    "&#".repeat(500_000),
+  ];
+  for (const xml of bombs) {
+    const t0 = Date.now();
+    docxToText(Buffer.from(zipSync({ "word/document.xml": strToU8(xml) })));
+    assert.ok(Date.now() - t0 < 2500, `took ${Date.now() - t0} ms`);
+  }
+});
+
+test("a damaged PDF never blocks the event loop: it fails inside a worker", async () => {
+  let ticks = 0;
+  const timer = setInterval(() => ticks++, 10);
+  await assert.rejects(pdfToText(Buffer.from("%PDF-1.7\n" + "1 0 obj << /Length 99999999 >> stream\n".repeat(20_000))), /could not be read|too long/);
+  clearInterval(timer);
+  assert.ok(ticks > 3, "the event loop kept running while the PDF was parsed");
+});

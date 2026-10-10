@@ -45,3 +45,13 @@ test("friendlyReason hides browser internals", () => {
   assert.equal(friendlyReason(new Error("Timeout 20000ms exceeded.\nCall log: ...")), "the page took too long to open");
   assert.doesNotMatch(friendlyReason(new Error("browserType.launch: Executable doesn't exist\nlong help text")), /long help text/);
 });
+
+test("link parsers stay fast on hostile input", () => {
+  const cases = ["<a ".repeat(300_000), "[".repeat(500_000), "[x](".repeat(200_000), "http://".repeat(200_000)];
+  for (const text of cases) {
+    const t0 = Date.now();
+    parseLlmsLinks(text, base);
+    [...text.slice(0, 400_000).matchAll(/<a\s[^>]{0,400}?href=["']([^"'#\s]{1,500})["']/gi)];
+    assert.ok(Date.now() - t0 < 2000, `took ${Date.now() - t0} ms`);
+  }
+});

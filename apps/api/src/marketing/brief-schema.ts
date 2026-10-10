@@ -38,7 +38,7 @@ export interface ParsedBrief {
 const SUMMARY_MAX = 450;
 
 /** Words that mark a job title or the seller's own kind of service: neither is a business you can search for on Google Maps. */
-const NOT_A_CUSTOMER_BUSINESS = /\b(manajer|manager|direktur|director|pemilik|owner|ceo|cto|kepala|staf|staff|karyawan|pengambil keputusan|otomatisasi|otomasi|automasi|automation|digitalisasi|software|perangkat lunak|aplikasi|sistem|system|platform|jasa|layanan|outsourc\w*|konsultan it|chatbot|ai|asisten|ai agent|machine learning|pengembangan|pembuatan website)\b/i;
+const NOT_A_CUSTOMER_BUSINESS = /\b(manajer|manager|direktur|director|pemilik|owner|ceo|cto|kepala|staf|staff|karyawan|pengambil keputusan|manajemen|pengelolaan|inventaris|pelatihan|konsultasi|solusi|otomatisasi|otomasi|automasi|automation|digitalisasi|software|perangkat lunak|aplikasi|sistem|system|platform|jasa|layanan|outsourc\w*|konsultan it|chatbot|ai|asisten|ai agent|machine learning|pengembangan|pembuatan website)\b/i;
 
 /** A search term that names a kind of place ("toko handphone", "klinik gigi"), not a role, a service or a sentence. */
 export function isCustomerBusinessTerm(term: string): boolean {
@@ -123,13 +123,13 @@ export function coerceBrief(raw: unknown, language: "indonesian" | "english" = "
   };
   const c = sec("campaign");
   const style = typeof c.contentStyle === "string" ? c.contentStyle.toLowerCase() : "";
-  let queries = [...new Set(list(c.searchQueries, 8, 60).map((q) => q.replace(/\s+/g, " ")))].filter(isCustomerBusinessTerm).slice(0, 6);
+  let queries = [...new Set(list(c.searchQueries, 8, 60).map((q) => q.split("/")[0].replace(/\s+/g, " ").trim()))].filter(isCustomerBusinessTerm).slice(0, 6);
   // the model sometimes lists its own services or job titles; the outreach segments are a better source of business types
   if (queries.length < 2) {
     const fromAngles = content.angles.map((a) => a.segment.replace(/\s+/g, " ").trim()).filter(isCustomerBusinessTerm);
     queries = [...new Set([...queries, ...fromAngles])].slice(0, 6);
   }
-  const rawTarget = str(c.target, 80);
+  const rawTarget = str(c.target, 80).split("/")[0].trim();
   const campaign: CampaignSuggestion = {
     name: str(c.name, 80),
     target: isCustomerBusinessTerm(rawTarget) ? rawTarget : queries[0] ?? "",

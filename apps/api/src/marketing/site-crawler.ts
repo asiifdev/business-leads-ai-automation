@@ -65,8 +65,8 @@ export function parseSitemapXml(xml: string): { urls: string[]; sitemaps: string
 /** Links in an llms.txt file: markdown links and bare URLs, resolved against the site. */
 export function parseLlmsLinks(text: string, base: URL): string[] {
   const found = new Set<string>();
-  for (const m of text.matchAll(/\[[^\]]*\]\(([^)\s]+)\)/g)) found.add(m[1]);
-  for (const m of text.matchAll(/https?:\/\/[^\s)>\]"']+/g)) found.add(m[0].replace(/[.,;]+$/, ""));
+  for (const m of text.matchAll(/\[[^\]\n]{0,200}\]\(([^)\s]{1,500})\)/g)) found.add(m[1]);
+  for (const m of text.matchAll(/https?:\/\/[^\s)>\]"']{1,500}/g)) found.add(m[0].replace(/[.,;]+$/, ""));
   return [...found].map((u) => normalizeCandidate(u, base)).filter((u): u is string => !!u);
 }
 
@@ -152,7 +152,7 @@ export async function crawlSite(inputUrl: string, opts: CrawlOptions = {}): Prom
     const body = await tryFetchText(`${origin}/${name}`, 2_000_000);
     if (body && body.trim().length > 50 && !/<html/i.test(body.slice(0, 500))) {
       pages.push({ url: `${origin}/${name}`, title: name, text: body.slice(0, MAX_PAGE_CHARS), rendered: false, via: "llms" });
-      add(parseLlmsLinks(body, start), "llms");
+      add(parseLlmsLinks(body.slice(0, 400_000), start), "llms");
       notes.push(`${name} found`);
     }
   }
@@ -191,7 +191,7 @@ export async function crawlSite(inputUrl: string, opts: CrawlOptions = {}): Prom
   if (via.size < 6) {
     homeHtml = await tryFetchText(startNorm);
     if (homeHtml) {
-      const links = [...homeHtml.matchAll(/<a\s[^>]*href=["']([^"'#]+)["']/gi)].map((m) => normalizeCandidate(m[1], start)).filter((x): x is string => !!x);
+      const links = [...homeHtml.slice(0, 400_000).matchAll(/<a\s[^>]{0,400}?href=["']([^"'#\s]{1,500})["']/gi)].map((m) => normalizeCandidate(m[1], start)).filter((x): x is string => !!x);
       add(links, "link");
       notes.push(`no usable sitemap: used ${new Set(links).size} links from the home page`);
     }

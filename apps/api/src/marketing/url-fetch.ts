@@ -80,6 +80,7 @@ function decodeEntities(s: string): string {
 const SKIP_ELEMENTS = new Set(["script", "style", "noscript", "svg", "iframe", "template", "nav", "footer", "form", "select", "button", "head", "object", "embed", "canvas"]);
 const BREAK_AFTER = new Set(["p", "div", "section", "article", "li", "tr", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "table", "blockquote", "header", "main", "aside", "dd", "dt", "figcaption", "br"]);
 const MAX_HTML_CHARS = 2_000_000;
+const MAX_TAG_CHARS = 4_096;
 
 /**
  * Readable text from an HTML page: title, description, headings, paragraphs and list items. Scripts, styles and page
@@ -131,7 +132,9 @@ export function htmlToText(rawHtml: string): { title: string; text: string } {
     let k = j;
     while (k < n && k - j < 20 && /[a-zA-Z0-9]/.test(html[k])) k++;
     const name = lower.slice(j, k);
-    const gt = html.indexOf(">", k);
+    // a tag ends within a few KB or it is not a tag: bounding the search keeps the whole pass linear
+    const gtRel = name ? html.slice(k, k + MAX_TAG_CHARS).indexOf(">") : -1;
+    const gt = gtRel < 0 ? -1 : k + gtRel;
     if (!name || gt < 0) {
       // not a tag ("a < b"): keep the character and move on
       push("<");
