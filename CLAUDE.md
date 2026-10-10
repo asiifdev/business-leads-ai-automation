@@ -65,6 +65,16 @@ State is threaded through by hand rather than a state machine, so when changing 
 - `StyleService` + `chat-import/`: parse WhatsApp exports, compute style statistics, store anonymized (incoming → reply) pairs with embeddings, retrieve similar pairs. Never store raw chats. Vectors are only compared within the same `embeddingModel` and `dimensions`.
 - `chat-import/style-prompt.ts` builds prompts. Text from outside (scraped listings, customers, exported chats) must stay inside `<data_*>` / `<pesan_pelanggan>` delimiters and go through `clip()`; do not interpolate it into instructions.
 
+### Marketing (`apps/api/src/marketing`)
+Read `docs/marketing-brief.md` and `docs/architecture.md` first. Invariants to keep:
+- **Anything that opens a user-supplied address goes through `url-fetch.ts` (and `SafeProxy` for the browser).** Never call `fetch` or open a page with a user URL directly.
+- **Parsers stay linear.** No regex that can backtrack on `<` without `>`; search for tag ends within a bounded window; cap output while building it. The tests include hostile inputs with time limits: keep adding to them.
+- **Evidence must be grounded.** `groundBrief` removes numbers, customers, testimonials and prices that are not in the sources. The draft writer may only mention proof that is in the brief.
+- **Customer search terms are business types**, not job titles or the seller's own services (`isCustomerBusinessTerm`).
+- PDF parsing runs in a worker thread; keep it that way.
+- The scraper never fabricates leads. If you need fake data for a test use `SCRAPER_MODE=fixture`.
+- Lead scores come from listing signals plus `FitService`; do not reintroduce hard-coded industry or city weights.
+
 ### Messaging (`apps/api/src/messaging`)
 Read `docs/architecture.md` and `docs/whatsapp-outbox.md` first. Invariants to keep:
 - **Nothing sends without approval.** Drafts (`ai_outreach`, `ai_reply`, `ai_followup`, `manual`) enter the queue only through `MessagingService.approve`.

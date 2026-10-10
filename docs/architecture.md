@@ -9,6 +9,8 @@ A map of how Prospex is put together, for people who want to change it.
                                           │   │
                                           │   └──► Redis ── BullMQ ──► scraper worker (Playwright)
                                           │
+                                          ├──► Chromium via Playwright (Google Maps scraping; JavaScript-only pages)
+                                          │       └─ web pages go through SafeProxy: public addresses only
                                           ├──► AI provider (OpenAI-compatible: OpenAI, OpenRouter, Ollama)
                                           └──► WhatsApp (Baileys linked device, behind WhatsappProvider)
 ```
@@ -20,10 +22,46 @@ Everything is scoped to a `Workspace`. Every table that holds customer data has 
 | Module | Responsibility |
 |--------|----------------|
 | `auth`, `workspace`, `settings` | Accounts (JWT), API keys, encrypted integration secrets |
-| `campaigns`, `scraper`, `leads` | Campaigns, Google Maps scraping (BullMQ worker), leads and CRM state |
-| `ai` | OpenAI-compatible client, rule-based lead scoring, knowledge base (chunks and vectors), AI Style (chat-export parser, statistics, retrieval) |
+| `campaigns`, `scraper`, `leads` | Campaigns, Google Maps scraping (BullMQ worker, headless Chromium), leads and CRM state |
+| `ai` | OpenAI-compatible client, lead scoring and per-business fit judgement, knowledge base (chunks and vectors), AI Style (chat-export parser, statistics, retrieval), spelling clean-up |
+| `marketing` | Marketing Brief: sources (websites, text, PDF, DOCX, Markdown), safe fetching and site crawling, guarded page renderer, brief generation and grounding |
 | `messaging` | Outbox, WhatsApp provider, sender, inbound handling, follow-ups, draft writer |
 | `analytics`, `export` | Reporting and CSV/JSON/vCard export |
+
+## Marketing brief in detail
+
+| File (`apps/api/src/marketing`) | Role |
+|------|------|
+| `brief.service.ts` | Sources (add website, text, file; list; remove), background site reading, brief generation in three passes, saving versions |
+| `site-crawler.ts` | Reads a site as a whole: `llms.txt`, `robots.txt`, sitemaps (index files too), home-page links as a fallback; ranks pages; static fetch first, browser render when the page has almost no text; drops near-duplicate pages |
+| `url-fetch.ts` | Safe fetching: http and https on ports 80 and 443, no credentials in the URL, every address checked at connection time, redirects re-validated, size and time caps, a single linear pass HTML-to-text |
+| `safe-proxy.ts` | The proxy the render browser uses. It resolves a name once, refuses private and local addresses, and connects to the checked address, so DNS rebinding cannot swap in an internal one |
+| `page-renderer.ts` | Headless Chromium for JavaScript-only pages: sandbox on unless `PLAYWRIGHT_NO_SANDBOX=true`, no images, video or fonts, every request checked |
+| `document-text.ts` | `.md`, `.txt`, `.docx` (only `word/document.xml` is unzipped, size-checked, stripped in one pass) and `.pdf` (parsed in a worker thread that is killed on timeout and memory-limited) |
+| `brief-prompt.ts`, `brief-schema.ts` | The three prompts (positioning, evidence, outreach), merging, coercion of model output, grounding of evidence, customer search-term filter |
+| `brief-use.ts` | What the draft writer takes from the brief: matching angle, grounded proof, words to avoid |
+
+Design decisions worth knowing:
+
+- **Three small passes.** A single large JSON answer is where modest models misplace keys; each pass is retried once and a pass that still fails becomes a gap.
+- **Grounding after generation.** Numbers, customer names, testimonials and prices must occur in the source text, otherwise they are removed and listed as missing.
+- **The brief is a stored, versioned, editable document** (`marketing_briefs`, one per workspace). Sources keep their extracted text (`knowledge_sources.text`) so a brief can be regenerated without reading the site again.
+- **Fetching is the sensitive part.** Everything that opens a user-supplied address goes through the checks above; the unit tests include hostile inputs (private addresses, names resolving to loopback, pathological HTML, XML and link lists) with time limits.
+
+## Lead scoring
+
+`LeadIntelligenceService` ranks leads with an index built only from the listing and one judgement:
+
+```
+30 base
++15 phone   +3 address
++5 / +10 / +15  Bayesian rating (3.5 / 4.0 / 4.5; a prior of 4.0 worth 25 reviews)
++2 / +5 / +10   reviews (5 / 20 / 100)
++20 high, +8 medium, -15 low  fit with the offer (0 when not assessed)
+HIGH from 70, MEDIUM from 50
+```
+
+`FitService` judges fit per business in batches of 20, from the business name and the real Google Maps category against the offer and the brief's description of customers, and returns a reason that is shown on the lead. The scraper keeps the real Maps category on the lead and normalizes ratings (`4,6` and `4.6`). There are no industry or city tables.
 
 ## Messaging in detail
 
@@ -57,7 +95,7 @@ Everything is scoped to a `Workspace`. Every table that holds customer data has 
 - **Uncertain means failed, not retried.** A message found in `sending` after a restart might have been delivered. Prospex chooses a missed send over a duplicate.
 - **One provider interface.** The official WhatsApp Cloud API is a new class, not a rewrite.
 - **Untrusted text stays data.** Scraped listings, customer replies and exported chats are delimited in prompts, and the model's output is scanned before you see it.
-- **No canned content.** When no AI provider is configured, Prospex produces no draft rather than a template that looks real.
+- **No canned content, no invented leads.** When no AI provider is configured Prospex produces no draft, and when scraping fails it fails the campaign. `SCRAPER_MODE=fixture` (tests only) returns labelled leads without phone numbers.
 
 ## AI Style and knowledge base
 
@@ -71,7 +109,7 @@ Next.js App Router with route groups `(auth)` and `(dashboard)`, shadcn/ui and T
 
 | Layer | How |
 |-------|-----|
-| Pure logic (parser, stats, chunker, send policy, opt-out, draft risk) | `pnpm --filter @prospex/api test` |
+| Pure logic (parser, stats, chunker, scoring, send policy, opt-out, spelling, brief, crawler, documents, hostile-input timing) | `pnpm --filter @prospex/api test` |
 | Sender and inbound against a real database | `apps/api/scripts/pipeline-check.ts` with a fake provider |
 | Style quality | `apps/api/scripts/eval-style.ts` |
 | End to end UI | Playwright specs in `tests/e2e` |

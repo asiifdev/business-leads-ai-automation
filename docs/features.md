@@ -15,8 +15,8 @@ What Prospex does today, what each part is for, and how far it has been verified
 
 | Feature | What it does and why | Where | Status |
 |---------|----------------------|-------|--------|
-| **Source material** | Add a website, paste text, or upload `.pdf`, `.docx`, `.md`, `.txt`. A website is read as a whole (sitemap, `llms.txt`, linked pages), not just the page you typed, so the AI does not have to guess. | New campaign, Marketing brief | Verified on real sites; PDF and DOCX covered by tests |
-| **Marketing brief** | Turns the sources into a structured brief (summary, audience, problem, what sets it apart, objections, proof, offer, voice, outreach angles). Facts must come from the sources: numbers, customers, testimonials and prices that cannot be found in them are dropped and listed as missing. | Marketing brief | Verified |
+| **Source material** | Add a website, paste text, or upload `.pdf`, `.docx`, `.md`, `.txt`. A website is read as a whole (sitemap, `llms.txt`, linked pages), not just the page you typed, so the AI does not have to guess. | New campaign, Marketing brief | Verified on real sites; PDF verified through the API; DOCX covered by tests |
+| **Marketing brief** | Turns the sources into a structured brief (summary, audience, problem, what sets it apart, objections, proof, offer, voice, outreach angles). Facts must come from the sources: numbers, customers, testimonials and prices that cannot be found in them are dropped and listed as missing. Every section is editable and each save is a new version. | Marketing brief | Verified with local models. A modest model can misplace facts between sections, so review it |
 | **Campaign autofill** | From the brief, fills the campaign form (name, target business type, location, search queries, service description, style, language) for you to correct. Fields you edited are never overwritten. | New campaign | Verified |
 | **Knowledge base** | Everything you add as a source is also indexed (pgvector), so reply drafts can quote your facts and decline to state what is not there. | API, Marketing brief (sources) | Verified. A dedicated screen is planned |
 
@@ -65,7 +65,7 @@ Details: [whatsapp-outbox.md](whatsapp-outbox.md).
 |---------|----------------------|-------|--------|
 | **CRM pipeline** | New, contacted, replied, meeting, proposal, won, lost, with notes and a dated activity log. | Lead detail | Existing feature |
 | **Analytics** | Counts of leads, campaigns, conversion and deals from your data, a trend of recent campaigns, industries. | Dashboard, Analytics | Existing feature |
-| **Notifications** | Drafts waiting for review and messages that need attention. | Header bell | Verified |
+| **Notifications** | Drafts waiting for review and messages that need attention (counts from the Outbox). | Header bell | Built, not exercised end to end |
 
 ## 6. Run it
 

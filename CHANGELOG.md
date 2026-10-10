@@ -26,10 +26,17 @@
 - AI Style page redesigned.
 
 ### Fixed
+- **The page could scroll as a whole** (and "stick") because an invisible file input escaped the scroll area. The main area is now the containing block.
 - **Scraper no longer invents businesses.** When scraping failed (for example the browser was not installed) it used to generate fake companies with made-up phone numbers and websites and list them as real leads. It now fails the campaign with a clear message. `SCRAPER_MODE=fixture` (tests and demos only) returns clearly labelled test leads without phone numbers. `apps/api/scripts/find-mock-leads.ts` finds and marks leftovers from the old behaviour in an existing database.
 - **Ratings in Indonesian format were misread** (`4,6` was parsed as 4). Ratings are normalized when scraped and when scored.
 - **Leads now carry the real Google Maps category** ("Toko Kamera") instead of a label chosen by the campaign.
 - **Lead scores no longer use made-up weights.** The hard-coded industry and city tables are gone. The score uses listing signals (phone, rating, review volume) plus an AI judgement of how well each business (name and real Maps category) fits your offer and Marketing Brief, with the reason shown.
+
+### Added (campaign form and brief)
+- **New campaign form**: source material first (website, text, `.pdf`, `.docx`, `.md`, `.txt`), then an AI-filled form for you to correct. Fields you typed are never overwritten, AI-filled fields are marked, and what the sources did not settle is listed.
+- **Marketing brief page** with every section editable and versioned. The brief now also feeds the draft writer (matching angle, grounded proof, words to avoid).
+- Campaign detail shows the campaign's setup (offer, queries, style, language, dates) and links to the Outbox for that campaign.
+- **Target business type is free text** instead of a fixed list of 11 industries, which did not match Google Maps categories.
 
 ### Added (marketing brief)
 - **Marketing Brief**: sources (websites, pasted text, `.md` and `.txt` files) become a structured product-marketing brief following the `product-marketing` skill, written in three small passes. Evidence (customers, numbers, prices, testimonials) must appear in the sources or it is dropped and listed as `[NEED: ...]`.
@@ -40,6 +47,8 @@
 - The built-in mock content. With no AI provider configured, Prospex now produces no draft instead of a canned message that looks real.
 
 ### Security
+- Website reading refuses private addresses (including names that resolve to them), re-checks redirects, and runs the browser behind a proxy that connects only to checked addresses; the Chromium sandbox is on by default.
+- HTML, XML, link and document parsing is linear and capped; PDF parsing runs in a killable worker thread.
 - Uploads limited to 8 files per request and rate limited.
 - Customer messages, scraped listings and exported chats are delimited in prompts and treated as untrusted data; drafts are scanned for risky content before review.
 

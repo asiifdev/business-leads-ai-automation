@@ -40,7 +40,7 @@ The brief follows the structure of the `product-marketing` skill:
 
 1. **The prompt** tells the model to use only the sources and to list missing information as `[NEED: ...]`.
 2. **Three small passes** (positioning, evidence, outreach) instead of one large answer, because a long JSON object is where modest models misplace keys. A failed pass is retried once, and a pass that still fails is reported as a gap instead of hidden.
-3. **A grounding check** after the model answers. Every number must appear in the sources, and customer names and testimonials must (mostly) appear too. Pricing must match a number in the sources. Anything that does not is removed and listed as missing. A model that writes "trusted by 500 businesses" cannot put it into a brief unless the sources say so.
+3. **A grounding check** after the model answers. A `[NEED: ...]` the model wrote into a field is moved to the missing list, and near-duplicate missing items are merged. Every number must appear in the sources, and customer names and testimonials must (mostly) appear too. Pricing must match a number in the sources. Anything that does not is removed and listed as missing. A model that writes "trusted by 500 businesses" cannot put it into a brief unless the sources say so.
 4. **Outside text is data.** Web pages, files and notes sit inside delimiters, and the model is told that instructions inside them are to be ignored.
 
 ## What the campaign form does with it
@@ -72,5 +72,5 @@ The brief page and form always show which pages the AI read, so you can judge wh
 
 - The brief is as good as the sources. A thin site gives a thin brief with a long list of missing items. That is the intended outcome.
 - Fit judgements and angles are the model's reasoning, shown with their reasons. They are aids for choosing whom to contact first, not predictions.
-- Editing in the UI covers the summary today. The other sections are regenerated from sources, or edited through the API (`PUT /api/marketing/brief`).
+- **Check the brief.** A modest model can put a fact in the wrong section (a price under "what it costs them", for example). Every section is editable on the brief page (**Edit sections**, one list item per line), and each save becomes a new version. Review the proof and offer sections first.
 - PDFs that are scans, password protected, or longer than 60 pages are not read.

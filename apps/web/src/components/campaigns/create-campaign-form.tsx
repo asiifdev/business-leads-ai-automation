@@ -6,18 +6,13 @@ import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { SourceMaterial } from "@/components/marketing/source-material";
 import { hasBrief, type Brief, type BriefResponse } from "@/components/marketing/types";
-import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, X } from "lucide-react";
-import { motion } from "framer-motion";
-
+import { Loader2, Plus, Sparkles, X } from "lucide-react";
 
 export function CreateCampaignForm() {
   const { t } = useI18n();

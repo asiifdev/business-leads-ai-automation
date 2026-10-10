@@ -11,13 +11,14 @@ Panduan lengkap penggunaan Prospex dari instalasi hingga close deals pertama.
 3. [Membuat Campaign](#3-membuat-campaign)
 4. [Memantau Progress Scraping](#4-memantau-progress-scraping)
 5. [Mengelola Leads](#5-mengelola-leads)
-6. [Gaya AI: pesan dengan suara Anda](#6-gaya-ai-pesan-dengan-suara-anda)
-7. [Kotak Keluar dan WhatsApp](#7-kotak-keluar-dan-whatsapp)
-8. [CRM Pipeline](#8-crm-pipeline)
-9. [Analytics](#9-analytics)
-10. [Export Leads](#10-export-leads)
-11. [Settings & API Keys](#11-settings--api-keys)
-12. [Troubleshooting](#12-troubleshooting)
+6. [Brief Pemasaran](#6-brief-pemasaran)
+7. [Gaya AI: pesan dengan suara Anda](#7-gaya-ai-pesan-dengan-suara-anda)
+8. [Kotak Keluar dan WhatsApp](#8-kotak-keluar-dan-whatsapp)
+9. [CRM Pipeline](#9-crm-pipeline)
+10. [Analytics](#10-analytics)
+11. [Export Leads](#11-export-leads)
+12. [Settings & API Keys](#12-settings--api-keys)
+13. [Troubleshooting](#13-troubleshooting)
 
 ---
 
@@ -64,6 +65,9 @@ docker compose up -d
 # Terapkan migrasi database
 pnpm --filter @prospex/database db:deploy
 pnpm --filter @prospex/database exec prisma generate
+
+# Pasang browser untuk scraping Google Maps dan membaca situs (sekali saja)
+pnpm --filter @prospex/api exec playwright install chromium
 ```
 
 ### Jalankan aplikasi
@@ -130,30 +134,54 @@ Model lokal butuh sekitar 40 detik per draf (tergantung perangkat). Chat Anda ti
 
 Campaign adalah unit kerja utama di Prospex. Satu campaign = satu batch pencarian leads.
 
-### Langkah
+### Cara cepat: biarkan AI mengisi form
 
-1. Klik **Campaigns** di sidebar
-2. Klik tombol **New Campaign**
-3. Isi form:
+Halaman **Kampanye baru** dibuka dengan bagian **Materi sumber** di sisi kiri. Di sana Anda memberi AI bahan untuk mengenal produk atau layanan Anda:
+
+| Sumber | Cara | Catatan |
+|--------|------|---------|
+| **Situs web** | Isi alamat utama, mis. `https://perusahaananda.com`, lalu **Baca situs** | Cukup alamat utama. Prospex membaca `llms.txt`, sitemap, dan tautan di beranda, sampai 10 halaman, dan membuka halaman yang butuh JavaScript dengan browser sungguhan. Prosesnya berjalan di latar belakang; status tampil di daftar sumber. |
+| **Teks** | Tab *Teks*, beri judul, tempel isi (daftar harga, FAQ, deskripsi) | Minimal 30 karakter |
+| **Berkas** | Tab *Berkas*, pilih `.pdf`, `.docx`, `.md`, atau `.txt` | PDF dan DOCX maksimal 10 MB (PDF sampai 60 halaman); berkas teks 1 MB. PDF hasil scan (tanpa teks) ditolak: tempel teksnya. |
+
+Lalu centang sumber yang ingin dipakai (sumber yang baru ditambahkan otomatis tercentang), tambahkan catatan bila perlu (tautan *Hal lain yang perlu diketahui AI*), dan tekan **Analisis dengan AI dan isi form**. Prosesnya memakan waktu sekitar satu sampai dua menit dengan model lokal.
+
+Hasilnya:
+
+- Form di sisi kanan terisi: nama kampanye, jenis bisnis target, lokasi, kata kunci pencarian, deskripsi layanan, gaya konten, dan bahasa. Setiap isian dari AI diberi tanda **AI**.
+- Bagian yang tidak bisa ditentukan dari sumber (lokasi biasanya) **dibiarkan kosong** dan dicantumkan di kotak "Tidak ditemukan di sumber Anda".
+- Isian yang sudah Anda ketik sendiri **tidak pernah ditimpa**.
+- Periksa semuanya, koreksi yang kurang pas, lalu tekan **Mulai kampanye**.
+
+Hasil analisis disimpan sebagai **Brief Pemasaran** (bagian 6), yang juga dipakai saat AI menilai lead dan menulis draf.
+
+### Mengisi form sendiri
+
+Anda tetap bisa mengisi form tanpa sumber:
 
 | Field | Contoh | Keterangan |
 |-------|--------|------------|
-| Campaign Name | "Restaurant Jakarta Q3 2026" | Nama untuk identifikasi |
-| Industry | Restaurant & F&B | Kategori bisnis target |
-| Location | Jakarta Selatan | Kota/area target |
-| Search Queries | "restaurant halal jakarta selatan" | Kata kunci pencarian, bisa lebih dari satu |
-| Your Service | "Sistem kasir digital & website" | Deskripsi jasa/produk yang ditawarkan |
-| Max Results | 20 | Jumlah leads target (1–100) |
-| Content Style | Balanced | Gaya bahasa AI: Professional / Friendly / Casual |
-| Language | Indonesian | Bahasa output konten AI |
+| Nama kampanye | "Rental kamera Solo Q4 2026" | Nama untuk identifikasi |
+| Jenis bisnis target | rental kamera | **Jenis bisnis yang ingin Anda temukan**, bukan bidang usaha Anda sendiri. Teks bebas; tidak ada daftar tetap karena kategori Google Maps sangat beragam. |
+| Lokasi | Solo | Kota/area target. Beberapa area dipisah koma. |
+| Kata kunci pencarian | "sewa kamera" | Seperti yang Anda ketik di Google Maps. Boleh lebih dari satu. |
+| Layanan / produk Anda | "Sistem manajemen sewa untuk rental kamera" | Apa yang Anda tawarkan kepada lead ini |
+| Hasil maksimum | 20 | Jumlah lead target (10–100) |
+| Gaya konten | Seimbang | Profesional / Ramah / Seimbang / Santai |
+| Bahasa | Indonesia | Bahasa draf pesan |
 
-4. Klik **Start Campaign** — sistem langsung mulai scraping + AI scoring
+Klik **Mulai kampanye**: sistem langsung mulai mencari di Google Maps dan menilai hasilnya.
 
-### Tips search query efektif
+### Tips kata kunci
 
-- Spesifik lokasi: `"warung makan jakarta timur"` lebih baik dari `"warung makan"`
-- Tambah multiple query untuk coverage lebih luas
-- Gunakan nama daerah spesifik: `"salon kecantikan menteng"`, `"salon kecantikan kuningan"`
+- Sebut jenis tempat usaha seperti yang tertulis di Google Maps: `"toko handphone"`, `"klinik gigi"`, `"rental mobil"`.
+- Jangan memakai nama layanan Anda sendiri (`"jasa pembuatan website"`) atau jabatan (`"manajer operasional"`): itu sesama penyedia jasa atau orangnya, bukan bisnis yang dicari di Maps. Prospex membuang isian seperti itu dari saran AI.
+- Tambahkan beberapa kata kunci untuk jangkauan lebih luas.
+- Spesifik lokasi: `"salon kecantikan menteng"` lebih baik dari `"salon"`.
+
+### Syarat scraping
+
+Scraping memakai browser Chromium di server. Pasang sekali dengan `pnpm --filter @prospex/api exec playwright install chromium`. Bila browser tidak ada atau pencarian gagal, campaign berstatus **Gagal** dengan pesan yang jelas. Prospex tidak pernah mengisi daftar lead dengan bisnis karangan.
 
 ---
 
@@ -168,7 +196,7 @@ Setelah campaign dibuat, halaman detail campaign menampilkan progress secara rea
 | `draft` | Abu-abu | Belum dimulai |
 | `running` | Biru + spinner | Sedang scraping & scoring |
 | `completed` | Hijau | Selesai, leads tersedia |
-| `failed` | Merah | Error, cek log API |
+| `failed` | Merah | Gagal. Penyebabnya ditampilkan (mis. browser belum terpasang); lihat juga log API |
 
 ### Progress bar
 
@@ -176,7 +204,7 @@ Progress diupdate otomatis setiap 2 detik:
 
 - **0–30%** — Inisialisasi & scraping
 - **30–60%** — AI scoring semua leads
-- **60–95%** — Generate konten marketing untuk HIGH priority leads
+- **60–95%** — Menilai kecocokan tiap bisnis dengan penawaran Anda (butuh penyedia AI) dan menyiapkan catatan email dan telepon untuk lead prioritas HIGH
 - **100%** — Selesai
 
 ---
@@ -194,10 +222,32 @@ Masuk ke **Leads** di sidebar untuk melihat semua leads dari semua campaign.
 
 ### Prioritas leads
 
-Skor AI (0–100) menentukan prioritas:
+Skor (0–100) adalah **indeks urutan**, bukan prediksi penjualan. Ia membantu memilih siapa yang dihubungi lebih dulu.
 
-| Score | Priority | Artinya |
-|-------|----------|---------|
+| Skor | Prioritas | Artinya |
+|------|-----------|---------|
+| 70–100 | HIGH | Hubungi lebih dulu |
+| 50–69 | MEDIUM | Masuk urutan standar |
+| 0–49 | LOW | Hubungi kalau kapasitas ada |
+
+### Dari mana skor berasal
+
+Hanya dari data nyata hasil scraping, ditambah satu penilaian AI. Tidak ada bobot industri atau kota yang ditulis tangan.
+
+| Sinyal | Poin |
+|--------|------|
+| Dasar | 30 |
+| Punya nomor telepon (bisa dihubungi) | +15 |
+| Punya alamat | +3 |
+| Rating (rata-rata Bayesian: rating dengan sedikit ulasan ditarik ke 4,0, sehingga 5,0 dari 1 ulasan tidak mengalahkan 4,5 dari ribuan ulasan) | +5 / +10 / +15 untuk 3,5 / 4,0 / 4,5 |
+| Jumlah ulasan | +2 / +5 / +10 untuk 5 / 20 / 100 ulasan |
+| **Kecocokan dengan penawaran Anda** (penilaian AI dari nama dan kategori Google Maps asli bisnis itu, terhadap penawaran dan brief Anda) | +20 tinggi, +8 sedang, −15 rendah, 0 bila tidak dinilai |
+
+Alasan penilaian kecocokan ditampilkan di detail lead. Nama ikut dinilai: bisnis bernama "Rental Kamera X" dianggap relevan untuk sistem sewa walau kategori Maps-nya hanya "Toko Kamera". Penilaian ini butuh penyedia AI; model lokal kecil bisa keliru, karena itu alasannya selalu ditampilkan. Lead tanpa nomor telepon diberi catatan karena tidak bisa dihubungi lewat WhatsApp.
+
+Kategori yang tampil di tiap lead adalah **kategori asli dari Google Maps** (bahasanya mengikuti bahasa antarmuka Maps).
+
+-------|----------|---------|
 | 75–100 | HIGH | Segera hubungi — potensi tinggi |
 | 55–74 | MEDIUM | Masuk sequence standar |
 | 0–54 | LOW | Hubungi kalau kapasitas ada |
@@ -212,7 +262,38 @@ Skor AI (0–100) menentukan prioritas:
 
 ---
 
-## 6. Gaya AI: pesan dengan suara Anda
+## 6. Brief Pemasaran
+
+Menu **Brief pemasaran** menampilkan apa yang Prospex ketahui tentang produk Anda: apa yang dijual, untuk siapa, apa pembedanya, dan apa buktinya. Brief ini ditulis AI **dari sumber Anda sendiri** (bagian 3) dan dibaca oleh setiap kampanye dan draf.
+
+### Isi brief
+
+Ringkasan (untuk mengisi kampanye), gambaran umum, audiens, masalah, pembeda, sudut pendekatan outreach per jenis bisnis (hipotesis untuk diuji, bukan fakta), keberatan yang mungkin muncul, bukti (angka, pelanggan, testimoni), penawaran (harga, ajakan bertindak), dan suara merek.
+
+### Aturan agar tidak mengarang
+
+- Fakta hanya dari sumber. Angka, nama pelanggan, testimoni, dan harga yang tidak ditemukan di sumber **dibuang** dan dicatat di kotak kuning **Informasi yang kurang**.
+- Yang tidak bisa ditentukan dikosongkan, bukan ditebak. Isian kosong ditampilkan sebagai "Tidak ditemukan di sumber".
+- Halaman ini menampilkan **halaman apa saja yang dibaca AI** (bagian bawah), sehingga Anda bisa menilai dasar brief.
+
+### Mengedit dan membuat ulang
+
+- Klik **Edit bagian** untuk mengubah semua bagian (daftar: satu butir per baris), lalu **Simpan perubahan**. Setiap simpan menaikkan nomor versi.
+- Klik **Buat ulang** setelah menambah sumber atau catatan. Ini menggantikan brief sebelumnya.
+- Model AI bisa salah menaruh isi (mis. harga di kolom lain). Brief adalah titik awal yang harus Anda periksa, terutama bagian bukti dan penawaran.
+
+### Di mana brief dipakai
+
+- **Form kampanye**: mengisi nama, jenis bisnis target, kata kunci, deskripsi, gaya, dan bahasa.
+- **Skor lead**: dasar penilaian kecocokan.
+- **Draf pesan**: sudut yang cocok dengan jenis bisnis lead, bukti yang boleh disebut (hanya yang ada di brief), dan kata yang dihindari.
+- Sumber yang ditambahkan juga masuk basis pengetahuan, sehingga draf balasan bisa mengutip fakta Anda.
+
+Detail teknis dan batas: [marketing-brief.md](marketing-brief.md) (bahasa Inggris).
+
+---
+
+## 7. Gaya AI: pesan dengan suara Anda
 
 Fitur ini opsional, tapi membuat draf terdengar seperti Anda, bukan seperti asisten AI. Buka menu **Gaya AI**.
 
@@ -235,11 +316,11 @@ Butuh minimal 30 pesan Anda sendiri. Kalau Anda mengganti model embedding di pen
 
 ### Draf WhatsApp dan pesan lain
 
-Pesan WhatsApp tidak lagi dibuat otomatis saat scraping. Draf dibuat dari menu **Kotak Keluar** (bagian 7), memakai data nyata lead (rating, jumlah ulasan, belum punya website), gaya Anda, dan basis pengetahuan Anda. Di halaman detail lead tetap ada catatan email, LinkedIn, dan telepon yang dibuat AI untuk lead prioritas HIGH, kalau penyedia AI sudah diatur. Tanpa penyedia AI, Prospex tidak menampilkan teks bawaan.
+Pesan WhatsApp tidak lagi dibuat otomatis saat scraping. Draf dibuat dari menu **Kotak Keluar** (bagian 8), memakai data nyata lead (rating, jumlah ulasan, belum punya website), gaya Anda, dan basis pengetahuan Anda. Di halaman detail lead tetap ada catatan email, LinkedIn, dan telepon yang dibuat AI untuk lead prioritas HIGH, kalau penyedia AI sudah diatur. Tanpa penyedia AI, Prospex tidak menampilkan teks bawaan.
 
 ---
 
-## 7. Kotak Keluar dan WhatsApp
+## 8. Kotak Keluar dan WhatsApp
 
 Menu **Kotak Keluar** adalah tempat semua pesan keluar. Prinsipnya: **setiap pesan berawal sebagai draf dan tidak terkirim sebelum Anda setujui.**
 
@@ -291,7 +372,7 @@ Penjelasan teknis lengkap: [whatsapp-outbox.md](whatsapp-outbox.md) (bahasa Ingg
 
 ---
 
-## 8. CRM Pipeline
+## 9. CRM Pipeline
 
 ### Update status lead
 
@@ -325,7 +406,7 @@ Setiap perubahan status otomatis tercatat di **Activity Log** di panel kanan lea
 
 ---
 
-## 9. Analytics
+## 10. Analytics
 
 Masuk ke **Analytics** di sidebar.
 
@@ -344,7 +425,7 @@ Masuk ke **Analytics** di sidebar.
 
 ---
 
-## 10. Export Leads
+## 11. Export Leads
 
 ### Dari Campaign Detail
 
@@ -371,7 +452,7 @@ File `.vcf` bisa langsung dibuka di HP untuk save kontak:
 
 ---
 
-## 11. Settings & API Keys
+## 12. Settings & API Keys
 
 ### AI Configuration
 
@@ -393,7 +474,7 @@ Klik ikon trash di sebelah kanan key yang ingin dihapus. Key langsung non-aktif.
 
 ---
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 ### API tidak bisa connect (frontend error)
 
@@ -444,6 +525,18 @@ lsof -i :3001
 # Kill prosesnya
 kill -9 <PID>
 ```
+
+### Campaign gagal dengan pesan tentang browser
+
+"The scraping browser is not installed on the server": jalankan `pnpm --filter @prospex/api exec playwright install chromium` di server API, lalu jalankan ulang campaign. Pesan lain berarti Google Maps gagal dimuat atau berubah; coba lagi nanti atau kurangi jumlah kata kunci. Prospex tidak akan mengisi hasil dengan bisnis karangan.
+
+### Situs tidak terbaca di Materi sumber
+
+- Pesan "that address is not allowed": alamat mengarah ke jaringan internal atau lokal. Hanya situs publik (port 80 dan 443) yang bisa dibaca.
+- Pesan "almost no text": situs memuat isinya dengan JavaScript. Prospex mencoba membukanya dengan browser; bila Chromium belum terpasang, pasang dulu, atau tempel teksnya.
+- Situs dengan login atau yang memblokir bot tidak bisa dibaca: tempel teks atau unggah dokumen.
+- PDF ditolak: mungkin hasil scan (tanpa teks), dilindungi kata sandi, atau lebih dari 60 halaman.
+- Analisis AI sangat lama atau gagal dengan model lokal: aktifkan `OPENAI_REASONING_EFFORT=none` untuk model yang berpikir (gemma4, qwen3) dan kecilkan `BRIEF_SOURCE_CHARS` bila konteks modelnya kecil.
 
 ### Kode QR WhatsApp tidak muncul atau terus "Menghubungkan…"
 
