@@ -6,12 +6,14 @@ import { AiClientService } from "../ai/ai-client.service";
 import { KnowledgeService } from "../ai/knowledge.service";
 import { buildBriefMessages, type BriefPass, type BriefSource } from "./brief-prompt";
 import { coerceBrief, extractJson, groundBrief, mergeRaw, type BriefContent, type CampaignSuggestion } from "./brief-schema";
+import { extractDocumentText } from "./document-text";
 import { PageRenderer } from "./page-renderer";
 import { crawlSite, siteToText } from "./site-crawler";
 import { validatePublicUrl } from "./url-fetch";
 
-const MAX_FILE_BYTES = 1_000_000;
 const MAX_SOURCES_FOR_BRIEF = 8;
+const MAX_SOURCES_PER_WORKSPACE = 40;
+const MAX_CONCURRENT_READS = 2;
 
 export interface GenerateInput {
   sourceIds?: string[];
@@ -40,6 +42,8 @@ const pagesIn = (text: string) => [...text.matchAll(PAGE_HEADER)].map((m) => ({ 
 export class BriefService {
   private readonly logger = new Logger(BriefService.name);
   /** Live progress of background reads, by source id. Lost on restart, which is fine: the source row says processing/failed. */
+  /** Sites being read right now, per workspace: reading is heavy (a browser may start), so it is capped. */
+  private readonly reading = new Map<string, number>();
   private readonly progress = new Map<string, { stage: "reading" | "indexing"; pages?: number; discovered?: number }>();
 
   constructor(
@@ -70,12 +74,21 @@ export class BriefService {
   /** Starts reading a website in the background and returns immediately. Bad addresses are refused up front. */
   async addUrl(workspaceId: string, rawUrl: string, title?: string) {
     const url = validatePublicUrl(rawUrl);
+    await this.assertRoom(workspaceId);
+    if ((this.reading.get(workspaceId) ?? 0) >= MAX_CONCURRENT_READS) throw new BadRequestException("Two sites are already being read. Wait for one to finish.");
     const source = await this.knowledge.createPending(workspaceId, { title: title?.trim() || url.hostname, kind: "url", url: url.toString() });
     void this.readSite(workspaceId, source.id, url.toString());
     return source;
   }
 
+  private async assertRoom(workspaceId: string) {
+    if ((await this.prisma.knowledgeSource.count({ where: { workspaceId } })) >= MAX_SOURCES_PER_WORKSPACE) {
+      throw new BadRequestException(`You can keep up to ${MAX_SOURCES_PER_WORKSPACE} sources. Remove some you no longer need.`);
+    }
+  }
+
   private async readSite(workspaceId: string, sourceId: string, url: string) {
+    this.reading.set(workspaceId, (this.reading.get(workspaceId) ?? 0) + 1);
     try {
       this.progress.set(sourceId, { stage: "reading" });
       const result = await crawlSite(url, { maxPages: 10, render: (u) => this.renderer.render(u) });
@@ -96,18 +109,17 @@ export class BriefService {
       await this.prisma.knowledgeSource.update({ where: { id: sourceId }, data: { status: row?.text ? "ready" : "failed", error: row?.text ? null : message.slice(0, 300) } }).catch(() => undefined);
     } finally {
       this.progress.delete(sourceId);
+      this.reading.set(workspaceId, Math.max(0, (this.reading.get(workspaceId) ?? 1) - 1));
     }
   }
 
   async addText(workspaceId: string, title: string, content: string, kind = "text") {
+    await this.assertRoom(workspaceId);
     return this.knowledge.addText(workspaceId, { title, content, kind });
   }
 
   async addFile(workspaceId: string, file: { originalname: string; buffer: Buffer }) {
-    if (!/\.(md|markdown|txt)$/i.test(file.originalname)) throw new BadRequestException("Upload .md or .txt files. Export other documents to one of those first.");
-    if (file.buffer.byteLength > MAX_FILE_BYTES) throw new BadRequestException("File is larger than 1 MB");
-    const text = file.buffer.toString("utf-8");
-    if (text.includes("\u0000")) throw new BadRequestException("That file is not plain text");
+    const text = await extractDocumentText(file);
     return this.addText(workspaceId, file.originalname.slice(0, 120), text, "file");
   }
 

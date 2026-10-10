@@ -29,7 +29,7 @@ class SaveDto {
   @IsObject() content!: BriefContent;
 }
 
-const upload = FilesInterceptor("files", 5, { storage: memoryStorage(), limits: { fileSize: 1_000_000 } });
+const upload = FilesInterceptor("files", 5, { storage: memoryStorage(), limits: { fileSize: 10_000_000 } });
 
 @ApiTags("Marketing")
 @ApiBearerAuth()

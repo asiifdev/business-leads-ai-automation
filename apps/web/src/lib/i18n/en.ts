@@ -166,6 +166,7 @@ export const en = {
   "page.leads.subtitle": "All leads across your campaigns",
   "page.newCampaign.title": "New campaign",
   "page.newCampaign.subtitle": "Set up a lead discovery campaign",
+  "nav.brief": "Marketing brief",
 } as const;
 
 

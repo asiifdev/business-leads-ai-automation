@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { coerceBrief, extractJson, groundBrief, mergeRaw } from "./brief-schema";
+import { coerceBrief, extractJson, groundBrief, isCustomerBusinessTerm, mergeRaw } from "./brief-schema";
 import { buildBriefMessages, sourceDigest } from "./brief-prompt";
 
 test("extractJson handles fences and surrounding prose", () => {
@@ -103,4 +103,23 @@ test("an empty campaign location is reported as a gap, and the prompt says custo
   const sys = buildBriefMessages({ language: "indonesian", sources: [] }, "outreach")[0].content;
   assert.match(sys, /BUKAN bisnis yang sejenis dengan pengguna dan bukan pesaingnya/);
   assert.match(sys, /bisa dicari di Google Maps/);
+});
+
+test("search terms must name a kind of business: roles and the seller's own services are rejected", () => {
+  for (const ok of ["rental kamera", "toko handphone", "klinik gigi", "wedding organizer", "Kafe"]) assert.equal(isCustomerBusinessTerm(ok), true, ok);
+  for (const bad of ["Manajer Operasional", "otomatisasi proses bisnis", "asisten dokumen AI", "chatbot whatsapp bisnis", "sistem manajemen dokumen", "jasa pembuatan website", "software house", "Bisnis yang butuh sistem lebih baik.", "ab"]) assert.equal(isCustomerBusinessTerm(bad), false, bad);
+});
+
+test("a campaign suggestion made of roles and services falls back to the outreach segments, or stays empty with a gap", () => {
+  const withAngles = coerceBrief({
+    summary: "Kami membuat AI agent untuk bisnis.",
+    campaign: { target: "Manajer Operasional", searchQueries: ["otomatisasi proses bisnis", "chatbot whatsapp bisnis"] },
+    angles: [{ segment: "Toko handphone", hook: "Negosiasi harga lama?" }, { segment: "Klinik gigi", hook: "Jadwal pasien berantakan?" }],
+  });
+  assert.deepEqual(withAngles.campaign.searchQueries, ["Toko handphone", "Klinik gigi"]);
+  assert.equal(withAngles.campaign.target, "Toko handphone");
+  const none = coerceBrief({ summary: "Kami membuat AI agent untuk bisnis.", campaign: { target: "Manajer Operasional", searchQueries: ["otomatisasi proses bisnis"] } });
+  assert.deepEqual(none.campaign.searchQueries, []);
+  assert.equal(none.campaign.target, "");
+  assert.ok(none.content.gaps.some((g) => /jenis bisnis pelanggan/.test(g)));
 });

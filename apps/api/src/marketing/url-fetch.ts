@@ -77,27 +77,89 @@ function decodeEntities(s: string): string {
     .replace(/&([a-z]+);/gi, (m, n: string) => ENTITIES[n.toLowerCase()] ?? m);
 }
 
-/** Readable text from an HTML page: title, description, headings, paragraphs and list items. Scripts, styles and page chrome are dropped. */
-export function htmlToText(html: string): { title: string; text: string } {
-  const title = decodeEntities((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "").replace(/\s+/g, " ").trim());
-  const meta = (name: string) =>
-    html.match(new RegExp(`<meta[^>]+(?:name|property)=["']${name}["'][^>]*content=["']([^"']*)["']`, "i"))?.[1] ??
-    html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]*(?:name|property)=["']${name}["']`, "i"))?.[1] ?? "";
+const SKIP_ELEMENTS = new Set(["script", "style", "noscript", "svg", "iframe", "template", "nav", "footer", "form", "select", "button", "head", "object", "embed", "canvas"]);
+const BREAK_AFTER = new Set(["p", "div", "section", "article", "li", "tr", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "table", "blockquote", "header", "main", "aside", "dd", "dt", "figcaption", "br"]);
+const MAX_HTML_CHARS = 2_000_000;
+
+/**
+ * Readable text from an HTML page: title, description, headings, paragraphs and list items. Scripts, styles and page
+ * chrome are dropped. This is a single linear pass: every search moves forward and never restarts, so crafted HTML
+ * (thousands of unclosed tags, huge comments) cannot make it quadratic, and the output is capped while it is built.
+ */
+export function htmlToText(rawHtml: string): { title: string; text: string } {
+  const html = rawHtml.length > MAX_HTML_CHARS ? rawHtml.slice(0, MAX_HTML_CHARS) : rawHtml;
+  const lower = html.toLowerCase();
+  const head = html.slice(0, 80_000);
+
+  const t0 = lower.indexOf("<title");
+  let title = "";
+  if (t0 >= 0 && t0 < 80_000) {
+    const open = lower.indexOf(">", t0);
+    const close = open >= 0 ? lower.indexOf("</title", open) : -1;
+    if (open >= 0 && close >= 0 && close - open < 1_000) title = decodeEntities(html.slice(open + 1, close).replace(/\s+/g, " ").trim());
+  }
+  const meta = (name: string) => {
+    const re = new RegExp(`<meta[^>]{0,400}?(?:name|property)=["']${name}["'][^>]{0,400}?content=["']([^"']{0,600})["']|<meta[^>]{0,400}?content=["']([^"']{0,600})["'][^>]{0,400}?(?:name|property)=["']${name}["']`, "i");
+    const m = head.match(re);
+    return m ? (m[1] ?? m[2] ?? "") : "";
+  };
   const description = decodeEntities((meta("description") || meta("og:description")).trim());
 
-  let body = html
-    .replace(/<!--[\s\S]*?-->/g, " ")
-    .replace(/<(script|style|noscript|svg|iframe|template|nav|footer|form|select|button)\b[\s\S]*?<\/\1>/gi, " ");
-  body = body
-    .replace(/<\/(p|div|section|article|li|tr|h[1-6]|ul|ol|table|blockquote|br)\s*>/gi, "\n")
-    .replace(/<(br|hr)\s*\/?>/gi, "\n")
-    .replace(/<h([1-6])[^>]*>/gi, "\n## ")
-    .replace(/<li[^>]*>/gi, "\n- ")
-    .replace(/<[^>]+>/g, " ");
-  body = decodeEntities(body)
+  const out: string[] = [];
+  let size = 0;
+  const push = (s: string) => {
+    out.push(s);
+    size += s.length;
+  };
+  const n = html.length;
+  let i = 0;
+  while (i < n && size < MAX_TEXT_CHARS * 3) {
+    const lt = html.indexOf("<", i);
+    if (lt < 0) {
+      push(html.slice(i));
+      break;
+    }
+    if (lt > i) push(html.slice(i, lt));
+    if (html.startsWith("<!--", lt)) {
+      const end = html.indexOf("-->", lt + 4);
+      i = end < 0 ? n : end + 3;
+      continue;
+    }
+    let j = lt + 1;
+    const closing = html[j] === "/";
+    if (closing) j++;
+    let k = j;
+    while (k < n && k - j < 20 && /[a-zA-Z0-9]/.test(html[k])) k++;
+    const name = lower.slice(j, k);
+    const gt = html.indexOf(">", k);
+    if (!name || gt < 0) {
+      // not a tag ("a < b"): keep the character and move on
+      push("<");
+      i = lt + 1;
+      continue;
+    }
+    if (closing) {
+      if (BREAK_AFTER.has(name)) push("\n");
+      i = gt + 1;
+      continue;
+    }
+    if (SKIP_ELEMENTS.has(name) && html[gt - 1] !== "/") {
+      const close = lower.indexOf(`</${name}`, gt + 1);
+      if (close < 0) break; // unclosed: everything after it belongs to the element
+      const end = html.indexOf(">", close);
+      i = end < 0 ? n : end + 1;
+      continue;
+    }
+    if (/^h[1-6]$/.test(name)) push("\n## ");
+    else if (name === "li") push("\n- ");
+    else if (name === "br" || name === "hr") push("\n");
+    i = gt + 1;
+  }
+
+  const body = decodeEntities(out.join(""))
     .split("\n")
-    .map((l) => l.replace(/[ \t ]+/g, " ").trim())
-    .filter((l, i, arr) => l && l !== arr[i - 1]) // drop empty lines and immediate repeats (menus)
+    .map((l) => l.replace(/[ \t\u00a0]+/g, " ").trim())
+    .filter((l, idx, arr) => l && l !== arr[idx - 1]) // drop empty lines and immediate repeats (menus)
     .join("\n");
 
   const parts = [title && `# ${title}`, description, body].filter(Boolean).join("\n\n");

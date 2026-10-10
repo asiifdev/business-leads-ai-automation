@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "New Campaign | Prospex" };
 
 export default function NewCampaignPage() {
   return (
-    <div className="max-w-2xl">
+    <div className="mx-auto max-w-6xl">
       <div className="mb-6">
         <PageHeading title="page.newCampaign.title" subtitle="page.newCampaign.subtitle" small />
       </div>

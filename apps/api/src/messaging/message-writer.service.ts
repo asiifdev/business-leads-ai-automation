@@ -8,6 +8,8 @@ import { buildDraftMessages, buildOutreachMessages } from "../ai/chat-import/sty
 import type { StyleStats } from "../ai/chat-import/style-stats";
 import { draftRisks } from "./draft-risk";
 import { neutralGreeting, normalizeDraft } from "../ai/orthography";
+import { briefForDraft } from "../marketing/brief-use";
+import type { BriefContent } from "../marketing/brief-schema";
 import { OPT_OUT_HINT_EN, OPT_OUT_HINT_ID } from "./opt-out";
 
 export interface WrittenMessage {
@@ -61,6 +63,8 @@ export class MessageWriterService {
     }
     const facts = await this.knowledge.search(workspaceId, `${lead.campaign.yourService} ${lead.category ?? ""}`.trim());
     const analysis = lead.aiAnalysis as { recommendation?: string } | null;
+    const briefRow = await this.prisma.marketingBrief.findUnique({ where: { workspaceId }, select: { summary: true, content: true } });
+    const brief = briefRow ? briefForDraft(briefRow.summary, briefRow.content as unknown as BriefContent, lead) : undefined;
 
     const messages = buildOutreachMessages({
       businessDescription: await this.businessDescription(workspaceId),
@@ -73,6 +77,7 @@ export class MessageWriterService {
       style: stats,
       examples: examples.map((e) => ({ incoming: e.incoming, reply: e.reply, at: new Date() })),
       knowledge: facts.confidence === "none" ? [] : facts.hits.map((h) => h.content),
+      brief,
       followUp,
     });
 

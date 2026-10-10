@@ -29,3 +29,25 @@ test("htmlToText keeps headings, paragraphs and lists, drops scripts, menus and 
   assert.match(text, /- Balas pelanggan\n- Catat pesanan/);
   assert.doesNotMatch(text, /alert|Home|hak cipta|\.x\{/);
 });
+
+test("htmlToText stays linear on hostile input", () => {
+  const cases = [
+    "<script".repeat(200_000),
+    "<div>".repeat(300_000),
+    "<!--".repeat(200_000),
+    "<p>a</p>".repeat(250_000),
+    "<" .repeat(500_000),
+    "<style>" + "x".repeat(1_900_000),
+  ];
+  for (const html of cases) {
+    const t0 = Date.now();
+    const { text } = htmlToText(html);
+    assert.ok(Date.now() - t0 < 1500, `took ${Date.now() - t0} ms`);
+    assert.ok(text.length <= 60_000);
+  }
+});
+
+test("htmlToText treats a bare < as text and skips unclosed script content", () => {
+  assert.match(htmlToText("<p>5 < 6 dan 7 > 3</p>").text, /5 < 6 dan 7 > 3/);
+  assert.doesNotMatch(htmlToText("<p>aman</p><script>jahat()").text, /jahat/);
+});

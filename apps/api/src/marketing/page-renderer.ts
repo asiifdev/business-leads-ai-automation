@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { chromium, type Browser } from "playwright";
+import { SafeProxy } from "./safe-proxy";
 import { hostIsPublic, validatePublicUrl } from "./url-fetch";
 
 const NAV_TIMEOUT_MS = 20_000;
@@ -9,22 +10,36 @@ const MAX_CONCURRENT = 2;
 /**
  * Renders a page in the same headless Chromium that the Google Maps scraper uses, so sites that build their content
  * with JavaScript can be read too. A page chosen by a user can ask the browser to call internal addresses, so every
- * request the page makes is checked and anything that does not resolve to a public address is aborted.
+ * request the page makes is checked and anything that does not resolve to a public address is aborted. All traffic
+ * goes through SafeProxy, which resolves each name once and connects to the checked address, so DNS rebinding cannot
+ * swap in a private address between the check and the connection.
+ *
+ * Chromium's sandbox stays ON unless PLAYWRIGHT_NO_SANDBOX=true (needed inside most containers, where user
+ * namespaces are unavailable). This browser opens pages chosen by users, so the sandbox is not optional elsewhere.
  */
 @Injectable()
 export class PageRenderer implements OnModuleDestroy {
   private readonly logger = new Logger(PageRenderer.name);
   private browser: Browser | null = null;
+  private readonly proxy = new SafeProxy();
   private running = 0;
   private readonly waiters: (() => void)[] = [];
 
   async onModuleDestroy() {
     await this.browser?.close().catch(() => undefined);
+    await this.proxy.close().catch(() => undefined);
   }
 
   private async getBrowser(): Promise<Browser> {
     if (!this.browser || !this.browser.isConnected()) {
-      this.browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"] });
+      const port = await this.proxy.start();
+      const noSandbox = process.env.PLAYWRIGHT_NO_SANDBOX === "true";
+      this.browser = await chromium.launch({
+        headless: true,
+        // "<-loopback>" sends even localhost requests through the proxy (Chromium would bypass it by default), where they are refused
+        proxy: { server: `http://127.0.0.1:${port}`, bypass: "<-loopback>" },
+        args: [...(noSandbox ? ["--no-sandbox", "--disable-setuid-sandbox"] : []), "--disable-dev-shm-usage", "--disable-gpu"],
+      });
     }
     return this.browser;
   }

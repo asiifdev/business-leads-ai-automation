@@ -12,8 +12,10 @@ import { campaignsId } from "./features-campaigns.id";
 import { leadsEn } from "./features-leads.en";
 import { leadsId } from "./features-leads.id";
 import { adminEn } from "./features-admin.en";
+import { marketingEn } from "./features-marketing.en";
+import { marketingId } from "./features-marketing.id";
 import { adminId } from "./features-admin.id";
 
-export const enAll = { ...en, ...authEn, ...campaignsEn, ...leadsEn, ...adminEn } as const;
+export const enAll = { ...en, ...authEn, ...campaignsEn, ...leadsEn, ...adminEn, ...marketingEn } as const;
 export type MessageKey = keyof typeof enAll;
-export const idAll: Record<MessageKey, string> = { ...id, ...authId, ...campaignsId, ...leadsId, ...adminId };
+export const idAll: Record<MessageKey, string> = { ...id, ...authId, ...campaignsId, ...leadsId, ...adminId, ...marketingId };

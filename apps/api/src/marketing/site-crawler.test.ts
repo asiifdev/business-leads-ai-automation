@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeCandidate, parseLlmsLinks, parseSitemapXml, robotsSitemaps, scoreUrl, selectPages } from "./site-crawler";
+import { friendlyReason, normalizeCandidate, parseLlmsLinks, parseSitemapXml, robotsSitemaps, scoreUrl, selectPages } from "./site-crawler";
 
 const base = new URL("https://asiifdev.com/");
 
@@ -37,4 +37,11 @@ test("ranking puts the home page first, then business pages, and limits blog pos
   assert.ok(["layanan", "harga", "tentang"].every((p) => picked.includes(`https://asiifdev.com/${p}`)));
   assert.equal(picked.filter((u) => u.includes("/blog/")).length, 2);
   assert.equal(selectPages(urls, start, 3).length, 3);
+});
+
+test("friendlyReason hides browser internals", () => {
+  assert.equal(friendlyReason(new Error("page.goto: net::ERR_BLOCKED_BY_CLIENT at http://x/\nCall log:\n  - navigating")), "that address is not allowed");
+  assert.equal(friendlyReason(new Error("page.goto: net::ERR_NAME_NOT_RESOLVED at http://nope.invalid/")), "the address could not be found");
+  assert.equal(friendlyReason(new Error("Timeout 20000ms exceeded.\nCall log: ...")), "the page took too long to open");
+  assert.doesNotMatch(friendlyReason(new Error("browserType.launch: Executable doesn't exist\nlong help text")), /long help text/);
 });

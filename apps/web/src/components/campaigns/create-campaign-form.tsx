@@ -1,8 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import { SourceMaterial } from "@/components/marketing/source-material";
+import { hasBrief, type Brief, type BriefResponse } from "@/components/marketing/types";
+import { Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,25 +18,21 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, X } from "lucide-react";
 import { motion } from "framer-motion";
 
-const INDUSTRIES = [
-  { value: "restaurant", key: "camp.ind.restaurant" },
-  { value: "cafe", key: "camp.ind.cafe" },
-  { value: "retail", key: "camp.ind.retail" },
-  { value: "automotive", key: "camp.ind.automotive" },
-  { value: "healthcare", key: "camp.ind.healthcare" },
-  { value: "beauty", key: "camp.ind.beauty" },
-  { value: "education", key: "camp.ind.education" },
-  { value: "realestate", key: "camp.ind.realestate" },
-  { value: "event", key: "camp.ind.event" },
-  { value: "tech", key: "camp.ind.tech" },
-  { value: "professional", key: "camp.ind.professional" },
-] as const;
 
 export function CreateCampaignForm() {
   const { t } = useI18n();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [queries, setQueries] = useState<string[]>([""]);
+  // source material and AI autofill
+  const [selected, setSelected] = useState<string[]>([]);
+  const [notes, setNotes] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [brief, setBrief] = useState<Brief | null>(null);
+  /** Fields the AI filled and the user has not changed: shown with a badge. A field the user edited is never overwritten. */
+  const [aiFilled, setAiFilled] = useState<Set<string>>(new Set());
+  const [touched, setTouched] = useState<Set<string>>(new Set());
+  const [noteOpen, setNoteOpen] = useState(false);
   const [form, setForm] = useState({
     name: "",
     industry: "",
@@ -42,13 +43,63 @@ export function CreateCampaignForm() {
     language: "indonesian",
   });
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  const mark = (k: string) => {
+    setTouched((p) => new Set(p).add(k));
+    setAiFilled((p) => { const n = new Set(p); n.delete(k); return n; });
+  };
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    mark(k);
     setForm((p) => ({ ...p, [k]: e.target.value }));
+  };
+  const pick = (k: keyof typeof form) => (v: string) => { mark(k); setForm((p) => ({ ...p, [k]: v })); };
+
+  useEffect(() => {
+    api.get<BriefResponse>("/marketing/brief").then((b) => { if (hasBrief(b)) setBrief(b); }).catch(() => undefined);
+  }, []);
+
+  const analyze = async () => {
+    setAnalyzing(true);
+    try {
+      const b = await api.post<Brief>("/marketing/brief/generate", {
+        sourceIds: selected.length ? selected : undefined,
+        notes: [notes, !touched.has("yourService") ? "" : form.yourService].filter(Boolean).join("\n\n") || undefined,
+        industry: touched.has("industry") ? form.industry || undefined : undefined,
+        location: touched.has("location") ? form.location || undefined : undefined,
+        language: form.language === "english" ? "english" : "indonesian",
+      });
+      setBrief(b);
+      const c = b.campaign;
+      const filled = new Set<string>();
+      const free = (k: string) => !touched.has(k);
+      setForm((p) => {
+        const n = { ...p };
+        if (c?.name && free("name")) { n.name = c.name; filled.add("name"); }
+        if (c?.target && free("industry")) { n.industry = c.target; filled.add("industry"); }
+        if (c?.location && free("location")) { n.location = c.location; filled.add("location"); }
+        if (b.summary && free("yourService")) { n.yourService = b.summary; filled.add("yourService"); }
+        if (c?.contentStyle && free("contentStyle")) { n.contentStyle = c.contentStyle; filled.add("contentStyle"); }
+        if (c?.language && free("language")) { n.language = c.language; filled.add("language"); }
+        return n;
+      });
+      if (c?.searchQueries?.length && free("queries")) { setQueries(c.searchQueries); filled.add("queries"); }
+      setAiFilled(filled);
+      toast.success(t("mkt.gen.done"));
+    } catch (e) {
+      toast.error(t("mkt.gen.failed", { err: (e as Error).message }));
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+  const badge = (k: string) => aiFilled.has(k) && (
+    <span title={t("mkt.ai.badge")} className="ml-1.5 inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-px text-[10px] font-semibold text-primary">
+      <Sparkles className="h-2.5 w-2.5" aria-hidden />AI<span className="sr-only"> {t("mkt.ai.badge")}</span>
+    </span>
+  );
+  const segments = brief ? [...new Set(brief.content.angles.map((a) => a.segment.trim()))].filter((x) => x && x.length <= 40).slice(0, 4) : [];
 
   const addQuery = () => setQueries((q) => [...q, ""]);
-  const removeQuery = (i: number) => setQueries((q) => q.filter((_, idx) => idx !== i));
-  const updateQuery = (i: number, v: string) =>
-    setQueries((q) => q.map((old, idx) => (idx === i ? v : old)));
+  const removeQuery = (i: number) => { mark("queries"); setQueries((q) => q.filter((_, idx) => idx !== i)); };
+  const updateQuery = (i: number, v: string) => { mark("queries"); setQueries((q) => q.map((old, idx) => (idx === i ? v : old))); };
 
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -72,47 +123,79 @@ export function CreateCampaignForm() {
     }
   };
 
+  const canAnalyze = selected.length > 0 || notes.trim().length >= 30 || touched.has("yourService");
   return (
-    <motion.form
-      onSubmit={handleSubmit}
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("camp.form.title")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-5">
+    <form onSubmit={handleSubmit} className="grid gap-8 lg:grid-cols-[minmax(0,25rem)_minmax(0,1fr)] lg:items-start">
+      <aside className="space-y-4">
+        <section className="space-y-4 rounded-xl border bg-card p-5" aria-labelledby="src-title">
+          <div>
+            <h2 id="src-title" className="text-base font-semibold">{t("mkt.src.title")}</h2>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{t("mkt.src.intro")}</p>
+          </div>
+          <SourceMaterial selected={selected} onSelected={setSelected} />
+          {noteOpen ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="notes">{t("mkt.gen.notes")}</Label>
+              <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("mkt.gen.notesPh")} rows={3} className="resize-none" />
+            </div>
+          ) : (
+            <button type="button" onClick={() => setNoteOpen(true)} className="inline-flex items-center gap-1 text-sm text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
+              <Plus className="h-3.5 w-3.5" />{t("mkt.gen.notes")}
+            </button>
+          )}
           <div className="space-y-2">
-            <Label htmlFor="name">{t("camp.form.name")}</Label>
+            <Button type="button" className="w-full" onClick={analyze} disabled={analyzing || !canAnalyze}>
+              {analyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              {analyzing ? t("mkt.gen.running") : t("mkt.gen.button")}
+            </Button>
+            {!canAnalyze && <p className="text-xs text-muted-foreground">{t("mkt.gen.needSource")}</p>}
+          </div>
+        </section>
+
+        {brief && aiFilled.size > 0 && (
+          <section className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm" aria-live="polite">
+            <p className="font-medium">{t("mkt.gen.done")}</p>
+            <p className="mt-1 text-muted-foreground">{t("mkt.gen.basedOn", { pages: brief.pagesRead.length || brief.sources.length, sources: brief.sources.length })}</p>
+            {brief.content.gaps.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs font-medium">{t("mkt.gen.gaps")}</p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">{brief.content.gaps.slice(0, 4).map((g) => <li key={g}>{g.replace(/^\[NEED:\s*/i, "").replace(/\]$/, "")}</li>)}</ul>
+              </div>
+            )}
+            <Link href="/brief" className="mt-3 inline-block text-primary hover:underline">{t("mkt.gen.viewBrief")}</Link>
+          </section>
+        )}
+      </aside>
+
+      <div className="space-y-8">
+        <fieldset className="space-y-4 border-b pb-8">
+          <legend className="mb-1 text-sm font-semibold">{t("camp.group.who")}</legend>
+          <div className="space-y-2">
+            <Label htmlFor="name">{t("camp.form.name")}{badge("name")}</Label>
             <Input id="name" placeholder={t("camp.form.namePh")} value={form.name} onChange={set("name")} required />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>{t("camp.form.industry")}</Label>
-              <Select value={form.industry} onValueChange={(v) => setForm((p) => ({ ...p, industry: v }))}>
-                <SelectTrigger><SelectValue placeholder={t("camp.form.industryPh")} /></SelectTrigger>
-                <SelectContent>
-                  {INDUSTRIES.map((i) => (
-                    <SelectItem key={i.value} value={i.value}>{t(i.key)}</SelectItem>
+              <Label htmlFor="industry">{t("camp.form.industry")}{badge("industry")}</Label>
+              <Input id="industry" placeholder={t("camp.form.industryPh")} value={form.industry} onChange={set("industry")} required />
+              {segments.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="text-xs text-muted-foreground">{t("mkt.form.segments")}</span>
+                  {segments.map((seg) => (
+                    <button key={seg} type="button" onClick={() => pick("industry")(seg)} className="rounded-md bg-muted px-2 py-0.5 text-xs hover:bg-muted/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">{seg}</button>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="location">{t("camp.form.location")}</Label>
+              <Label htmlFor="location">{t("camp.form.location")}{badge("location")}</Label>
               <Input id="location" placeholder={t("camp.form.locationPh")} value={form.location} onChange={set("location")} required />
             </div>
           </div>
-
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>{t("camp.form.queries")}</Label>
-              <Badge variant="secondary" className="text-xs">
-                {t(queries.length === 1 ? "camp.form.queryCountOne" : "camp.form.queryCountMany", { n: queries.length })}
-              </Badge>
+              <Label>{t("camp.form.queries")}{badge("queries")}</Label>
+              <span className="text-xs text-muted-foreground">{t(queries.length === 1 ? "camp.form.queryCountOne" : "camp.form.queryCountMany", { n: queries.length })}</span>
             </div>
             <div className="space-y-2">
               {queries.map((q, i) => (
@@ -125,32 +208,33 @@ export function CreateCampaignForm() {
                     required
                   />
                   {queries.length > 1 && (
-                    <Button type="button" variant="ghost" size="icon" onClick={() => removeQuery(i)} className="flex-shrink-0 text-muted-foreground hover:text-destructive">
-                      <X className="w-4 h-4" />
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeQuery(i)} aria-label={t("camp.form.removeQuery")} className="flex-shrink-0 text-muted-foreground hover:text-destructive">
+                      <X className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
               ))}
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={addQuery} className="text-xs mt-1">
-              <Plus className="w-3 h-3 mr-1" />{t("camp.form.addQuery")}
+            <Button type="button" variant="ghost" size="sm" onClick={addQuery} className="-ml-2 text-xs text-muted-foreground">
+              <Plus className="mr-1 h-3 w-3" />{t("camp.form.addQuery")}
             </Button>
           </div>
+        </fieldset>
 
-          <div className="space-y-2">
-            <Label htmlFor="service">{t("camp.form.service")}</Label>
-            <Textarea
-              id="service"
-              placeholder={t("camp.form.servicePh")}
-              value={form.yourService}
-              onChange={set("yourService")}
-              className="resize-none"
-              rows={3}
-              required
-            />
+        <fieldset className="space-y-3 border-b pb-8">
+          <legend className="mb-1 text-sm font-semibold">{t("camp.group.offer")}</legend>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="service">{t("camp.form.service")}{badge("yourService")}</Label>
+            {brief && brief.summary !== form.yourService && (
+              <button type="button" onClick={() => pick("yourService")(brief.summary)} className="text-xs text-primary hover:underline">{t("mkt.form.useSummary")}</button>
+            )}
           </div>
+          <Textarea id="service" placeholder={t("camp.form.servicePh")} value={form.yourService} onChange={set("yourService")} className="resize-y" rows={4} required />
+        </fieldset>
 
-          <div className="grid grid-cols-3 gap-4">
+        <fieldset className="space-y-4">
+          <legend className="mb-1 text-sm font-semibold">{t("camp.group.how")}</legend>
+          <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label>{t("camp.form.maxResults")}</Label>
               <Select value={form.maxResults} onValueChange={(v) => setForm((p) => ({ ...p, maxResults: v }))}>
@@ -163,8 +247,8 @@ export function CreateCampaignForm() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>{t("camp.form.contentStyle")}</Label>
-              <Select value={form.contentStyle} onValueChange={(v) => setForm((p) => ({ ...p, contentStyle: v }))}>
+              <Label>{t("camp.form.contentStyle")}{badge("contentStyle")}</Label>
+              <Select value={form.contentStyle} onValueChange={pick("contentStyle")}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="professional">{t("camp.style.professional")}</SelectItem>
@@ -175,8 +259,8 @@ export function CreateCampaignForm() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>{t("camp.form.language")}</Label>
-              <Select value={form.language} onValueChange={(v) => setForm((p) => ({ ...p, language: v }))}>
+              <Label>{t("camp.form.language")}{badge("language")}</Label>
+              <Select value={form.language} onValueChange={pick("language")}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="indonesian">{t("camp.lang.indonesian")}</SelectItem>
@@ -185,18 +269,15 @@ export function CreateCampaignForm() {
               </Select>
             </div>
           </div>
-        </CardContent>
-        <CardFooter className="gap-3">
-          <Button type="button" variant="outline" onClick={() => router.back()}>{t("camp.form.cancel")}</Button>
-          <Button type="submit" variant="gradient" className="flex-1" disabled={loading}>
-            {loading ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("camp.form.starting")}</>
-            ) : (
-              t("camp.form.start")
-            )}
+        </fieldset>
+
+        <div className="flex items-center justify-end gap-3 border-t pt-6">
+          <Button type="button" variant="ghost" onClick={() => router.back()}>{t("camp.form.cancel")}</Button>
+          <Button type="submit" disabled={loading}>
+            {loading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("camp.form.starting")}</>) : t("camp.form.start")}
           </Button>
-        </CardFooter>
-      </Card>
-    </motion.form>
+        </div>
+      </div>
+    </form>
   );
 }

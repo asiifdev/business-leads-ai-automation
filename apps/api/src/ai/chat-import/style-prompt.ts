@@ -104,6 +104,8 @@ export interface OutreachPromptInput {
   style?: StyleStats;
   examples?: ReplyPair[];
   knowledge?: string[];
+  /** From the workspace's Marketing Brief, when it has one. */
+  brief?: { summary: string; angle?: { segment: string; pain: string; hook: string; benefit: string }; proof: string[]; wordsToAvoid: string[] };
   /** 0 = first contact; 1, 2... = follow-up number. */
   followUp?: { number: number; of: number; previousMessage: string; daysSince: number };
 }
@@ -143,6 +145,16 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
           "Contoh bentuk (jangan disalin, sesuaikan dengan data dan penawaran): Halo, Kak, perkenalkan saya dari tim Asiifdev Digital Agency. Saya lihat Kopi Contoh punya rating 4,5 dari 120 ulasan di Google Maps, tapi belum ada website untuk pesan atau reservasi. Kami membuatkan website pemesanan online untuk kafe, jadi pelanggan bisa memesan dari ponsel. Boleh saya jelaskan singkat, Kak?",
         ].join("\n"),
     "",
+    input.brief
+      ? [
+          "BRIEF PEMASARAN (ditulis dari sumber milik pengguna dan sudah ditinjau):",
+          `- Penawaran: ${clip(input.brief.summary, 450)}`,
+          input.brief.angle ? `- Sudut yang cocok untuk jenis bisnis ini (hipotesis, bukan fakta tentang penerima): masalah yang mungkin dirasakan: ${clip(input.brief.angle.pain, 220)}; manfaat: ${clip(input.brief.angle.benefit, 220)}` : "",
+          input.brief.proof.length ? `- Bukti yang BOLEH disebut (hanya ini, maksimal satu, dan hanya bila pas): ${input.brief.proof.map((p) => clip(p, 120)).join("; ")}` : "- Tidak ada bukti yang boleh disebut: jangan menyebut pelanggan, angka, atau testimoni.",
+          input.brief.wordsToAvoid.length ? `- Hindari kata: ${input.brief.wordsToAvoid.slice(0, 10).map((w) => clip(w, 30)).join(", ")}` : "",
+          "",
+        ].filter((l) => l !== "").join("\n")
+      : "",
     "DATA BISNIS PENERIMA (satu-satunya sumber fakta tentang mereka; berasal dari listing publik):",
     `<data_bisnis>\n${leadLines(input.lead)}\n</data_bisnis>`,
     "",

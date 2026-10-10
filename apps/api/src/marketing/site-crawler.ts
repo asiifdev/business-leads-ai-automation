@@ -113,6 +113,15 @@ async function tryFetchText(url: string, maxBytes = 3_000_000): Promise<string |
   }
 }
 
+/** One readable line for the user: no browser internals, no call logs. */
+export function friendlyReason(e: unknown): string {
+  const m = String((e as Error)?.message ?? e);
+  if (/ERR_BLOCKED_BY_CLIENT|blockedbyclient|not allowed/i.test(m)) return "that address is not allowed";
+  if (/ERR_NAME_NOT_RESOLVED|ENOTFOUND/i.test(m)) return "the address could not be found";
+  if (/timeout|timed out/i.test(m)) return "the page took too long to open";
+  return m.split("\n")[0].replace(/^(page\.goto|browserType\.launch): /, "").slice(0, 140);
+}
+
 async function pool<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
   let next = 0;
@@ -204,7 +213,7 @@ export async function crawlSite(inputUrl: string, opts: CrawlOptions = {}): Prom
       if (/html/i.test(r.type)) page = pageTextFromHtml(r.url, r.body);
       else page = { url: r.url, title: new URL(r.url).hostname, text: r.body.slice(0, MAX_PAGE_CHARS), thin: false };
     } catch (e) {
-      if (!opts.render) failed.push({ url, reason: (e as Error).message });
+      if (!opts.render) failed.push({ url, reason: friendlyReason(e) });
     }
     let rendered = false;
     if ((!page || page.thin) && opts.render) {
@@ -216,7 +225,7 @@ export async function crawlSite(inputUrl: string, opts: CrawlOptions = {}): Prom
           rendered = true;
         }
       } catch (e) {
-        if (!page) failed.push({ url, reason: `browser: ${(e as Error).message}`.slice(0, 160) });
+        if (!page) failed.push({ url, reason: friendlyReason(e) });
       }
     }
     if (!page || page.text.replace(/\s+/g, " ").length < 120) {

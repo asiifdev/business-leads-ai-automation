@@ -166,4 +166,5 @@ export const id: Record<keyof typeof en, string> = {
   "page.leads.subtitle": "Semua lead dari seluruh kampanye Anda",
   "page.newCampaign.title": "Kampanye baru",
   "page.newCampaign.subtitle": "Siapkan kampanye pencarian lead",
+  "nav.brief": "Brief pemasaran",
 };

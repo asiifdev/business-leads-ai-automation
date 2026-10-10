@@ -44,6 +44,9 @@ RUN pnpm --filter @prospex/api exec playwright install chromium
 RUN addgroup --system prospex && adduser --system --ingroup prospex prospex \
     && mkdir -p /data/wa-auth && chown prospex:prospex /data/wa-auth
 ENV WA_AUTH_DIR=/data/wa-auth
+# Chromium cannot create its sandbox inside most containers (no user namespaces). The site reader runs it unsandboxed
+# here, behind a proxy that refuses private addresses. Outside Docker the sandbox stays on.
+ENV PLAYWRIGHT_NO_SANDBOX=true
 USER prospex
 
 WORKDIR /app/apps/api

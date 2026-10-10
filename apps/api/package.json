@@ -35,7 +35,8 @@
     "playwright": "^1.48.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "undici": "^6"
+    "undici": "^6",
+    "unpdf": "^1.8.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.7",
