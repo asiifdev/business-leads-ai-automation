@@ -130,9 +130,11 @@ function ConnectionOption({ selected, onSelect, disabled, title, note, lockHref,
 function SettingsDialog({ open, onClose, overview, refresh }: { open: boolean; onClose: () => void; overview: Overview; refresh: () => void }) {
   const { t } = useI18n();
   const a = overview.account;
-  const [provider, setProvider] = useState<"baileys" | "cloud_api">(overview.provider);
+  // an API that predates the editions work does not send these fields; treat that as "not available"
+  const cloudApi = overview.cloudApi ?? { entitled: false, installed: false, edition: "community" as const };
+  const [provider, setProvider] = useState<"baileys" | "cloud_api">(overview.provider ?? "baileys");
   const [v, setV] = useState({ hourlyLimit: a.hourlyLimit, dailyLimit: a.dailyLimit, quietStartHour: a.quietStartHour, quietEndHour: a.quietEndHour, timezone: a.timezone, defaultCountryCode: a.defaultCountryCode });
-  useEffect(() => { if (open) setProvider(overview.provider); if (open) setV({ hourlyLimit: a.hourlyLimit, dailyLimit: a.dailyLimit, quietStartHour: a.quietStartHour, quietEndHour: a.quietEndHour, timezone: a.timezone, defaultCountryCode: a.defaultCountryCode }); }, [open, a]);
+  useEffect(() => { if (open) setProvider(overview.provider ?? "baileys"); if (open) setV({ hourlyLimit: a.hourlyLimit, dailyLimit: a.dailyLimit, quietStartHour: a.quietStartHour, quietEndHour: a.quietEndHour, timezone: a.timezone, defaultCountryCode: a.defaultCountryCode }); }, [open, a]);
 
   const num = (k: "hourlyLimit" | "dailyLimit" | "quietStartHour" | "quietEndHour", label: string, min: number, max: number) => (
     <div className="space-y-1.5">
@@ -141,7 +143,7 @@ function SettingsDialog({ open, onClose, overview, refresh }: { open: boolean; o
     </div>
   );
   const save = async () => {
-    try { await api.patch("/messaging/whatsapp/settings", provider === overview.provider ? v : { ...v, provider }); toast.success(t("outbox.set.saved")); onClose(); refresh(); }
+    try { await api.patch("/messaging/whatsapp/settings", provider === (overview.provider ?? "baileys") ? v : { ...v, provider }); toast.success(t("outbox.set.saved")); onClose(); refresh(); }
     catch (e) { toast.error((e as Error).message); }
   };
 
@@ -155,10 +157,10 @@ function SettingsDialog({ open, onClose, overview, refresh }: { open: boolean; o
           <ConnectionOption
             selected={provider === "cloud_api"}
             onSelect={() => setProvider("cloud_api")}
-            disabled={!overview.cloudApi.entitled || !overview.cloudApi.installed}
+            disabled={!cloudApi.entitled || !cloudApi.installed}
             title={t("outbox.conn.official")}
-            note={!overview.cloudApi.entitled ? t("outbox.conn.officialLocked") : !overview.cloudApi.installed ? t("outbox.conn.officialMissing") : t("outbox.conn.officialNote")}
-            lockHref={!overview.cloudApi.entitled ? "https://alatpintar.id" : undefined}
+            note={!cloudApi.entitled ? t("outbox.conn.officialLocked") : !cloudApi.installed ? t("outbox.conn.officialMissing") : t("outbox.conn.officialNote")}
+            lockHref={!cloudApi.entitled ? "https://alatpintar.id" : undefined}
             lockLabel={t("outbox.conn.learnMore")}
           />
         </fieldset>
