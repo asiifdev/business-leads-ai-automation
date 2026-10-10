@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased (edition work)
+
+- Added `EDITION` and an entitlements service; `GET /entitlements`; 402 `UPGRADE_REQUIRED`.
+- Added a per-workspace WhatsApp gateway and a connection-type choice in Outbox settings. The official API option is locked outside hosted plans.
+- Fixed: a group message could be attributed to a private number; only private chats now yield one.
+- Added docs/editions.md. The official connector is not built.
+
 ## Unreleased (2026-10)
 
 ### Added

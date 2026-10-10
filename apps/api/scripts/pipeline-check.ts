@@ -1,20 +1,23 @@
 /**
  * Reliability check for the send pipeline against a real database, with a fake WhatsApp provider and a stub writer.
- * Run: DATABASE_URL=... WORKSPACE_ID=... npx tsx scripts/pipeline-check.ts
- * It creates rows for numbers starting with 6299 and removes them at the end.
+ * Run: DATABASE_URL=... npx tsx scripts/pipeline-check.ts
+ * It creates its own temporary workspace (with no WhatsApp connection), runs every check there, and deletes the
+ * workspace at the end, so it never touches real data and never competes with a live sender.
  */
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../src/prisma/prisma.service";
 import { InboundService } from "../src/messaging/inbound.service";
 import { SenderService } from "../src/messaging/sender.service";
-import { ProviderUnavailableError, type InboundWhatsappMessage, type WhatsappProvider } from "../src/messaging/whatsapp.provider";
+import { ProviderUnavailableError, type InboundWhatsappMessage, type RoutedWhatsappProvider } from "../src/messaging/whatsapp.provider";
 
-const ws = process.env.WORKSPACE_ID!;
+let ws = "";
 const prisma = new PrismaService();
 let failures = 0;
 const check = (name: string, ok: boolean, extra = "") => { console.log(`${ok ? "PASS" : "FAIL"}  ${name}${extra ? "  " + extra : ""}`); if (!ok) failures++; };
 
-class FakeWa implements WhatsappProvider {
+class FakeWa implements RoutedWhatsappProvider {
+  use() {}
+  hasCloud() { return false; }
   sent: { to: string; text: string }[] = [];
   mode: "ok" | "unavailable" | "error" = "ok";
   handler: ((w: string, m: InboundWhatsappMessage) => Promise<void>) | null = null;
@@ -31,7 +34,8 @@ class FakeWa implements WhatsappProvider {
   onInbound(h: FakeWa["handler"]) { this.handler = h; }
 }
 
-const stubWriter = { reply: async () => ({ text: "balasan uji", trace: { styled: true, examples: 0, knowledge: "none", model: "stub", latencyMs: 1 } }) } as never;
+const entitlements = { has: async () => false, edition: "community" } as never;
+const stubWriter = { reply: async () => ({ text: "balasan uji", risks: [] as string[], trace: { styled: true, examples: 0, knowledge: "none", model: "stub", latencyMs: 1 } }) } as never;
 
 async function msg(phone: string, body: string, status = "approved", extra: Record<string, unknown> = {}) {
   return prisma.outboundMessage.create({ data: { workspaceId: ws, toPhone: phone, body, source: "ai_outreach", status, approvedAt: new Date(), ...extra } });
@@ -39,15 +43,18 @@ async function msg(phone: string, body: string, status = "approved", extra: Reco
 
 async function main() {
   await prisma.$connect();
-  await prisma.outboundMessage.deleteMany({ where: { workspaceId: ws, toPhone: { startsWith: "6299" } } });
-  await prisma.inboundMessage.deleteMany({ where: { workspaceId: ws, fromPhone: { startsWith: "6299" } } });
-  await prisma.messageOptOut.deleteMany({ where: { workspaceId: ws, phone: { startsWith: "6299" } } });
-  const original = await prisma.whatsappAccount.upsert({ where: { workspaceId: ws }, create: { workspaceId: ws }, update: {} });
+  // Everything happens in a throwaway workspace: it has no WhatsApp connection, so only the fake provider below ever "sends".
+  const stamp = Date.now().toString(36);
+  const workspace = await prisma.workspace.create({ data: { name: `pipeline-check ${stamp}`, slug: `pipeline-check-${stamp}` } });
+  ws = workspace.id;
+  const campaign = await prisma.campaign.create({ data: { name: "check", industry: "x", location: "x", searchQueries: ["x"], yourService: "x", workspaceId: ws } });
+  await prisma.lead.create({ data: { name: "Check Lead", workspaceId: ws, campaignId: campaign.id } });
+  await prisma.whatsappAccount.upsert({ where: { workspaceId: ws }, create: { workspaceId: ws }, update: {} });
   const open = { paused: false, hourlyLimit: 2, dailyLimit: 80, quietStartHour: 0, quietEndHour: 0, nextSendAt: null, lastError: null };
   await prisma.whatsappAccount.update({ where: { workspaceId: ws }, data: open });
 
   const wa = new FakeWa();
-  const sender = new SenderService(prisma, new ConfigService({ WHATSAPP_DISABLED: "false" }), wa);
+  const sender = new SenderService(prisma, new ConfigService({ WHATSAPP_DISABLED: "false" }), wa, entitlements);
 
   // 1. one message per tick, then cooldown
   const a = await msg("629900000001", "satu"); await msg("629900000002", "dua"); await msg("629900000003", "tiga");
@@ -103,7 +110,6 @@ async function main() {
 
   // 6. reply from a known lead: status update, follow-ups cancelled, reply draft prepared
   const lead = await prisma.lead.findFirstOrThrow({ where: { workspaceId: ws } });
-  const leadBefore = { phoneE164: lead.phoneE164, crmStatus: lead.crmStatus, repliedAt: lead.repliedAt, contactedAt: lead.contactedAt };
   await prisma.lead.update({ where: { id: lead.id }, data: { phoneE164: "629900000006", crmStatus: "contacted", repliedAt: null } });
   await prisma.outboundMessage.create({ data: { workspaceId: ws, leadId: lead.id, toPhone: "629900000006", body: "fu", source: "ai_followup", status: "draft" } });
   await inbound.handle(ws, { phone: "629900000006", text: "boleh, berapa harganya?", id: "in-reply-1", at: new Date() });
@@ -138,17 +144,12 @@ async function main() {
 
   // 9. crash recovery
   const stuck = await msg("629900000009", "macet", "sending");
-  await new SenderService(prisma, new ConfigService({ WHATSAPP_DISABLED: "false" }), wa).onModuleInit();
+  await new SenderService(prisma, new ConfigService({ WHATSAPP_DISABLED: "false" }), wa, entitlements).onModuleInit();
   const rec = await prisma.outboundMessage.findUniqueOrThrow({ where: { id: stuck.id } });
   check("message stuck in 'sending' is marked failed, not resent", rec.status === "failed" && /interrupted/i.test(rec.error ?? ""));
 
-  // cleanup
-  await prisma.outboundMessage.deleteMany({ where: { workspaceId: ws, toPhone: { startsWith: "6299" } } });
-  await prisma.inboundMessage.deleteMany({ where: { workspaceId: ws, fromPhone: { startsWith: "6299" } } });
-  await prisma.messageOptOut.deleteMany({ where: { workspaceId: ws, phone: { startsWith: "6299" } } });
-  await prisma.leadActivity.deleteMany({ where: { leadId: lead.id, type: { in: ["replied", "whatsapp_sent", "opted_out"] } } });
-  await prisma.lead.update({ where: { id: lead.id }, data: leadBefore }); // put the lead back exactly as it was (including its real phone)
-  await prisma.whatsappAccount.update({ where: { workspaceId: ws }, data: { paused: original.paused, hourlyLimit: original.hourlyLimit, quietStartHour: original.quietStartHour, quietEndHour: original.quietEndHour, nextSendAt: null, lastError: null } });
+  // cleanup: deleting the workspace removes everything this run created
+  await prisma.workspace.delete({ where: { id: ws } });
   if (sender["timer"]) clearInterval(sender["timer"]);
   await prisma.$disconnect();
   console.log(failures ? `\n${failures} check(s) FAILED` : "\nAll checks passed");

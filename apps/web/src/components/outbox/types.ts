@@ -6,6 +6,8 @@ export interface Overview {
     timezone: string; defaultCountryCode: string; paused: boolean; lastError: string | null; nextSendAt: string | null;
   };
   qr: string | null;
+  provider: "baileys" | "cloud_api";
+  cloudApi: { entitled: boolean; installed: boolean; edition: "community" | "hosted" };
   usage: { sentLastHour: number; sentToday: number; drafts: number; approved: number };
   quietNow: boolean;
   etaHours: number | null;

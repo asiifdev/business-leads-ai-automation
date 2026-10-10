@@ -25,4 +25,12 @@ export interface WhatsappProvider {
   onInbound(handler: (workspaceId: string, msg: InboundWhatsappMessage) => Promise<void>): void;
 }
 
+export type WhatsappProviderName = "baileys" | "cloud_api";
+
+/** What the rest of the app talks to: one provider per workspace, chosen by the workspace's connection type. */
+export interface RoutedWhatsappProvider extends WhatsappProvider {
+  use(workspaceId: string, name: WhatsappProviderName | string): void;
+  hasCloud(): boolean;
+}
+
 export const WHATSAPP_PROVIDER = Symbol("WHATSAPP_PROVIDER");

@@ -3,7 +3,8 @@ import { ConfigService } from "@nestjs/config";
 import type { WhatsappAccount } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { decide, nextGapMs, startOfLocalDay, typingDelayMs } from "./send-policy";
-import { ProviderUnavailableError, WHATSAPP_PROVIDER, type WhatsappProvider } from "./whatsapp.provider";
+import { ProviderUnavailableError, WHATSAPP_PROVIDER, type RoutedWhatsappProvider } from "./whatsapp.provider";
+import { EntitlementsService } from "../entitlements/entitlements.service";
 
 const TICK_MS = 15_000;
 const MAX_ATTEMPTS = 3;
@@ -23,7 +24,8 @@ export class SenderService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
-    @Inject(WHATSAPP_PROVIDER) private readonly wa: WhatsappProvider,
+    @Inject(WHATSAPP_PROVIDER) private readonly wa: RoutedWhatsappProvider,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async onModuleInit() {
@@ -47,6 +49,9 @@ export class SenderService implements OnModuleInit, OnModuleDestroy {
     try {
       const accounts = await this.prisma.whatsappAccount.findMany({ where: { paused: false } });
       for (const a of accounts) {
+        this.wa.use(a.workspaceId, a.provider);
+        // a plan that no longer includes the official API stops sending through it (the hosted service enforces its plans)
+        if (a.provider === "cloud_api" && !(await this.entitlements.has(a.workspaceId, "whatsapp.cloud_api"))) continue;
         if (this.wa.state(a.workspaceId).status !== "connected") continue;
         await this.process(a).catch((e) => this.logger.error(`Sender failed for ${a.workspaceId}: ${e}`));
       }

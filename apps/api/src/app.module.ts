@@ -16,6 +16,7 @@ import { AuthModule } from "./auth/auth.module";
 import { WorkspaceModule } from "./workspace/workspace.module";
 import { MessagingModule } from "./messaging/messaging.module";
 import { MarketingModule } from "./marketing/marketing.module";
+import { EntitlementsModule } from "./entitlements/entitlements.module";
 
 @Module({
   imports: [
@@ -39,6 +40,8 @@ import { MarketingModule } from "./marketing/marketing.module";
         AUTH_THROTTLE_LIMIT: Joi.number().default(10),
         WA_AUTH_DIR: Joi.string().allow("").default(""),
         BRIEF_SOURCE_CHARS: Joi.number().default(30000),
+        EDITION: Joi.string().valid("community", "hosted").default("community"),
+        WHATSAPP_CLOUD_PLUGIN: Joi.string().allow("").default(""),
         SCRAPER_MODE: Joi.string().valid("live", "fixture").default("live"),
         WHATSAPP_DISABLED: Joi.string().valid("true", "false").default("false"),
       }),
@@ -62,6 +65,7 @@ import { MarketingModule } from "./marketing/marketing.module";
     WorkspaceModule,
     MessagingModule,
     MarketingModule,
+    EntitlementsModule,
   ],
   controllers: [AppController],
   providers: [

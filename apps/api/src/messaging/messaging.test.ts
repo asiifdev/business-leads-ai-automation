@@ -76,5 +76,9 @@ test("phoneFromKey reads the number from senderPn when the chat is addressed by 
   assert.equal(phoneFromKey({ remoteJid: "1234567890123@lid", senderPn: "6282134462498@s.whatsapp.net" }), "6282134462498");
   assert.equal(phoneFromKey({ remoteJid: "1234567890123@lid", participantPn: "6281355550000@s.whatsapp.net" }), "6281355550000");
   assert.equal(phoneFromKey({ remoteJid: "1234567890123@lid" }), null);
-  assert.equal(phoneFromKey({ remoteJid: "120363@g.us", senderPn: "6281@s.whatsapp.net" }), null);
+  // groups, broadcast lists and status updates never yield a number, even with a valid-looking sender field
+  assert.equal(phoneFromKey({ remoteJid: "120363025551234567@g.us", senderPn: "6282134462498@s.whatsapp.net", participantPn: "6282134462498@s.whatsapp.net" }), null);
+  assert.equal(phoneFromKey({ remoteJid: "status@broadcast", participantPn: "6282134462498@s.whatsapp.net" }), null);
+  assert.equal(phoneFromKey({ remoteJid: "123@newsletter", senderPn: "6282134462498@s.whatsapp.net" }), null);
+  assert.equal(phoneFromKey({ remoteJid: undefined, senderPn: "6282134462498@s.whatsapp.net" }), null);
 });

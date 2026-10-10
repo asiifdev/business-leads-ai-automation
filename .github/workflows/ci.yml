@@ -115,6 +115,10 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install chromium --with-deps
 
+      - name: Sender and inbound checks (real database, fake WhatsApp)
+        # Creates and deletes its own workspace. Keeps the send pipeline honest: pacing, STOP, replies, crash recovery.
+        run: pnpm --filter @prospex/api exec tsx scripts/pipeline-check.ts
+
       - name: Build API
         run: pnpm --filter @prospex/api build
 

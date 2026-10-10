@@ -4,7 +4,8 @@ import { PrismaService } from "../prisma/prisma.service";
 import { MessageWriterService } from "./message-writer.service";
 import { normalizePhone } from "./phone";
 import { inQuietHours, localHour, startOfLocalDay } from "./send-policy";
-import { WHATSAPP_PROVIDER, type WhatsappProvider } from "./whatsapp.provider";
+import { WHATSAPP_PROVIDER, type RoutedWhatsappProvider } from "./whatsapp.provider";
+import { EntitlementsService } from "../entitlements/entitlements.service";
 
 export const MAX_BODY = 1000;
 export const MAX_GENERATE = 200;
@@ -22,6 +23,7 @@ export interface GenerationJob {
 }
 
 export interface SettingsInput {
+  provider?: "baileys" | "cloud_api";
   hourlyLimit?: number;
   dailyLimit?: number;
   quietStartHour?: number;
@@ -38,7 +40,8 @@ export class MessagingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly writer: MessageWriterService,
-    @Inject(WHATSAPP_PROVIDER) private readonly wa: WhatsappProvider,
+    @Inject(WHATSAPP_PROVIDER) private readonly wa: RoutedWhatsappProvider,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   // ---------- account ----------
@@ -49,6 +52,7 @@ export class MessagingService {
 
   async overview(workspaceId: string) {
     const account = await this.account(workspaceId);
+    this.wa.use(workspaceId, account.provider);
     const live = this.wa.state(workspaceId);
     const now = new Date();
     const [sentLastHour, sentToday, drafts, approved] = await Promise.all([
@@ -72,6 +76,9 @@ export class MessagingService {
         nextSendAt: account.nextSendAt,
       },
       qr: live.qr,
+      provider: account.provider,
+      // what this workspace may use: the official API needs the hosted edition, a plan that includes it, and the commercial connector
+      cloudApi: { entitled: await this.entitlements.has(workspaceId, "whatsapp.cloud_api"), installed: this.wa.hasCloud(), edition: this.entitlements.edition },
       usage: { sentLastHour, sentToday, drafts, approved },
       quietNow: inQuietHours(localHour(now, account.timezone), account.quietStartHour, account.quietEndHour),
       /** Rough time to clear the approved queue at the configured pace. */
@@ -80,7 +87,9 @@ export class MessagingService {
   }
 
   async connect(workspaceId: string) {
-    await this.account(workspaceId);
+    const account = await this.account(workspaceId);
+    await this.assertProviderAllowed(workspaceId, account.provider);
+    this.wa.use(workspaceId, account.provider);
     await this.prisma.whatsappAccount.update({ where: { workspaceId }, data: { paused: false, lastError: null } });
     await this.wa.connect(workspaceId);
     return this.overview(workspaceId);
@@ -91,8 +100,22 @@ export class MessagingService {
     return this.overview(workspaceId);
   }
 
+  /** The official API is a commercial feature: refuse it unless this edition, plan and server provide it. */
+  private async assertProviderAllowed(workspaceId: string, provider: string) {
+    if (provider !== "cloud_api") return;
+    await this.entitlements.assert(workspaceId, "whatsapp.cloud_api");
+    if (!this.wa.hasCloud()) throw new BadRequestException("The official WhatsApp connector is not installed on this server. Contact alatpintar.id support.");
+  }
+
   async updateSettings(workspaceId: string, s: SettingsInput) {
-    await this.account(workspaceId);
+    const current = await this.account(workspaceId);
+    if (s.provider && s.provider !== current.provider) {
+      await this.assertProviderAllowed(workspaceId, s.provider);
+      // leave the old connection cleanly before the workspace switches
+      this.wa.use(workspaceId, current.provider);
+      await this.wa.disconnect(workspaceId).catch(() => undefined);
+      this.wa.use(workspaceId, s.provider);
+    }
     if (s.timezone) {
       try { new Intl.DateTimeFormat("en", { timeZone: s.timezone }); } catch { throw new BadRequestException("Unknown timezone"); }
     }

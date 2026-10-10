@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
-import { ArrayMaxSize, ArrayNotEmpty, IsArray, IsBoolean, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from "class-validator";
+import { ArrayMaxSize, ArrayNotEmpty, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from "class-validator";
 import { JwtGuard } from "../auth/jwt.guard";
 import { WorkspaceId } from "../auth/current-workspace.decorator";
 import { FollowUpService } from "./followup.service";
@@ -24,6 +24,7 @@ class GenerateDto {
   @IsOptional() @IsInt() @Min(1) @Max(MAX_GENERATE) limit?: number;
 }
 class SettingsDto {
+  @IsOptional() @IsIn(["baileys", "cloud_api"]) provider?: "baileys" | "cloud_api";
   @IsOptional() @IsInt() @Min(1) @Max(30) hourlyLimit?: number;
   @IsOptional() @IsInt() @Min(1) @Max(200) dailyLimit?: number;
   @IsOptional() @IsInt() @Min(0) @Max(23) quietStartHour?: number;

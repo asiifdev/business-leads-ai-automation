@@ -80,7 +80,7 @@ Read `docs/architecture.md` and `docs/whatsapp-outbox.md` first. Invariants to k
 - **Nothing sends without approval.** Drafts (`ai_outreach`, `ai_reply`, `ai_followup`, `manual`) enter the queue only through `MessagingService.approve`.
 - **Claim, then send.** `SenderService` claims a message with `updateMany(status: approved → sending)`. A message found in `sending` after a restart is marked failed, never resent.
 - **Send policy is pure** (`send-policy.ts`) and unit tested. Change limits there, not inline.
-- **WhatsApp is behind `WhatsappProvider`.** Add the official Cloud API as another implementation.
+- **WhatsApp is behind `WhatsappProvider`**, routed per workspace by `WhatsappGateway`. The official Cloud API is a hosted-only feature (`whatsapp.cloud_api`) delivered by a separate private package, never committed here. See `docs/editions.md`.
 - **Opt-out is absolute.** `message_opt_outs` is checked at approve time and again at send time.
 - Inbound text from customers is untrusted: keep it delimited in prompts, and keep `draftRisks`/`looksLikeInjection` flagging.
 

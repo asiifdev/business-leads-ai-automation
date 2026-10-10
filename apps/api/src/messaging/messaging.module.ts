@@ -9,13 +9,15 @@ import { MessagingController } from "./messaging.controller";
 import { MessagingService } from "./messaging.service";
 import { SenderService } from "./sender.service";
 import { WHATSAPP_PROVIDER } from "./whatsapp.provider";
+import { WhatsappGateway } from "./whatsapp.gateway";
 
 @Module({
   imports: [AuthModule, AiModule],
   controllers: [MessagingController],
   providers: [
     BaileysProvider,
-    { provide: WHATSAPP_PROVIDER, useExisting: BaileysProvider },
+    WhatsappGateway,
+    { provide: WHATSAPP_PROVIDER, useExisting: WhatsappGateway },
     MessageWriterService,
     MessagingService,
     SenderService,

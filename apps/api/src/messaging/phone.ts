@@ -27,9 +27,14 @@ export function phoneFromJid(jid: string | null | undefined): string | null {
 }
 
 /**
- * The sender's phone number of an incoming message. WhatsApp increasingly addresses chats with an opaque "@lid"
- * instead of the phone number; in that case the real number travels in `senderPn` (or `participantPn`).
+ * The sender's phone number of an incoming one-to-one message. WhatsApp increasingly addresses private chats with an
+ * opaque "@lid" instead of the phone number; only then is the real number read from `senderPn` (or `participantPn`).
+ * Groups, broadcast lists and status updates never yield a number: a member of a group is not someone we are chatting
+ * with, and must not be matched to a lead or able to opt a number out.
  */
 export function phoneFromKey(key: { remoteJid?: string | null; senderPn?: string | null; participantPn?: string | null }): string | null {
-  return phoneFromJid(key.remoteJid) ?? phoneFromJid(key.senderPn) ?? phoneFromJid(key.participantPn);
+  const jid = key.remoteJid ?? "";
+  if (jid.endsWith("@s.whatsapp.net")) return phoneFromJid(jid);
+  if (jid.endsWith("@lid")) return phoneFromJid(key.senderPn) ?? phoneFromJid(key.participantPn);
+  return null;
 }

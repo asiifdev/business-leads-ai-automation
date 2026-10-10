@@ -167,4 +167,12 @@ export const id: Record<keyof typeof en, string> = {
   "page.newCampaign.title": "Kampanye baru",
   "page.newCampaign.subtitle": "Siapkan kampanye pencarian lead",
   "nav.brief": "Brief pemasaran",
+  "outbox.conn.title": "Jenis koneksi",
+  "outbox.conn.linked": "Perangkat tertaut",
+  "outbox.conn.linkedNote": "Tautkan nomor WhatsApp mana pun lewat kode QR. Gratis dan tersedia di mana saja, tapi tidak resmi: pakai nomor khusus.",
+  "outbox.conn.official": "WhatsApp Business API resmi",
+  "outbox.conn.officialNote": "Mengirim lewat jalur resmi dengan templat yang disetujui. Risiko diblokir lebih rendah.",
+  "outbox.conn.officialLocked": "Tersedia di paket alatpintar.id yang menyertakannya. Bukan bagian dari edisi open source.",
+  "outbox.conn.officialMissing": "Paket Anda menyertakannya, tetapi konektornya belum terpasang di server ini. Hubungi dukungan alatpintar.id.",
+  "outbox.conn.learnMore": "Pelajari",
 };

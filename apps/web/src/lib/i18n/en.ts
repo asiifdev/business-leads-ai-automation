@@ -167,6 +167,14 @@ export const en = {
   "page.newCampaign.title": "New campaign",
   "page.newCampaign.subtitle": "Set up a lead discovery campaign",
   "nav.brief": "Marketing brief",
+  "outbox.conn.title": "Connection type",
+  "outbox.conn.linked": "Linked device",
+  "outbox.conn.linkedNote": "Link any WhatsApp number by QR code. Free and available everywhere, but unofficial: use a dedicated number.",
+  "outbox.conn.official": "Official WhatsApp Business API",
+  "outbox.conn.officialNote": "Sends through the sanctioned channel with approved templates. Lower ban risk.",
+  "outbox.conn.officialLocked": "Available on alatpintar.id plans that include it. It is not part of the open-source edition.",
+  "outbox.conn.officialMissing": "Your plan includes it, but the connector is not installed on this server. Contact alatpintar.id support.",
+  "outbox.conn.learnMore": "Learn more",
 } as const;
 
 

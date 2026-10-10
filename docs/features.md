@@ -88,7 +88,7 @@ Details: [whatsapp-outbox.md](whatsapp-outbox.md).
 
 Prospex covers one part of marketing well: **finding local businesses, understanding your offer, and conversations by WhatsApp**. It is not yet a full marketing suite. Not built:
 
-- Official WhatsApp Business Cloud API (the sender is built to accept it as a second provider).
+- Official WhatsApp Business Cloud API. Routing, the entitlement check (hosted plans only) and the settings choice exist; the connector is not built. See [editions.md](editions.md).
 - Email, Instagram, LinkedIn or SMS sending. Email and LinkedIn notes are generated for high-priority leads but not sent.
 - Content and SEO writing, social posts and calendars, ads, landing pages, reviews and reputation, attribution beyond the CRM counters.
 - Teams with several users per workspace (the Settings screen shows the current user only), workspace deletion, and per-workspace AI keys (the Settings screen stores them, the AI features read the server `.env`).

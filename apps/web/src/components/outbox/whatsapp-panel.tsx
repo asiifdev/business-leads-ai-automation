@@ -112,11 +112,27 @@ export function WhatsappPanel({ overview, refresh }: { overview: Overview; refre
   );
 }
 
+function ConnectionOption({ selected, onSelect, disabled, title, note, lockHref, lockLabel }: { selected: boolean; onSelect: () => void; disabled?: boolean; title: string; note: string; lockHref?: string; lockLabel?: string }) {
+  return (
+    <div role="radio" aria-checked={selected} aria-disabled={disabled} tabIndex={disabled ? -1 : 0}
+      onClick={() => !disabled && onSelect()} onKeyDown={(e) => { if (!disabled && (e.key === " " || e.key === "Enter")) { e.preventDefault(); onSelect(); } }}
+      className={cn("rounded-lg border p-3 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
+        disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:bg-muted/50", selected && !disabled && "border-primary bg-primary/5")}>
+      <div className="font-medium">{title}</div>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        {note}
+        {lockHref && <> <a href={lockHref} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline">{lockLabel}</a></>}
+      </p>
+    </div>
+  );
+}
+
 function SettingsDialog({ open, onClose, overview, refresh }: { open: boolean; onClose: () => void; overview: Overview; refresh: () => void }) {
   const { t } = useI18n();
   const a = overview.account;
+  const [provider, setProvider] = useState<"baileys" | "cloud_api">(overview.provider);
   const [v, setV] = useState({ hourlyLimit: a.hourlyLimit, dailyLimit: a.dailyLimit, quietStartHour: a.quietStartHour, quietEndHour: a.quietEndHour, timezone: a.timezone, defaultCountryCode: a.defaultCountryCode });
-  useEffect(() => { if (open) setV({ hourlyLimit: a.hourlyLimit, dailyLimit: a.dailyLimit, quietStartHour: a.quietStartHour, quietEndHour: a.quietEndHour, timezone: a.timezone, defaultCountryCode: a.defaultCountryCode }); }, [open, a]);
+  useEffect(() => { if (open) setProvider(overview.provider); if (open) setV({ hourlyLimit: a.hourlyLimit, dailyLimit: a.dailyLimit, quietStartHour: a.quietStartHour, quietEndHour: a.quietEndHour, timezone: a.timezone, defaultCountryCode: a.defaultCountryCode }); }, [open, a]);
 
   const num = (k: "hourlyLimit" | "dailyLimit" | "quietStartHour" | "quietEndHour", label: string, min: number, max: number) => (
     <div className="space-y-1.5">
@@ -125,7 +141,7 @@ function SettingsDialog({ open, onClose, overview, refresh }: { open: boolean; o
     </div>
   );
   const save = async () => {
-    try { await api.patch("/messaging/whatsapp/settings", v); toast.success(t("outbox.set.saved")); onClose(); refresh(); }
+    try { await api.patch("/messaging/whatsapp/settings", provider === overview.provider ? v : { ...v, provider }); toast.success(t("outbox.set.saved")); onClose(); refresh(); }
     catch (e) { toast.error((e as Error).message); }
   };
 
@@ -133,6 +149,19 @@ function SettingsDialog({ open, onClose, overview, refresh }: { open: boolean; o
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>{t("outbox.set.title")}</DialogTitle></DialogHeader>
+        <fieldset className="space-y-2">
+          <legend className="mb-1 text-sm font-medium">{t("outbox.conn.title")}</legend>
+          <ConnectionOption selected={provider === "baileys"} onSelect={() => setProvider("baileys")} title={t("outbox.conn.linked")} note={t("outbox.conn.linkedNote")} />
+          <ConnectionOption
+            selected={provider === "cloud_api"}
+            onSelect={() => setProvider("cloud_api")}
+            disabled={!overview.cloudApi.entitled || !overview.cloudApi.installed}
+            title={t("outbox.conn.official")}
+            note={!overview.cloudApi.entitled ? t("outbox.conn.officialLocked") : !overview.cloudApi.installed ? t("outbox.conn.officialMissing") : t("outbox.conn.officialNote")}
+            lockHref={!overview.cloudApi.entitled ? "https://alatpintar.id" : undefined}
+            lockLabel={t("outbox.conn.learnMore")}
+          />
+        </fieldset>
         <div className="grid grid-cols-2 gap-4">
           {num("hourlyLimit", t("outbox.set.hourly"), 1, 30)}
           {num("dailyLimit", t("outbox.set.daily"), 1, 200)}

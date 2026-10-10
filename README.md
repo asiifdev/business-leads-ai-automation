@@ -38,7 +38,7 @@ If Prospex is useful to you, a star helps other people find it.
 | **Send** | Approved messages go out through WhatsApp one at a time: hourly and daily caps, quiet hours, random gaps, and a typing indicator before each one. |
 | **Reply and follow up** | A reply updates the lead, cancels pending follow-ups, and creates a reply draft for you. Leads that stay silent get up to two follow-up drafts, after 3 and 5 days. A recipient who writes STOP is never contacted again. |
 
-Every feature, its purpose, its limits and how far it has been verified: [docs/features.md](docs/features.md).
+Every feature, its purpose, its limits and how far it has been verified: [docs/features.md](docs/features.md), [editions](docs/editions.md).
 
 ### Screenshots
 
