@@ -17,7 +17,7 @@ test.describe("Campaigns", () => {
     await page.goto("/campaigns/new");
     await expect(page.locator("#name")).toBeVisible();
     await expect(page.getByText("Location", { exact: true })).toBeVisible();
-    await expect(page.getByText("Industry", { exact: true })).toBeVisible();
+    await expect(page.getByText("Target business type")).toBeVisible();
     await expect(page.getByText("Search Queries", { exact: true })).toBeVisible();
   });
 
@@ -28,17 +28,15 @@ test.describe("Campaigns", () => {
     await page.fill("#name", CAMPAIGN.name);
     await page.fill('input[placeholder*="Jakarta"], input[placeholder*="location"], #location', CAMPAIGN.location);
 
-    // Select industry (first available option)
-    await page.locator('[id="industry"], button:has-text("Select industry")').first().click();
-    await page.locator('[role="option"]').first().click();
+    // Target business type is free text
+    await page.fill("#industry", "restoran");
 
     // Search query — scoped test id, since the header's global search box
     // also has a placeholder containing "Search" and would otherwise match.
     await page.getByTestId("query-input").first().fill(CAMPAIGN.query);
 
     // Your service
-    const serviceField = page.locator('textarea, input[placeholder*="service"]').first();
-    if (await serviceField.isVisible()) await serviceField.fill(CAMPAIGN.service);
+    await page.fill("#service", CAMPAIGN.service);
 
     // Submit
     await page.click('button[type="submit"]');
@@ -50,7 +48,7 @@ test.describe("Campaigns", () => {
     await expect(page.getByText(CAMPAIGN.name)).toBeVisible();
 
     // Wait for campaign to complete (CI runs with SCRAPER_MODE=fixture, so no real scraping — should finish in < 30s)
-    await expect(page.getByText("Completed")).toBeVisible({ timeout: 45000 });
+    await expect(page.getByText("Completed", { exact: true }).first()).toBeVisible({ timeout: 45000 });
   });
 
   test("completed campaign shows leads", async ({ authedPage: page }) => {
