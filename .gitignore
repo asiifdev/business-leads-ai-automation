@@ -42,3 +42,6 @@ _legacy/
 
 # WhatsApp linked-device sessions (credentials)
 .wa-auth/
+
+# Playwright MCP scratch output
+.playwright-mcp/

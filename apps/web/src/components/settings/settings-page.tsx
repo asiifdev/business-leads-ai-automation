@@ -18,7 +18,9 @@ import {
 } from "@/components/ui/dialog";
 import { Key, Zap, Users, Shield, Globe, Loader2, Trash2, Plus, Eye, EyeOff, Copy, Check } from "lucide-react";
 import { api } from "@/lib/api";
-import { formatDate } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+import { getInitials } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 interface ApiKey {
   id: string;
@@ -39,6 +41,14 @@ interface Workspace {
 }
 
 export function SettingsPage() {
+  const { user } = useAuth();
+  const { t, lang } = useI18n();
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "short", day: "numeric", year: "numeric" });
+  const withBold = (key: "settings.dialog.key.desc" | "settings.dialog.ws.desc", name: string) => {
+    const [a, b] = t(key, { name: "\u0001" }).split("\u0001");
+    return <>{a}<strong>{name}</strong>{b}</>;
+  };
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceSlug, setWorkspaceSlug] = useState("");
   const [savingWorkspace, setSavingWorkspace] = useState(false);
@@ -97,7 +107,7 @@ export function SettingsPage() {
       setSavedWorkspace(true);
       setTimeout(() => setSavedWorkspace(false), 2000);
     } catch (e) {
-      setWorkspaceError(e instanceof Error ? e.message : "Failed to save workspace");
+      setWorkspaceError(e instanceof Error ? e.message : t("settings.ws.error"));
     } finally {
       setSavingWorkspace(false);
     }
@@ -169,18 +179,18 @@ export function SettingsPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">Manage your workspace settings and integrations</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t("settings.title")}</h1>
+        <p className="text-muted-foreground">{t("settings.subtitle")}</p>
       </div>
 
       <Tabs defaultValue="workspace">
         <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="workspace">Workspace</TabsTrigger>
-          <TabsTrigger value="ai">AI & API Keys</TabsTrigger>
-          <TabsTrigger value="integrations">Integrations</TabsTrigger>
-          <TabsTrigger value="team">Team</TabsTrigger>
+          <TabsTrigger value="workspace">{t("settings.tab.workspace")}</TabsTrigger>
+          <TabsTrigger value="ai">{t("settings.tab.ai")}</TabsTrigger>
+          <TabsTrigger value="integrations">{t("settings.tab.integrations")}</TabsTrigger>
+          <TabsTrigger value="team">{t("settings.tab.team")}</TabsTrigger>
           <TabsTrigger value="danger" className="text-destructive data-[state=active]:text-destructive">
-            Danger Zone
+            {t("settings.tab.danger")}
           </TabsTrigger>
         </TabsList>
 
@@ -189,9 +199,9 @@ export function SettingsPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Globe className="w-4 h-4 text-muted-foreground" />
-                <CardTitle className="text-base">Workspace</CardTitle>
+                <CardTitle className="text-base">{t("settings.ws.title")}</CardTitle>
               </div>
-              <CardDescription>Your workspace information</CardDescription>
+              <CardDescription>{t("settings.ws.desc")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {workspaceError && (
@@ -199,17 +209,17 @@ export function SettingsPage() {
               )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Workspace Name</Label>
+                  <Label>{t("settings.ws.name")}</Label>
                   <Input value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Slug</Label>
+                  <Label>{t("settings.ws.slug")}</Label>
                   <Input value={workspaceSlug} onChange={(e) => setWorkspaceSlug(e.target.value)} />
                 </div>
               </div>
               <Button variant="gradient" onClick={saveWorkspace} disabled={savingWorkspace}>
                 {savingWorkspace && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {savedWorkspace ? "Saved!" : "Save changes"}
+                {savedWorkspace ? t("settings.saved") : t("settings.ws.save")}
               </Button>
             </CardContent>
           </Card>
@@ -221,17 +231,17 @@ export function SettingsPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Key className="w-4 h-4 text-muted-foreground" />
-                <CardTitle className="text-base">AI Configuration</CardTitle>
+                <CardTitle className="text-base">{t("settings.ai.title")}</CardTitle>
               </div>
-              <CardDescription>Configure your AI provider for lead scoring and content generation</CardDescription>
+              <CardDescription>{t("settings.ai.desc")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>OpenAI API Key</Label>
+                <Label>{t("settings.ai.keyLabel")}</Label>
                 <div className="flex gap-2">
                   <Input
                     type={showKey ? "text" : "password"}
-                    placeholder="sk-... or your provider key"
+                    placeholder={t("settings.ai.keyPlaceholder")}
                     value={openaiKey}
                     onChange={(e) => setOpenaiKey(e.target.value)}
                     className="flex-1"
@@ -240,18 +250,19 @@ export function SettingsPage() {
                     variant="outline"
                     size="icon"
                     onClick={() => setShowKey((s) => !s)}
+                    aria-label={t("settings.ai.toggleKey")}
                     className="flex-shrink-0"
                   >
                     {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">Used for AI content generation and lead scoring</p>
+                <p className="text-xs text-muted-foreground">{t("settings.ai.keyHelp")}</p>
               </div>
               <Separator />
               <div className="space-y-2">
-                <Label>Model</Label>
+                <Label>{t("settings.ai.model")}</Label>
                 <Input
-                  placeholder="e.g. gpt-4o-mini, gemini-flash, claude-haiku"
+                  placeholder={t("settings.ai.modelPlaceholder")}
                   value={openaiModel}
                   onChange={(e) => setOpenaiModel(e.target.value)}
                 />
@@ -259,11 +270,11 @@ export function SettingsPage() {
               <Separator />
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Custom Base URL</Label>
-                  <Badge variant="secondary" className="text-xs">Optional (OpenRouter/Ollama)</Badge>
+                  <Label>{t("settings.ai.baseUrl")}</Label>
+                  <Badge variant="secondary" className="text-xs">{t("settings.ai.baseUrlOptional")}</Badge>
                 </div>
                 <Input
-                  placeholder="e.g. http://localhost:8045/v1"
+                  placeholder={t("settings.ai.basePlaceholder")}
                   value={openaiBase}
                   onChange={(e) => setOpenaiBase(e.target.value)}
                 />
@@ -274,7 +285,7 @@ export function SettingsPage() {
                 ) : savedIntegration ? (
                   <Check className="mr-2 h-4 w-4" />
                 ) : null}
-                {savedIntegration ? "Saved!" : "Save AI config"}
+                {savedIntegration ? t("settings.saved") : t("settings.ai.save")}
               </Button>
             </CardContent>
           </Card>
@@ -285,24 +296,24 @@ export function SettingsPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Key className="w-4 h-4 text-muted-foreground" />
-                  <CardTitle className="text-base">Prospex API Keys</CardTitle>
+                  <CardTitle className="text-base">{t("settings.keys.title")}</CardTitle>
                 </div>
               </div>
-              <CardDescription>Keys to access the Prospex API from external tools</CardDescription>
+              <CardDescription>{t("settings.keys.desc")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* New key reveal */}
               {newKey && (
                 <div className="bg-success/10 border border-success/30 rounded-lg p-3 space-y-2">
-                  <p className="text-sm font-medium text-success">New key created — copy it now, it won&apos;t be shown again</p>
+                  <p className="text-sm font-medium text-success">{t("settings.keys.created")}</p>
                   <div className="flex gap-2">
                     <Input value={newKey.key} readOnly className="font-mono text-xs" />
-                    <Button variant="outline" size="icon" onClick={() => copyKey(newKey.key)}>
+                    <Button variant="outline" size="icon" onClick={() => copyKey(newKey.key)} aria-label={t("settings.keys.copy")}>
                       {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
                     </Button>
                   </div>
                   <Button variant="ghost" size="sm" className="text-xs" onClick={() => setNewKey(null)}>
-                    Dismiss
+                    {t("settings.keys.dismiss")}
                   </Button>
                 </div>
               )}
@@ -310,7 +321,7 @@ export function SettingsPage() {
               {/* Create new key */}
               <div className="flex gap-2">
                 <Input
-                  placeholder="Key name (e.g. Production, Zapier)"
+                  placeholder={t("settings.keys.namePlaceholder")}
                   value={newKeyName}
                   onChange={(e) => setNewKeyName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && createApiKey()}
@@ -319,7 +330,7 @@ export function SettingsPage() {
                   onClick={createApiKey}
                   disabled={creating || !newKeyName.trim()}
                   className="flex-shrink-0"
-                  aria-label="Create API key"
+                  aria-label={t("settings.keys.create")}
                 >
                   {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 </Button>
@@ -331,7 +342,7 @@ export function SettingsPage() {
                   <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                 </div>
               ) : apiKeys.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No API keys yet</p>
+                <p className="text-sm text-muted-foreground text-center py-4">{t("settings.keys.empty")}</p>
               ) : (
                 <div className="space-y-2">
                   {apiKeys.map((key) => (
@@ -339,8 +350,8 @@ export function SettingsPage() {
                       <div>
                         <p className="text-sm font-medium">{key.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          Created {formatDate(key.createdAt)}
-                          {key.lastUsedAt && ` · Last used ${formatDate(key.lastUsedAt)}`}
+                          {t("settings.keys.createdOn", { date: formatDate(key.createdAt) })}
+                          {key.lastUsedAt && ` · ${t("settings.keys.lastUsed", { date: formatDate(key.lastUsedAt) })}`}
                         </p>
                       </div>
                       <Button
@@ -348,7 +359,7 @@ export function SettingsPage() {
                         size="icon"
                         className="text-muted-foreground hover:text-destructive"
                         onClick={() => setKeyPendingDelete(key)}
-                        aria-label="Delete API key"
+                        aria-label={t("settings.keys.delete")}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -365,24 +376,24 @@ export function SettingsPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-muted-foreground" />
-                <CardTitle className="text-base">Integrations</CardTitle>
+                <CardTitle className="text-base">{t("settings.integ.title")}</CardTitle>
               </div>
-              <CardDescription>Connect external services</CardDescription>
+              <CardDescription>{t("settings.integ.desc")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 {[
-                  { name: "WhatsApp Business", description: "Send WhatsApp messages to leads" },
-                  { name: "Gmail", description: "Send emails directly from Prospex" },
-                  { name: "Telegram", description: "Get notifications via Telegram" },
-                  { name: "Webhook", description: "Send data to any HTTP endpoint" },
+                  { name: "WhatsApp Business", description: t("settings.integ.whatsapp") },
+                  { name: "Gmail", description: t("settings.integ.gmail") },
+                  { name: "Telegram", description: t("settings.integ.telegram") },
+                  { name: "Webhook", description: t("settings.integ.webhook") },
                 ].map((integration) => (
                   <div key={integration.name} className="flex items-center justify-between p-3 border rounded-lg">
                     <div>
                       <p className="text-sm font-medium">{integration.name}</p>
                       <p className="text-xs text-muted-foreground">{integration.description}</p>
                     </div>
-                    <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
+                    <Badge variant="secondary" className="text-xs">{t("settings.integ.comingSoon")}</Badge>
                   </div>
                 ))}
               </div>
@@ -395,22 +406,22 @@ export function SettingsPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-muted-foreground" />
-                <CardTitle className="text-base">Team Members</CardTitle>
+                <CardTitle className="text-base">{t("settings.team.title")}</CardTitle>
               </div>
-              <CardDescription>Invite your team to collaborate</CardDescription>
+              <CardDescription>{t("settings.team.desc")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 <div className="flex items-center gap-3 p-3 border rounded-lg">
-                  <div className="w-8 h-8 bg-gradient-brand rounded-full flex items-center justify-center text-white text-sm font-bold">A</div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Admin</p>
-                    <p className="text-xs text-muted-foreground">admin@prospex.io</p>
+                  <div className="w-8 h-8 bg-gradient-brand rounded-full flex items-center justify-center text-white text-sm font-bold">{user ? getInitials(user.name) : "?"}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-sm font-medium">{user?.name ?? "—"}</p>
+                    <p className="truncate text-xs text-muted-foreground">{user?.email ?? ""}</p>
                   </div>
-                  <Badge>Owner</Badge>
+                  <Badge>{t("settings.team.owner")}</Badge>
                 </div>
-                <Button variant="outline" className="w-full">
-                  <Users className="mr-2 h-4 w-4" />Invite team member
+                <Button variant="outline" className="w-full" disabled title={t("settings.team.inviteSoon")}>
+                  <Users className="mr-2 h-4 w-4" />{t("settings.team.invite")} · {t("settings.team.inviteSoon")}
                 </Button>
               </div>
             </CardContent>
@@ -422,17 +433,17 @@ export function SettingsPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-destructive" />
-                <CardTitle className="text-base text-destructive">Danger Zone</CardTitle>
+                <CardTitle className="text-base text-destructive">{t("settings.danger.title")}</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">Delete workspace</p>
-                  <p className="text-xs text-muted-foreground">Permanently delete your workspace and all data</p>
+                  <p className="text-sm font-medium">{t("settings.danger.deleteTitle")}</p>
+                  <p className="text-xs text-muted-foreground">{t("settings.danger.deleteDesc")}</p>
                 </div>
-                <Button variant="destructive" size="sm" onClick={() => setConfirmDeleteWorkspace(true)}>
-                  Delete workspace
+                <Button variant="destructive" size="sm" disabled title={t("settings.danger.unavailable")}>
+                  {t("settings.danger.deleteTitle")}
                 </Button>
               </div>
             </CardContent>
@@ -443,42 +454,22 @@ export function SettingsPage() {
       <Dialog open={!!keyPendingDelete} onOpenChange={(open) => !open && setKeyPendingDelete(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete API key?</DialogTitle>
+            <DialogTitle>{t("settings.dialog.key.title")}</DialogTitle>
             <DialogDescription>
               {keyPendingDelete && (
-                <>
-                  This will immediately revoke <strong>{keyPendingDelete.name}</strong>. Any integration using
-                  this key will stop working. This can&apos;t be undone.
-                </>
+                withBold("settings.dialog.key.desc", keyPendingDelete.name)
               )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setKeyPendingDelete(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setKeyPendingDelete(null)}>{t("settings.dialog.cancel")}</Button>
             <Button variant="destructive" onClick={() => keyPendingDelete && deleteApiKey(keyPendingDelete.id)}>
-              Delete key
+              {t("settings.dialog.key.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={confirmDeleteWorkspace} onOpenChange={setConfirmDeleteWorkspace}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete workspace?</DialogTitle>
-            <DialogDescription>
-              This will permanently delete <strong>{workspaceName || "this workspace"}</strong>{" "}
-              and all of its leads, campaigns, and data. This can&apos;t be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDeleteWorkspace(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => setConfirmDeleteWorkspace(false)}>
-              Delete workspace
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

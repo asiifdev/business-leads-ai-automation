@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
 import { useI18n } from "@/lib/i18n";
-import type { MessageKey } from "@/lib/i18n/en";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 const navItems = [
   { title: "nav.dashboard" as MessageKey, href: "/dashboard", icon: LayoutDashboard },

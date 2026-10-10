@@ -1,6 +1,6 @@
-import type { MessageKey } from "./en";
+import type { en } from "./en";
 
-export const id: Record<MessageKey, string> = {
+export const id: Record<keyof typeof en, string> = {
   "nav.dashboard": "Dasbor",
   "nav.campaigns": "Kampanye",
   "nav.leads": "Lead",
@@ -155,4 +155,15 @@ export const id: Record<MessageKey, string> = {
   "outbox.rejectedN": "{n} tidak disetujui: {reason}",
   "outbox.error.load": "Gagal memuat Kotak Keluar",
   "outbox.flagged": "Perlu dicek lebih teliti sebelum disetujui: draf ini atau pesan yang dijawab memuat tautan, harga, diskon, atau teks yang terbaca seperti perintah untuk AI.",
+  "header.noNotifications": "Tidak ada yang perlu Anda perhatikan.",
+  "header.draftsWaiting": "{n} draf menunggu tinjauan Anda",
+  "header.needsAttention": "{n} pesan perlu perhatian",
+  "page.analytics.title": "Analitik",
+  "page.analytics.subtitle": "Wawasan dan metrik performa",
+  "page.campaigns.title": "Kampanye",
+  "page.campaigns.subtitle": "Kelola kampanye pencarian lead Anda",
+  "page.leads.title": "Lead",
+  "page.leads.subtitle": "Semua lead dari seluruh kampanye Anda",
+  "page.newCampaign.title": "Kampanye baru",
+  "page.newCampaign.subtitle": "Siapkan kampanye pencarian lead",
 };

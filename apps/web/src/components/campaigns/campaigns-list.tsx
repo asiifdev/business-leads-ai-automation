@@ -16,8 +16,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Plus, Search, Megaphone, MapPin, Users, Star, MoreHorizontal, Loader2, ChevronRight, Download, Eye } from "lucide-react";
 import { useCampaigns, type Campaign } from "@/hooks/use-campaigns";
-import { formatDate } from "@/lib/utils";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 const container = {
   hidden: { opacity: 0 },
@@ -29,19 +29,21 @@ const item = {
 };
 
 function StatusBadge({ campaign }: { campaign: Campaign }) {
+  const { t } = useI18n();
   if (campaign.status === "running") return (
     <div className="flex items-center gap-1.5">
       <Loader2 className="w-3 h-3 animate-spin text-info" />
       <span className="text-xs text-info font-medium">{campaign.progress}%</span>
     </div>
   );
-  if (campaign.status === "completed") return <Badge variant="success">Completed</Badge>;
-  if (campaign.status === "failed") return <Badge variant="destructive">Failed</Badge>;
-  if (campaign.status === "draft") return <Badge variant="secondary">Draft</Badge>;
-  return <Badge variant="outline">{campaign.status}</Badge>;
+  if (campaign.status === "completed") return <Badge variant="success">{t("camp.status.completed")}</Badge>;
+  if (campaign.status === "failed") return <Badge variant="destructive">{t("camp.status.failed")}</Badge>;
+  if (campaign.status === "draft") return <Badge variant="secondary">{t("camp.status.draft")}</Badge>;
+  return <Badge variant="outline">{campaign.status === "paused" ? t("camp.status.paused") : campaign.status}</Badge>;
 }
 
 export function CampaignsList() {
+  const { t, lang } = useI18n();
   const { campaigns, loading } = useCampaigns();
   const [search, setSearch] = useState("");
 
@@ -57,10 +59,10 @@ export function CampaignsList() {
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search campaigns..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
+          <Input placeholder={t("camp.list.search")} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
         </div>
         <Button asChild variant="gradient" className="ml-auto">
-          <Link href="/campaigns/new"><Plus className="mr-2 h-4 w-4" />New Campaign</Link>
+          <Link href="/campaigns/new"><Plus className="mr-2 h-4 w-4" />{t("camp.list.new")}</Link>
         </Button>
       </div>
 
@@ -84,10 +86,10 @@ export function CampaignsList() {
         <Card>
           <CardContent className="py-16 text-center">
             <Megaphone className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-50" />
-            <p className="font-medium">No campaigns found</p>
-            <p className="text-sm text-muted-foreground mb-4">Create your first campaign to start finding leads</p>
+            <p className="font-medium">{t("camp.list.emptyTitle")}</p>
+            <p className="text-sm text-muted-foreground mb-4">{t("camp.list.emptyDesc")}</p>
             <Button asChild variant="gradient">
-              <Link href="/campaigns/new"><Plus className="mr-2 h-4 w-4" />New Campaign</Link>
+              <Link href="/campaigns/new"><Plus className="mr-2 h-4 w-4" />{t("camp.list.new")}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -109,7 +111,7 @@ export function CampaignsList() {
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1 capitalize"><Megaphone className="w-3 h-3" />{c.industry}</span>
                         <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{c.location}</span>
-                        <span className="hidden sm:block">{formatDate(c.createdAt)}</span>
+                        <span className="hidden sm:block">{new Date(c.createdAt).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
                       </div>
                       {c.status === "running" && (
                         <Progress value={c.progress} className="h-1 mt-2 max-w-[200px]" />
@@ -118,11 +120,11 @@ export function CampaignsList() {
                     <div className="flex items-center gap-4 text-center">
                       <div className="hidden sm:block">
                         <div className="flex items-center gap-1 justify-center"><Users className="w-3 h-3 text-muted-foreground" /><span className="text-sm font-semibold">{c.totalLeads}</span></div>
-                        <p className="text-xs text-muted-foreground">Leads</p>
+                        <p className="text-xs text-muted-foreground">{t("camp.list.leads")}</p>
                       </div>
                       <div className="hidden sm:block">
                         <div className="flex items-center gap-1 justify-center"><Star className="w-3 h-3 text-warning" /><span className="text-sm font-semibold">{c.priorityLeads}</span></div>
-                        <p className="text-xs text-muted-foreground">Priority</p>
+                        <p className="text-xs text-muted-foreground">{t("camp.list.priority")}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
@@ -134,10 +136,10 @@ export function CampaignsList() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild>
-                            <Link href={`/campaigns/${c.id}`}><Eye className="w-3.5 h-3.5 mr-1" />View details</Link>
+                            <Link href={`/campaigns/${c.id}`}><Eye className="w-3.5 h-3.5 mr-1" />{t("camp.list.viewDetails")}</Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => api.download(`/export/leads/csv?campaignId=${c.id}`, `leads-${c.id}.csv`)}>
-                            <Download className="w-3.5 h-3.5 mr-1" />Export leads (CSV)
+                            <Download className="w-3.5 h-3.5 mr-1" />{t("camp.list.exportCsv")}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

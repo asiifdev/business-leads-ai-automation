@@ -221,14 +221,13 @@ Done:
 - [x] AI Style: learn your voice from WhatsApp exports
 - [x] Outbox: approve, edit, reject, then send one at a time with limits
 - [x] WhatsApp through Baileys: pairing, replies as drafts, STOP handling, follow-up drafts
-- [x] English and Indonesian interface (navigation, AI Style and Outbox translated so far)
+- [x] English and Indonesian interface on every screen
 
 Next:
 
 - [ ] Official WhatsApp Business Cloud API provider
 - [ ] Knowledge base screen (today it is API only)
 - [ ] Per-workspace AI provider keys for the AI features (the Settings screen stores them encrypted today, but drafts, AI Style and the knowledge base read the server `.env`)
-- [ ] Translate the remaining screens to Indonesian
 - [ ] Edit-rate and reply-rate dashboard, to see whether drafts are improving
 - [ ] Function-calling agent and MCP server, so AI agents can work your pipeline
 - [ ] Proposals and invoices

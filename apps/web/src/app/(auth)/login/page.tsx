@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { LoginForm } from "@/components/auth/login-form";
 import { AuthMotionWrapper } from "@/components/auth/auth-motion-wrapper";
+import { AuthHeading, AuthLanguageToggle } from "@/components/auth/auth-heading";
 
 export const metadata: Metadata = { title: "Sign In | Prospex" };
 
@@ -10,6 +11,7 @@ export default function LoginPage() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/20 via-transparent to-transparent" />
       <div className="absolute -top-24 -left-24 w-72 h-72 bg-accent/20 rounded-full blur-3xl animate-glow-pulse" />
       <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-primary/30 rounded-full blur-3xl animate-glow-pulse" />
+      <AuthLanguageToggle />
       <AuthMotionWrapper>
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
@@ -18,8 +20,7 @@ export default function LoginPage() {
             </div>
             <span className="text-white font-semibold text-xl">Prospex</span>
           </div>
-          <h1 className="text-2xl font-bold text-white">Welcome back</h1>
-          <p className="text-slate-400 mt-1">Sign in to your workspace</p>
+          <AuthHeading kind="login" />
         </div>
         <LoginForm />
       </AuthMotionWrapper>

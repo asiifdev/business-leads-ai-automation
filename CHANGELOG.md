@@ -10,10 +10,13 @@
 - **AI Style.** Learn your writing voice from WhatsApp chat exports (statistics plus retrieval of your real replies, no raw chats stored). Test page with a full trace of how each draft was made.
 - **Knowledge base API** with retrieval on pgvector, used to ground drafts.
 - **Draft writer** that uses the lead's real data, your style and your knowledge base, and flags drafts that contain unsupported links, prices, discounts or bank details.
-- **English and Indonesian interface**, switchable in the header (navigation, AI Style and Outbox translated so far).
+- **English and Indonesian interface** on every screen, switchable in the header and on the login and register pages. The language is kept in a cookie so the server renders it.
 - PostgreSQL image is now `pgvector/pgvector:pg16`. License is AGPL-3.0-or-later with a commercial option.
 
 ### Changed
+- Header notifications now show real counts (drafts waiting for review, messages that failed) instead of hard-coded sample entries.
+- Settings: the team list shows the signed-in user instead of a fixed "Admin" entry, and the "Delete workspace" and "Invite team member" buttons are disabled because neither is implemented yet. The AI key help text now says the AI features read the server `.env`.
+- Dashboard: the trend chart badge says "Last 6 campaigns", which is what it plots.
 - Lead outreach text is no longer generated at scrape time. WhatsApp and Instagram messages come from the draft writer and wait for approval; email, LinkedIn and call notes are still generated when an AI provider is configured.
 - Sidebar: fixed a 5px overflow caused by long workspace names, unified the active-item style, removed the stale "New" badge.
 - AI Style page redesigned.

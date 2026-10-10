@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
-import type { MessageKey } from "@/lib/i18n/en";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /* Hallmark · component: page (AI Style) · genre: modern-minimal · theme: existing Prospex tokens
  * layout: workbench (voice profile rail + draft tester) · no new colours, no new fonts

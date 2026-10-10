@@ -155,6 +155,17 @@ export const en = {
   "outbox.rejectedN": "{n} not approved: {reason}",
   "outbox.error.load": "Could not load the Outbox",
   "outbox.flagged": "Worth a closer look before you approve: this draft or the message it answers contains links, prices, discounts or text that reads like instructions to the AI.",
+  "header.noNotifications": "Nothing needs your attention.",
+  "header.draftsWaiting": "{n} drafts waiting for your review",
+  "header.needsAttention": "{n} messages need attention",
+  "page.analytics.title": "Analytics",
+  "page.analytics.subtitle": "Performance insights and metrics",
+  "page.campaigns.title": "Campaigns",
+  "page.campaigns.subtitle": "Manage your lead generation campaigns",
+  "page.leads.title": "Leads",
+  "page.leads.subtitle": "All leads across your campaigns",
+  "page.newCampaign.title": "New campaign",
+  "page.newCampaign.subtitle": "Set up a lead discovery campaign",
 } as const;
 
-export type MessageKey = keyof typeof en;
+

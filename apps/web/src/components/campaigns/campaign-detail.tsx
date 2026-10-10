@@ -14,6 +14,7 @@ import { useCampaign } from "@/hooks/use-campaigns";
 import { useLeads } from "@/hooks/use-leads";
 import { LeadsTable } from "@/components/leads/leads-table";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 const LeadsMap = dynamic(() => import("@/components/leads/leads-map").then((m) => m.LeadsMap), {
   ssr: false,
@@ -30,6 +31,7 @@ const item = {
 };
 
 export function CampaignDetail({ id }: { id: string }) {
+  const { t } = useI18n();
   const { campaign, loading, refresh } = useCampaign(id);
   const { leads, loading: leadsLoading, refresh: refreshLeads } = useLeads({ campaignId: id });
 
@@ -68,7 +70,7 @@ export function CampaignDetail({ id }: { id: string }) {
     );
   }
   if (!campaign) {
-    return <div className="text-center py-20 text-muted-foreground">Campaign not found</div>;
+    return <div className="text-center py-20 text-muted-foreground">{t("camp.detail.notFound")}</div>;
   }
 
   return (
@@ -80,13 +82,13 @@ export function CampaignDetail({ id }: { id: string }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold truncate">{campaign.name}</h1>
-            {campaign.status === "completed" && <Badge variant="success">Completed</Badge>}
+            {campaign.status === "completed" && <Badge variant="success">{t("camp.status.completed")}</Badge>}
             {campaign.status === "running" && (
               <Badge variant="info" className="flex items-center gap-1">
                 <Loader2 className="w-3 h-3 animate-spin" />{campaign.progress}%
               </Badge>
             )}
-            {campaign.status === "draft" && <Badge variant="secondary">Draft</Badge>}
+            {campaign.status === "draft" && <Badge variant="secondary">{t("camp.status.draft")}</Badge>}
           </div>
           <p className="text-muted-foreground text-sm capitalize">{campaign.industry} · {campaign.location}</p>
         </div>
@@ -105,10 +107,10 @@ export function CampaignDetail({ id }: { id: string }) {
 
       <motion.div variants={item} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Leads", value: campaign.totalLeads, icon: Users, color: "text-info" },
-          { label: "Priority Leads", value: campaign.priorityLeads, icon: Star, color: "text-warning" },
-          { label: "High Quality", value: campaign.highQualityLeads, icon: TrendingUp, color: "text-success" },
-          { label: "Avg Score", value: campaign.averageScore || "—", icon: MapPin, color: "text-primary" },
+          { label: t("camp.detail.totalLeads"), value: campaign.totalLeads, icon: Users, color: "text-info" },
+          { label: t("camp.detail.priorityLeads"), value: campaign.priorityLeads, icon: Star, color: "text-warning" },
+          { label: t("camp.detail.highQuality"), value: campaign.highQualityLeads, icon: TrendingUp, color: "text-success" },
+          { label: t("camp.detail.avgScore"), value: campaign.averageScore || "—", icon: MapPin, color: "text-primary" },
         ].map((s) => (
           <Card key={s.label} interactive>
             <CardContent className="pt-4 pb-4">
@@ -128,7 +130,7 @@ export function CampaignDetail({ id }: { id: string }) {
             <CardContent className="pt-4">
               <div className="flex justify-between text-sm mb-2">
                 <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-info" />Scraping in progress...
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-info" />{t("camp.detail.scraping")}
                 </span>
                 <span className="font-medium">{campaign.progress}%</span>
               </div>
@@ -143,18 +145,18 @@ export function CampaignDetail({ id }: { id: string }) {
           <Tabs defaultValue="list">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Leads ({leads.length})</CardTitle>
+                <CardTitle className="text-base">{t("camp.detail.leadsTitle", { n: leads.length })}</CardTitle>
                 <div className="flex items-center gap-2">
                   <TabsList>
                     <TabsTrigger value="list" className="text-xs">
-                      <List className="mr-1 w-3 h-3" />List
+                      <List className="mr-1 w-3 h-3" />{t("camp.detail.tabList")}
                     </TabsTrigger>
                     <TabsTrigger value="map" className="text-xs">
-                      <MapIcon className="mr-1 w-3 h-3" />Map
+                      <MapIcon className="mr-1 w-3 h-3" />{t("camp.detail.tabMap")}
                     </TabsTrigger>
                   </TabsList>
                   <Button variant="outline" size="sm" className="text-xs">
-                    <Search className="mr-1 w-3 h-3" />Filter
+                    <Search className="mr-1 w-3 h-3" />{t("camp.detail.filter")}
                   </Button>
                 </div>
               </div>

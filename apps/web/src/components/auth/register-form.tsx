@@ -8,11 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useI18n } from "@/lib/i18n";
 
 type FieldErrors = Partial<Record<"name" | "email" | "password" | "workspace", string>>;
 
 export function RegisterForm() {
   const router = useRouter();
+  const { t } = useI18n();
   const { register } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,10 +26,10 @@ export function RegisterForm() {
 
   const validate = () => {
     const errors: FieldErrors = {};
-    if (!form.name.trim()) errors.name = "Required";
-    if (!form.workspace.trim()) errors.workspace = "Required";
-    if (!/^\S+@\S+\.\S+$/.test(form.email)) errors.email = "Enter a valid email";
-    if (form.password.length < 8) errors.password = "Min. 8 characters";
+    if (!form.name.trim()) errors.name = t("auth.register.required");
+    if (!form.workspace.trim()) errors.workspace = t("auth.register.required");
+    if (!/^\S+@\S+\.\S+$/.test(form.email)) errors.email = t("auth.register.invalidEmail");
+    if (form.password.length < 8) errors.password = t("auth.register.passwordMin");
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -41,7 +43,7 @@ export function RegisterForm() {
       await register(form.name, form.email, form.password, form.workspace);
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      setError(err instanceof Error ? err.message : t("auth.register.failed"));
       setLoading(false);
     }
   };
@@ -58,30 +60,30 @@ export function RegisterForm() {
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-slate-300 text-sm">Full name</Label>
+              <Label htmlFor="name" className="text-slate-300 text-sm">{t("auth.register.fullName")}</Label>
               <Input id="name" placeholder="Ahmad Siif" value={form.name} onChange={set("name")}
                 className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:border-primary"
                 aria-invalid={!!fieldErrors.name} required />
               {fieldErrors.name && <p className="text-xs text-destructive">{fieldErrors.name}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="workspace" className="text-slate-300 text-sm">Workspace name</Label>
-              <Input id="workspace" placeholder="My Company" value={form.workspace} onChange={set("workspace")}
+              <Label htmlFor="workspace" className="text-slate-300 text-sm">{t("auth.register.workspace")}</Label>
+              <Input id="workspace" placeholder={t("auth.register.workspacePlaceholder")} value={form.workspace} onChange={set("workspace")}
                 className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:border-primary"
                 aria-invalid={!!fieldErrors.workspace} required />
               {fieldErrors.workspace && <p className="text-xs text-destructive">{fieldErrors.workspace}</p>}
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="reg-email" className="text-slate-300 text-sm">Email address</Label>
-            <Input id="reg-email" type="email" placeholder="you@company.com" value={form.email} onChange={set("email")}
+            <Label htmlFor="reg-email" className="text-slate-300 text-sm">{t("auth.email")}</Label>
+            <Input id="reg-email" type="email" placeholder={t("auth.emailPlaceholder")} value={form.email} onChange={set("email")}
               className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:border-primary"
               aria-invalid={!!fieldErrors.email} required />
             {fieldErrors.email && <p className="text-xs text-destructive">{fieldErrors.email}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="reg-password" className="text-slate-300 text-sm">Password</Label>
-            <Input id="reg-password" type="password" placeholder="Min. 8 characters" value={form.password} onChange={set("password")}
+            <Label htmlFor="reg-password" className="text-slate-300 text-sm">{t("auth.password")}</Label>
+            <Input id="reg-password" type="password" placeholder={t("auth.passwordMin")} value={form.password} onChange={set("password")}
               className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:border-primary"
               aria-invalid={!!fieldErrors.password}
               required minLength={8} />
@@ -91,7 +93,7 @@ export function RegisterForm() {
         <CardFooter className="pb-6">
           <Button type="submit" variant="gradient" className="w-full h-10" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {loading ? "Creating account..." : "Create free account"}
+            {loading ? t("auth.register.submitting") : t("auth.register.submit")}
           </Button>
         </CardFooter>
       </form>

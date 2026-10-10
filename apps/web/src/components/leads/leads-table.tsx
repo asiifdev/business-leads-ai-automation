@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Phone, Globe, MapPin, Star, ChevronRight, Users } from "lucide-react";
 import type { Lead } from "@/hooks/use-leads";
+import { useI18n } from "@/lib/i18n";
+import { leadsEn } from "@/lib/i18n/features-leads.en";
 
 const container = {
   hidden: { opacity: 0 },
@@ -17,12 +19,16 @@ const item = {
 };
 
 function PriorityBadge({ priority }: { priority: Lead["priority"] }) {
-  if (priority === "HIGH") return <Badge variant="success">High</Badge>;
-  if (priority === "MEDIUM") return <Badge variant="warning">Medium</Badge>;
-  return <Badge variant="secondary">Low</Badge>;
+  const { t } = useI18n();
+  const key = `leads.priority.${priority}` as const;
+  const label = key in leadsEn ? t(key as keyof typeof leadsEn) : priority;
+  if (priority === "HIGH") return <Badge variant="success">{label}</Badge>;
+  if (priority === "MEDIUM") return <Badge variant="warning">{label}</Badge>;
+  return <Badge variant="secondary">{label}</Badge>;
 }
 
 function CrmBadge({ status }: { status: Lead["crmStatus"] }) {
+  const { t } = useI18n();
   const map: Record<Lead["crmStatus"], "secondary" | "info" | "warning" | "success" | "destructive"> = {
     new: "secondary",
     contacted: "info",
@@ -32,7 +38,7 @@ function CrmBadge({ status }: { status: Lead["crmStatus"] }) {
     won: "success",
     lost: "destructive",
   };
-  return <Badge variant={map[status]} className="capitalize">{status}</Badge>;
+  return <Badge variant={map[status]} className="capitalize">{`leads.crm.${status}` in leadsEn ? t(`leads.crm.${status}` as keyof typeof leadsEn) : status}</Badge>;
 }
 
 interface Props {
@@ -41,6 +47,7 @@ interface Props {
 }
 
 export function LeadsTable({ leads, loading }: Props) {
+  const { t } = useI18n();
   if (loading) {
     return (
       <div className="divide-y">
@@ -63,8 +70,8 @@ export function LeadsTable({ leads, loading }: Props) {
         <div className="p-3 rounded-full bg-muted">
           <Users className="w-5 h-5 text-muted-foreground" />
         </div>
-        <p className="text-sm font-medium">No leads found</p>
-        <p className="text-xs text-muted-foreground">Try adjusting your search or filters</p>
+        <p className="text-sm font-medium">{t("leads.table.empty")}</p>
+        <p className="text-xs text-muted-foreground">{t("leads.table.emptyHint")}</p>
       </div>
     );
   }
@@ -105,7 +112,7 @@ export function LeadsTable({ leads, loading }: Props) {
             )}
             <div className="text-right hidden sm:block">
               <div className="text-sm font-bold text-primary">{lead.score}</div>
-              <div className="text-[10px] text-muted-foreground">Score</div>
+              <div className="text-[10px] text-muted-foreground">{t("leads.table.score")}</div>
             </div>
             <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
               <Link href={`/leads/${lead.id}`}><ChevronRight className="h-4 w-4" /></Link>

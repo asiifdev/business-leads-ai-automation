@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Phone, Globe, MapPin, Star, Mail, Loader2, Copy } from "lucide-react";
 import { useLead } from "@/hooks/use-leads";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
+import { leadsEn } from "@/lib/i18n/features-leads.en";
 
 const container = {
   hidden: { opacity: 0 },
@@ -22,6 +24,7 @@ const item = {
 };
 
 export function LeadDetail({ id }: { id: string }) {
+  const { t } = useI18n();
   const { lead, loading, refresh } = useLead(id);
   const [crmStatus, setCrmStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -79,7 +82,7 @@ export function LeadDetail({ id }: { id: string }) {
     );
   }
   if (!lead) {
-    return <div className="text-center py-20 text-muted-foreground">Lead not found</div>;
+    return <div className="text-center py-20 text-muted-foreground">{t("leads.detail.notFound")}</div>;
   }
 
   return (
@@ -91,19 +94,19 @@ export function LeadDetail({ id }: { id: string }) {
     >
       <motion.div variants={item} className="flex items-center gap-3">
         <Button variant="ghost" size="icon" asChild>
-          <Link href="/leads"><ArrowLeft className="h-4 w-4" /></Link>
+          <Link href="/leads" aria-label={t("leads.detail.back")}><ArrowLeft className="h-4 w-4" /></Link>
         </Button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold">{lead.name}</h1>
-            {lead.priority === "HIGH" && <Badge variant="success">High Priority</Badge>}
-            {lead.hasWebsite && <Badge variant="info">Has Website</Badge>}
+            {lead.priority === "HIGH" && <Badge variant="success">{t("leads.detail.highPriority")}</Badge>}
+            {lead.hasWebsite && <Badge variant="info">{t("leads.detail.hasWebsite")}</Badge>}
           </div>
           <p className="text-sm text-muted-foreground">{lead.industry} · {lead.address}</p>
         </div>
         <div className="text-right flex-shrink-0">
           <div className="text-2xl font-bold text-primary">{lead.score}</div>
-          <div className="text-xs text-muted-foreground">AI Score</div>
+          <div className="text-xs text-muted-foreground">{t("leads.detail.aiScore")}</div>
         </div>
       </motion.div>
 
@@ -112,14 +115,14 @@ export function LeadDetail({ id }: { id: string }) {
           {/* Contact Info */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Contact Info</CardTitle>
+              <CardTitle className="text-base">{t("leads.detail.contact")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {[
-                { icon: Phone, label: "Phone", value: lead.phone },
-                { icon: Globe, label: "Website", value: lead.website },
-                { icon: MapPin, label: "Address", value: lead.address },
-                { icon: Star, label: "Rating", value: lead.rating ? `${lead.rating} stars on Google Maps` : undefined },
+                { icon: Phone, label: t("leads.detail.phone"), value: lead.phone },
+                { icon: Globe, label: t("leads.detail.website"), value: lead.website },
+                { icon: MapPin, label: t("leads.detail.address"), value: lead.address },
+                { icon: Star, label: t("leads.detail.rating"), value: lead.rating ? t("leads.detail.ratingValue", { rating: lead.rating }) : undefined },
               ]
                 .filter((i) => i.value)
                 .map((item) => (
@@ -143,20 +146,20 @@ export function LeadDetail({ id }: { id: string }) {
           {lead.marketingContent?.source === "llm" && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Email and call notes</CardTitle>
+                <CardTitle className="text-base">{t("leads.detail.notes")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {lead.marketingContent.email && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Mail className="w-4 h-4 text-info" />
-                      <span className="text-sm font-medium">Email</span>
+                      <span className="text-sm font-medium">{t("leads.detail.email")}</span>
                       <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs opacity-60 hover:opacity-100" onClick={() => navigator.clipboard.writeText(lead.marketingContent!.email!.body)}>
-                        Copy
+                        {t("leads.detail.copy")}
                       </Button>
                     </div>
                     <div className="bg-muted/50 rounded-lg p-3 text-xs leading-relaxed">
-                      <p className="font-medium text-muted-foreground mb-1.5">Subject: {lead.marketingContent.email.subject}</p>
+                      <p className="font-medium text-muted-foreground mb-1.5">{t("leads.detail.subject", { subject: lead.marketingContent.email.subject })}</p>
                       <p className="whitespace-pre-wrap">{lead.marketingContent.email.body}</p>
                     </div>
                   </div>
@@ -170,7 +173,7 @@ export function LeadDetail({ id }: { id: string }) {
         <motion.div variants={item} className="space-y-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">CRM Status</CardTitle>
+              <CardTitle className="text-base">{t("leads.detail.crmTitle")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <Select
@@ -181,13 +184,13 @@ export function LeadDetail({ id }: { id: string }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="new">🔵 New</SelectItem>
-                  <SelectItem value="contacted">📤 Contacted</SelectItem>
-                  <SelectItem value="replied">💬 Replied</SelectItem>
-                  <SelectItem value="meeting">📅 Meeting</SelectItem>
-                  <SelectItem value="proposal">📄 Proposal</SelectItem>
-                  <SelectItem value="won">✅ Won</SelectItem>
-                  <SelectItem value="lost">❌ Lost</SelectItem>
+                  <SelectItem value="new">🔵 {t("leads.crm.new")}</SelectItem>
+                  <SelectItem value="contacted">📤 {t("leads.crm.contacted")}</SelectItem>
+                  <SelectItem value="replied">💬 {t("leads.crm.replied")}</SelectItem>
+                  <SelectItem value="meeting">📅 {t("leads.crm.meeting")}</SelectItem>
+                  <SelectItem value="proposal">📄 {t("leads.crm.proposal")}</SelectItem>
+                  <SelectItem value="won">✅ {t("leads.crm.won")}</SelectItem>
+                  <SelectItem value="lost">❌ {t("leads.crm.lost")}</SelectItem>
                 </SelectContent>
               </Select>
               <Button
@@ -196,25 +199,25 @@ export function LeadDetail({ id }: { id: string }) {
                 onClick={handleCrmUpdate}
                 disabled={saving || !crmStatus}
               >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Status"}
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("leads.detail.updateStatus")}
               </Button>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Activity Log</CardTitle>
+              <CardTitle className="text-base">{t("leads.detail.activityLog")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 {(lead.activities || []).map((a) => (
                   <div key={a.id} className="text-xs border-l-2 border-primary/30 pl-3">
-                    <p className="font-medium capitalize text-muted-foreground">{a.type}</p>
+                    <p className="font-medium capitalize text-muted-foreground">{`leads.activity.${a.type}` in leadsEn ? t(`leads.activity.${a.type}` as keyof typeof leadsEn) : a.type}</p>
                     <p className="mt-0.5">{a.note}</p>
                   </div>
                 ))}
                 {(!lead.activities || lead.activities.length === 0) && (
-                  <p className="text-sm text-muted-foreground text-center py-4">No activity yet</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">{t("leads.detail.noActivity")}</p>
                 )}
               </div>
             </CardContent>

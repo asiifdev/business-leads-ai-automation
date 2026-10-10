@@ -6,6 +6,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Phone, Star, ChevronRight } from "lucide-react";
 import type { Lead } from "@/hooks/use-leads";
+import { useI18n } from "@/lib/i18n";
 
 // Jakarta city center — used as the default view when no leads have coordinates yet.
 const DEFAULT_CENTER: [number, number] = [-6.2088, 106.8456];
@@ -54,6 +55,7 @@ interface Props {
 }
 
 export function LeadsMap({ leads }: Props) {
+  const { t } = useI18n();
   const pinned = leads.filter(
     (l): l is Lead & { lat: number; lng: number } =>
       typeof l.lat === "number" && typeof l.lng === "number",
@@ -66,9 +68,9 @@ export function LeadsMap({ leads }: Props) {
   if (leads.length > 0 && pinned.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-        <p className="text-sm font-medium">No coordinates available for these leads</p>
+        <p className="text-sm font-medium">{t("leads.map.noCoords")}</p>
         <p className="text-xs text-muted-foreground">
-          Coordinates are captured for new scrapes going forward
+          {t("leads.map.noCoordsHint")}
         </p>
       </div>
     );
@@ -115,7 +117,7 @@ export function LeadsMap({ leads }: Props) {
                   href={`/leads/${lead.id}`}
                   className="flex items-center gap-0.5 pt-1 text-xs font-medium text-primary hover:underline"
                 >
-                  View details<ChevronRight className="w-3 h-3" />
+                  {t("leads.map.viewDetails")}<ChevronRight className="w-3 h-3" />
                 </Link>
               </div>
             </Popup>

@@ -1,12 +1,12 @@
 import { CampaignsList } from "@/components/campaigns/campaigns-list";
+import { PageHeading } from "@/components/layout/page-heading";
 
 export default function CampaignsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Campaigns</h1>
-          <p className="text-muted-foreground">Manage your lead generation campaigns</p>
+          <PageHeading title="page.campaigns.title" subtitle="page.campaigns.subtitle" />
         </div>
       </div>
       <CampaignsList />

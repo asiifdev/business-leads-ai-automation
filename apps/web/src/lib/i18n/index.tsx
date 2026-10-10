@@ -1,13 +1,12 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { en, type MessageKey } from "./en";
-import { id } from "./id";
+import { enAll, idAll, type MessageKey } from "./messages";
 import { LANG_COOKIE, type Lang } from "./lang";
 
 export type { Lang };
 
-const dictionaries: Record<Lang, Record<MessageKey, string>> = { en, id };
+const dictionaries: Record<Lang, Record<MessageKey, string>> = { en: enAll, id: idAll };
 
 interface I18n {
   lang: Lang;
@@ -31,7 +30,7 @@ export function I18nProvider({ initial, children }: { initial: Lang; children: R
 
   const t = useCallback<I18n["t"]>(
     (key, vars) => {
-      let s = dictionaries[lang][key] ?? en[key];
+      let s = dictionaries[lang][key] ?? enAll[key];
       if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
       return s;
     },
