@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Phone, Globe, MapPin, Star, Mail, Loader2, Copy } from "lucide-react";
+import { ArrowLeft, Phone, Search, Globe, MapPin, Star, Mail, Loader2, Copy } from "lucide-react";
 import { useLead } from "@/hooks/use-leads";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -29,6 +29,11 @@ export function LeadDetail({ id }: { id: string }) {
   const { lead, loading, refresh } = useLead(id);
   const [crmStatus, setCrmStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [enriching, setEnriching] = useState(false);
+  const enrich = async () => {
+    setEnriching(true);
+    try { await api.post(`/leads/${id}/enrich`, {}); await refresh(); } catch (e) { console.error("Enrich failed:", e); } finally { setEnriching(false); }
+  };
 
   const handleCrmUpdate = async () => {
     if (!crmStatus || !lead) return;
@@ -121,6 +126,7 @@ export function LeadDetail({ id }: { id: string }) {
             <CardContent className="space-y-3">
               {[
                 { icon: Phone, label: t("leads.detail.phone"), value: lead.phone },
+                { icon: Mail, label: t("leads.enrich.email"), value: lead.email ?? undefined },
                 { icon: Globe, label: t("leads.detail.website"), value: lead.website },
                 { icon: MapPin, label: t("leads.detail.address"), value: lead.address },
                 { icon: Star, label: t("leads.detail.rating"), value: lead.rating ? t("leads.detail.ratingValue", { rating: lead.rating }) : undefined },
@@ -140,6 +146,42 @@ export function LeadDetail({ id }: { id: string }) {
                     </Button>
                   </div>
                 ))}
+            </CardContent>
+          </Card>
+
+          {/* Found on their website */}
+          <Card>
+            <CardHeader className="pb-3 flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-base">{t("leads.enrich.title")}</CardTitle>
+              {lead.website && (
+                <Button variant="outline" size="sm" onClick={enrich} disabled={enriching}>
+                  {enriching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                  {enriching ? t("leads.enrich.finding") : t("leads.enrich.find")}
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {!lead.website ? (
+                <p className="text-muted-foreground">{t("leads.enrich.noWebsite")}</p>
+              ) : !lead.enrichedAt ? (
+                <p className="text-muted-foreground">{t("leads.enrich.notYet")}</p>
+              ) : lead.enrichment?.status === "unreachable" ? (
+                <p className="text-muted-foreground">{t("leads.enrich.unreachable")}</p>
+              ) : (() => {
+                const e: NonNullable<typeof lead.enrichment> = lead.enrichment ?? { status: "enriched" };
+                const rows: { label: string; value: string; href?: string }[] = [
+                  ...(e.emails ?? []).map((v) => ({ label: t("leads.enrich.email"), value: v, href: `mailto:${v}` })),
+                  ...(e.whatsapp ?? []).map((v) => ({ label: t("leads.enrich.whatsapp"), value: `+${v}`, href: `https://wa.me/${v}` })),
+                  ...(e.whatsappHandles ?? []).map((h) => ({ label: t("leads.enrich.whatsapp"), value: t("leads.enrich.username", { handle: h }), href: `https://wa.me/${h}` })),
+                  ...Object.entries(e.social ?? {}).map(([k, v]) => ({ label: k, value: v.replace(/^https?:\/\/(www\.)?/, ""), href: v })),
+                ];
+                return rows.length === 0 ? <p className="text-muted-foreground">{t("leads.enrich.none")}</p> : rows.map((r) => (
+                  <div key={r.label + r.value} className="flex items-baseline gap-3">
+                    <span className="w-24 flex-shrink-0 text-xs capitalize text-muted-foreground">{r.label}</span>
+                    <a href={r.href} target="_blank" rel="noopener noreferrer" className="break-all text-primary hover:underline">{r.value}</a>
+                  </div>
+                ));
+              })()}
             </CardContent>
           </Card>
 

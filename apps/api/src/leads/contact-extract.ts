@@ -7,15 +7,43 @@ import { normalizePhone } from "../messaging/phone";
 export interface ExtractedContacts {
   emails: string[];
   whatsapp: string[];
+  /** wa.me/<username> links: a way to reach the business, but not a phone number. */
+  whatsappHandles: string[];
   social: Partial<Record<"instagram" | "facebook" | "tiktok" | "linkedin" | "x" | "youtube", string>>;
 }
 
 const MAX_HTML = 1_500_000;
-const EMAIL_RE = /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){1,4}/g;
+const MAX_AT_SIGNS = 2000;
+const LOCAL_CHAR = /[A-Za-z0-9._%+-]/;
+const DOMAIN_CHAR = /[A-Za-z0-9.-]/;
+const DOMAIN_SHAPE = /^[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){1,4}$/;
+
+/** Candidate addresses around each "@". Work is bounded by the number of "@" signs and a fixed window on each side. */
+function emailCandidates(html: string): string[] {
+  const out: string[] = [];
+  let from = 0;
+  for (let n = 0; n < MAX_AT_SIGNS; n++) {
+    const at = html.indexOf("@", from);
+    if (at < 0) break;
+    from = at + 1;
+    let l = at;
+    while (l > 0 && at - l < 64 && LOCAL_CHAR.test(html[l - 1])) l--;
+    let r = at + 1;
+    while (r < html.length && r - at <= 253 && DOMAIN_CHAR.test(html[r])) r++;
+    const domain = html.slice(at + 1, r).replace(/^[.-]+|[.-]+$/g, "");
+    if (l === at || !DOMAIN_SHAPE.test(domain)) continue;
+    out.push(html.slice(l, at) + "@" + domain);
+  }
+  return out;
+}
+
 const BAD_EMAIL_TLD = /\.(png|jpe?g|gif|webp|svg|css|js|woff2?|ico|avif)$/i;
 const PLACEHOLDER_DOMAIN = /(^|\.)(example\.(com|org)|domain\.com|email\.com|yourdomain\.com|sentry\.io|wixpress\.com|sentry-next\.wixpress\.com|perusahaan\.(com|co\.id)|company\.com|mail\.com|namaanda\.com|yourcompany\.com)$/i;
 const PLACEHOLDER_LOCAL = /^(email|nama|name|your-?email|youremail|user|username|test|contoh)@/;
 const WA_RE = /(?:wa\.me\/|api\.whatsapp\.com\/send\/?\?(?:[^"'\s>]{0,80}&(?:amp;)?)?phone=|whatsapp:\/\/send\?(?:[^"'\s>]{0,80}&(?:amp;)?)?phone=)\+?(\d{8,15})/gi;
+
+const WA_HANDLE_RE = /wa\.me\/([A-Za-z][A-Za-z0-9._]{2,29})(?![A-Za-z0-9._])/gi;
+const WA_HANDLE_SKIP = /^(message|send|qr|c|channel|catalog|settings|share|link)$/i;
 
 const SOCIAL: { key: keyof ExtractedContacts["social"]; re: RegExp; skip: RegExp }[] = [
   { key: "instagram", re: /https?:\/\/(?:www\.)?instagram\.com\/([A-Za-z0-9._]{2,30})\/?/i, skip: /^(p|reel|reels|explore|accounts|stories|tv|share|sharer)$/i },
@@ -44,8 +72,8 @@ export function extractContacts(rawHtml: string, siteUrl: string): ExtractedCont
   try { siteHost = new URL(siteUrl).hostname.replace(/^www\./, ""); } catch { /* keep null */ }
 
   const emails = new Map<string, number>();
-  for (const m of html.matchAll(EMAIL_RE)) {
-    const e = cleanEmail(m[0], siteHost);
+  for (const cand of emailCandidates(html)) {
+    const e = cleanEmail(cand, siteHost);
     if (!e) continue;
     const onSite = siteHost && e.endsWith("@" + siteHost) ? 1 : 0;
     emails.set(e, Math.max(emails.get(e) ?? 0, onSite));
@@ -61,6 +89,12 @@ export function extractContacts(rawHtml: string, siteUrl: string): ExtractedCont
     if (wa.size >= 5) break;
   }
 
+  const handles = new Set<string>();
+  for (const m of html.matchAll(WA_HANDLE_RE)) {
+    if (!WA_HANDLE_SKIP.test(m[1])) handles.add(m[1].toLowerCase());
+    if (handles.size >= 3) break;
+  }
+
   const social: ExtractedContacts["social"] = {};
   for (const s of SOCIAL) {
     const re = new RegExp(s.re.source, "gi");
@@ -70,12 +104,13 @@ export function extractContacts(rawHtml: string, siteUrl: string): ExtractedCont
       break;
     }
   }
-  return { emails: emailList, whatsapp: [...wa], social };
+  return { emails: emailList, whatsapp: [...wa], whatsappHandles: [...handles], social };
 }
 
 export function mergeContacts(list: ExtractedContacts[]): ExtractedContacts {
-  const out: ExtractedContacts = { emails: [], whatsapp: [], social: {} };
+  const out: ExtractedContacts = { emails: [], whatsapp: [], whatsappHandles: [], social: {} };
   for (const c of list) {
+    for (const h of c.whatsappHandles) if (!out.whatsappHandles.includes(h) && out.whatsappHandles.length < 3) out.whatsappHandles.push(h);
     for (const e of c.emails) if (!out.emails.includes(e) && out.emails.length < 5) out.emails.push(e);
     for (const w of c.whatsapp) if (!out.whatsapp.includes(w) && out.whatsapp.length < 5) out.whatsapp.push(w);
     for (const [k, v] of Object.entries(c.social)) { const key = k as keyof ExtractedContacts["social"]; if (!out.social[key]) out.social[key] = v; }
@@ -101,4 +136,10 @@ export function contactPageLinks(html: string, pageUrl: string, max = 2): string
     if (out.length >= max) break;
   }
   return out;
+}
+
+/** The business profile page at wa.me/<username> prints the account's real number. Returns it, or null. */
+export function phoneFromWaProfile(html: string): string | null {
+  const m = /[?&;]phone=\+?(\d{8,15})(?!\d)/.exec(html.slice(0, MAX_HTML)) ?? /(?:^|[^\d])\+(\d{2,3}[\d ()-]{7,16}\d)(?!\d)/.exec(html.slice(0, MAX_HTML));
+  return m ? normalizePhone("+" + m[1].replace(/\D/g, "")) : null;
 }

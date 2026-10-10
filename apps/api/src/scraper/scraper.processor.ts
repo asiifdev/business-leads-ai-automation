@@ -4,6 +4,7 @@ import { Job } from "bullmq";
 import { CampaignsService } from "../campaigns/campaigns.service";
 import { LeadsService } from "../leads/leads.service";
 import { LeadIntelligenceService } from "../ai/lead-intelligence.service";
+import { EnrichmentService } from "../leads/enrichment.service";
 import { FitService } from "../ai/fit.service";
 import { MarketingAiService } from "../ai/marketing-ai.service";
 import { GoogleMapsScraperService } from "./google-maps.scraper";
@@ -32,6 +33,7 @@ export class ScraperProcessor extends WorkerHost {
     private marketingAi: MarketingAiService,
     private googleMaps: GoogleMapsScraperService,
     private fit: FitService,
+    private enrichment: EnrichmentService,
   ) {
     super();
   }
@@ -123,6 +125,13 @@ export class ScraperProcessor extends WorkerHost {
 
       await this.campaigns.updateStatus(campaignId, "completed", 100);
       this.logger.log(`Campaign ${campaignId} done: ${total} leads, ${priority} priority`);
+
+      // Contact details from each business's own website. Runs after the campaign is complete and never fails it.
+      if (process.env.SCRAPER_MODE !== "fixture") {
+        void this.enrichment.enrichCampaign(workspaceId, campaignId)
+          .then((r) => this.logger.log(`Campaign ${campaignId} enrichment: ${JSON.stringify(r)}`))
+          .catch((e) => this.logger.warn(`Campaign ${campaignId} enrichment failed: ${e}`));
+      }
     } catch (err) {
       this.logger.error(`Campaign ${campaignId} failed: ${err}`);
       await this.campaigns.updateStatus(campaignId, "failed", undefined, (err as Error).message ?? String(err));

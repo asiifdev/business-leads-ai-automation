@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
@@ -34,6 +34,15 @@ const item = {
 export function CampaignDetail({ id }: { id: string }) {
   const { t } = useI18n();
   const { campaign, loading, refresh } = useCampaign(id);
+  const [enriching, setEnriching] = useState(false);
+  const [enrichNote, setEnrichNote] = useState<string | null>(null);
+  const enrichAll = async () => {
+    setEnriching(true); setEnrichNote(null);
+    try {
+      const r = await api.post<{ processed: number; withEmail: number; withWhatsapp: number }>(`/leads/enrich/campaign/${id}`, {});
+      setEnrichNote(r.processed === 0 ? t("leads.enrich.campaignNone") : t("leads.enrich.campaignDone", { n: r.processed, email: r.withEmail, wa: r.withWhatsapp }));
+    } catch (e) { setEnrichNote((e as Error).message); } finally { setEnriching(false); }
+  };
   const { leads, loading: leadsLoading, refresh: refreshLeads } = useLeads({ campaignId: id });
 
   // Poll while campaign is running
@@ -93,7 +102,11 @@ export function CampaignDetail({ id }: { id: string }) {
           </div>
           <p className="text-muted-foreground text-sm capitalize">{campaign.industry} · {campaign.location}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={enrichAll} disabled={enriching}>
+            {enriching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+            {enriching ? t("leads.enrich.finding") : t("leads.enrich.campaign")}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => api.download(`/export/leads/csv?campaignId=${id}`, `leads-${id}.csv`)}>
             <Download className="mr-2 h-4 w-4" />CSV
           </Button>
@@ -105,6 +118,8 @@ export function CampaignDetail({ id }: { id: string }) {
           </Button>
         </div>
       </motion.div>
+
+      {enrichNote && <p role="status" className="text-sm text-muted-foreground">{enrichNote}</p>}
 
       <motion.div variants={item} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[

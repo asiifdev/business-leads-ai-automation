@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { contactPageLinks, extractContacts, mergeContacts } from "./contact-extract";
+import { contactPageLinks, extractContacts, mergeContacts, phoneFromWaProfile } from "./contact-extract";
 
 const SITE = "https://tokokamera.id/";
 
@@ -32,7 +32,13 @@ test("finds profiles and ignores share links", () => {
 });
 
 test("returns nothing when the page has no contacts, and never invents any", () => {
-  assert.deepEqual(extractContacts("<p>Selamat datang</p>", SITE), { emails: [], whatsapp: [], social: {} });
+  assert.deepEqual(extractContacts("<p>Selamat datang</p>", SITE), { emails: [], whatsapp: [], whatsappHandles: [], social: {} });
+});
+
+test("keeps wa.me usernames apart from numbers", () => {
+  const c = extractContacts(`<a href="https://wa.me/asiifdev?text=Halo">a</a><a href="https://wa.me/6281234567890">b</a><a href="https://wa.me/message/ABC">c</a>`, SITE);
+  assert.deepEqual(c.whatsappHandles, ["asiifdev"]);
+  assert.deepEqual(c.whatsapp, ["6281234567890"]);
 });
 
 test("hostile input stays fast", () => {
@@ -48,6 +54,20 @@ test("contactPageLinks keeps same-site contact pages only", () => {
 });
 
 test("mergeContacts dedupes and keeps first social link", () => {
-  const m = mergeContacts([{ emails: ["a@x.id"], whatsapp: [], social: { instagram: "i1" } }, { emails: ["a@x.id", "b@x.id"], whatsapp: ["62811"], social: { instagram: "i2" } }]);
-  assert.deepEqual(m, { emails: ["a@x.id", "b@x.id"], whatsapp: ["62811"], social: { instagram: "i1" } });
+  const m = mergeContacts([{ emails: ["a@x.id"], whatsapp: [], whatsappHandles: [], social: { instagram: "i1" } }, { emails: ["a@x.id", "b@x.id"], whatsapp: ["62811"], whatsappHandles: [], social: { instagram: "i2" } }]);
+  assert.deepEqual(m, { emails: ["a@x.id", "b@x.id"], whatsapp: ["62811"], whatsappHandles: [], social: { instagram: "i1" } });
+});
+
+test("phoneFromWaProfile reads the number a wa.me profile page prints", () => {
+  assert.equal(phoneFromWaProfile('<a href="https://api.whatsapp.com/send/?phone=6285954270458&text">x</a>'), "6285954270458");
+  assert.equal(phoneFromWaProfile("<p>+62 859-5427-0458</p>"), "6285954270458");
+  assert.equal(phoneFromWaProfile("<p>tidak ada nomor</p>"), null);
+});
+
+test("emails: window scan handles long runs and many @ signs quickly", () => {
+  const t = Date.now();
+  extractContacts("@".repeat(200_000) + "a".repeat(900_000), SITE);
+  extractContacts(("x@y.z ".repeat(100_000)), SITE);
+  assert.ok(Date.now() - t < 1500);
+  assert.deepEqual(extractContacts("hubungi (halo@tokokamera.id), atau <b>info@tokokamera.id.</b>", SITE).emails, ["halo@tokokamera.id", "info@tokokamera.id"]);
 });

@@ -16,6 +16,15 @@ export interface Lead {
   priority: "HIGH" | "MEDIUM" | "LOW";
   crmStatus: "new" | "contacted" | "replied" | "meeting" | "proposal" | "won" | "lost";
   crmNotes?: string;
+  email?: string | null;
+  enrichedAt?: string | null;
+  enrichment?: {
+    status: "enriched" | "unreachable";
+    emails?: string[];
+    whatsapp?: string[];
+    whatsappHandles?: string[];
+    social?: Record<string, string>;
+  } | null;
   hasWebsite: boolean;
   industry?: string;
   category?: string;

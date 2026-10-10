@@ -9,6 +9,6 @@ import { PageRenderer } from "./page-renderer";
   imports: [AuthModule, AiModule],
   controllers: [MarketingController],
   providers: [BriefService, PageRenderer],
-  exports: [BriefService],
+  exports: [BriefService, PageRenderer],
 })
 export class MarketingModule {}
