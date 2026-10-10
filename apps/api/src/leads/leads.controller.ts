@@ -1,6 +1,8 @@
-import { Controller, Get, Patch, Param, Body, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Patch, Post, Param, Body, Query, UseGuards } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from "@nestjs/swagger";
 import { LeadsService } from "./leads.service";
+import { EnrichmentService } from "./enrichment.service";
 import { UpdateCrmDto } from "./dto/update-crm.dto";
 import { JwtGuard } from "../auth/jwt.guard";
 import { WorkspaceId } from "../auth/current-workspace.decorator";
@@ -10,7 +12,7 @@ import { WorkspaceId } from "../auth/current-workspace.decorator";
 @UseGuards(JwtGuard)
 @Controller("leads")
 export class LeadsController {
-  constructor(private readonly leadsService: LeadsService) {}
+  constructor(private readonly leadsService: LeadsService, private readonly enrichment: EnrichmentService) {}
 
   @Get()
   @ApiOperation({ summary: "List all leads" })
@@ -34,6 +36,20 @@ export class LeadsController {
       page: page ? parseInt(page, 10) : 1,
       limit: limit ? parseInt(limit, 10) : 50,
     });
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post("enrich/campaign/:campaignId")
+  @ApiOperation({ summary: "Read each lead's own website for emails, WhatsApp numbers and social profiles (up to 50 per call)" })
+  enrichCampaign(@Param("campaignId") campaignId: string, @WorkspaceId() workspaceId: string) {
+    return this.enrichment.enrichCampaign(workspaceId, campaignId);
+  }
+
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Post(":id/enrich")
+  @ApiOperation({ summary: "Read one lead's website for contact details" })
+  enrichOne(@Param("id") id: string, @WorkspaceId() workspaceId: string) {
+    return this.enrichment.enrichLead(workspaceId, id);
   }
 
   @Get(":id")

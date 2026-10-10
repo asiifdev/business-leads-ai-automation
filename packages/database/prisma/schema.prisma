@@ -173,6 +173,10 @@ model Lead {
 
   marketingContent Json?
 
+  // Contact details found on the business's own website (emails, WhatsApp numbers, social profiles) and when.
+  enrichment Json?
+  enrichedAt DateTime?
+
   crmStatus    String    @default("new")
   crmNotes     String?
   followUpDate DateTime?
