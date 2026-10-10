@@ -45,4 +45,5 @@ export const leadsEn = {
   "leads.detail.updateStatus": "Update Status",
   "leads.detail.activityLog": "Activity Log",
   "leads.detail.noActivity": "No activity yet",
+  "leads.activity.statusChanged": "Status changed to {status}",
 } as const;

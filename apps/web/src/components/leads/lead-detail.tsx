@@ -25,6 +25,7 @@ const item = {
 
 export function LeadDetail({ id }: { id: string }) {
   const { t } = useI18n();
+  const crmLabel = (v: string) => (`leads.crm.${v}` in leadsEn ? t(`leads.crm.${v}` as keyof typeof leadsEn) : v);
   const { lead, loading, refresh } = useLead(id);
   const [crmStatus, setCrmStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -213,7 +214,11 @@ export function LeadDetail({ id }: { id: string }) {
                 {(lead.activities || []).map((a) => (
                   <div key={a.id} className="text-xs border-l-2 border-primary/30 pl-3">
                     <p className="font-medium capitalize text-muted-foreground">{`leads.activity.${a.type}` in leadsEn ? t(`leads.activity.${a.type}` as keyof typeof leadsEn) : a.type}</p>
-                    <p className="mt-0.5">{a.note}</p>
+                    <p className="mt-0.5">
+                      {a.type === "crm_update" && a.metadata?.crmStatus
+                        ? t("leads.activity.statusChanged", { status: crmLabel(a.metadata.crmStatus) })
+                        : a.note}
+                    </p>
                   </div>
                 ))}
                 {(!lead.activities || lead.activities.length === 0) && (

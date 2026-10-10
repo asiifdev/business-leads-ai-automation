@@ -47,4 +47,5 @@ export const leadsId: Record<keyof typeof leadsEn, string> = {
   "leads.detail.updateStatus": "Perbarui Status",
   "leads.detail.activityLog": "Riwayat Aktivitas",
   "leads.detail.noActivity": "Belum ada aktivitas",
+  "leads.activity.statusChanged": "Status diubah menjadi {status}",
 };

@@ -31,7 +31,7 @@ export interface Lead {
     factors?: string[];
     recommendation?: string;
   };
-  activities?: Array<{ id: string; type: string; note: string; createdAt: string }>;
+  activities?: Array<{ id: string; type: string; note: string; metadata?: { crmStatus?: string } | null; createdAt: string }>;
   scrapedAt: string;
   createdAt: string;
 }
