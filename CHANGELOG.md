@@ -14,6 +14,9 @@
 - PostgreSQL image is now `pgvector/pgvector:pg16`. License is AGPL-3.0-or-later with a commercial option.
 
 ### Changed
+- **First messages follow a sales structure**: greeting and introduction ("Halo, Kak, perkenalkan saya dari tim ..."), one specific fact with its number (rating, reviews, no website), one concrete benefit, one easy-to-answer question. Hedging words and jargon ("mungkin tertarik", "digitalisasi", "terstruktur") are banned in the prompt.
+- **Standard Indonesian spelling (PUEBI) is enforced on every draft** after generation, instead of imitating lowercase and unpunctuated chat habits. Time-of-day greetings are replaced by "Halo".
+- AI Style: attachment markers in front of captions ("IMG-...jpg (file attached)") no longer count as words (they showed up as the owner's most common opener). Re-import your chats to refresh an existing profile.
 - Header notifications now show real counts (drafts waiting for review, messages that failed) instead of hard-coded sample entries.
 - Settings: the team list shows the signed-in user instead of a fixed "Admin" entry, and the "Delete workspace" and "Invite team member" buttons are disabled because neither is implemented yet. The AI key help text now says the AI features read the server `.env`.
 - Lead activity log: status changes are rendered from structured data, so they appear in the interface language (previously the server wrote English text).

@@ -26,7 +26,7 @@ test("vocative comma and Anda", () => {
 
 test("does not capitalize after abbreviations or inside numbers and links", () => {
   assert.equal(normalizeDraft("kami melayani kafe, resto, dll. dengan rating 4.6 di www.contoh.id", { language: "indonesian" }),
-    "Kami melayani kafe, resto, dll. dengan rating 4.6 di www.contoh.id.");
+    "Kami melayani kafe, resto, dll. dengan rating 4,6 di www.contoh.id.");
 });
 
 test("multi-line drafts keep their paragraphs", () => {

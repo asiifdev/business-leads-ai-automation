@@ -24,7 +24,8 @@ If you use a hosted AI provider, the question text of your pairs is sent to it t
 1. **Habits.** Your measured statistics are described to the model ("replies of about 52 characters, emoji in 17% of messages, mostly capitalized openers").
 2. **Examples.** The five of your real replies whose questions are most similar to the situation are retrieved with pgvector and shown to the model as examples of tone.
 3. **Facts.** The knowledge base is searched. If nothing matches, the model is told not to state prices, schedules or policies.
-4. **Safety.** Text from outside (scraped listings, customers, other people in your exports) is wrapped in delimiters and treated as data. The finished draft is scanned for links, prices, discounts and bank details that no source supports, and flagged for you if it finds any.
+4. **Spelling.** The owner's chat habits (all lowercase, no final punctuation, "gk", "yg") are not imitated: only length, word choice, warmth and emoji follow your style. The example replies shown to the model are first put into standard spelling, and every finished draft is cleaned deterministically (PUEBI): capitals at sentence starts and for names, terminal punctuation, a comma before the vocative ("Halo, Kak, ..."), "Anda", decimal comma for ratings, and an opening "Selamat sore" replaced by "Halo" because a draft is read at an unknown hour.
+5. **Safety.** Text from outside (scraped listings, customers, other people in your exports) is wrapped in delimiters and treated as data. The finished draft is scanned for links, prices, discounts and bank details that no source supports, and flagged for you if it finds any.
 
 The AI Style page shows the full trace for any test message: the habits applied, the examples used with their similarity, and the facts found.
 
@@ -44,7 +45,7 @@ A model judge picked the styled reply as closer to the owner's real reply in **1
 Read this carefully:
 
 - It is one person, one language and 23 samples. It shows the direction, not a guarantee.
-- The test exposed a flaw: the styled drafts started every message in lowercase (100% against 26% in reality). The model took "starts lowercase" as an absolute rule. The prompt now tells it when a habit is the minority, and names and places are always capitalized, but we have not re-run the full test since that change.
+- The test exposed a flaw: the styled drafts started every message in lowercase (100% against 26% in reality), and even a prompt fix did not stop it because the owner's lowercase examples outweighed the instruction. Spelling is now enforced after generation (step 4), so this no longer depends on the model. The numbers above predate that change, and lowercase and punctuation rates would now differ by design; we have not re-run the full test.
 - The judge is itself a model.
 
 Run the same test on your own exports with `apps/api/scripts/eval-style.ts` (set `EXPORT_DIR`, `ME`, `OPENAI_BASE_URL`, `CHAT_MODEL`, `EMBEDDING_MODEL`).
