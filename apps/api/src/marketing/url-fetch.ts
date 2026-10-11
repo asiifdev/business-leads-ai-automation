@@ -18,13 +18,16 @@ export function isBlockedAddress(ip: string): boolean {
     const zeros = (from: number, to: number) => g.slice(from, to).every((x) => x === 0);
     if (zeros(0, 7) && (g[7] === 0 || g[7] === 1)) return true; // :: and ::1
     if (zeros(0, 5) && g[5] === 0xffff) return isBlockedAddress(embeddedV4(g[6], g[7])); // IPv4-mapped
+    if (zeros(0, 4) && g[4] === 0xffff && g[5] === 0) return isBlockedAddress(embeddedV4(g[6], g[7])); // IPv4-translated (::ffff:0:a.b.c.d)
     if (zeros(0, 6)) return isBlockedAddress(embeddedV4(g[6], g[7])); // IPv4-compatible (deprecated)
     if (g[0] === 0x64 && g[1] === 0xff9b) { // NAT64: the IPv4 sits in the last 32 bits; the local-use /48 is all internal
       if (g[2] !== 0) return true;
       return isBlockedAddress(embeddedV4(g[6], g[7]));
     }
     if (g[0] === 0x2002) return isBlockedAddress(embeddedV4(g[1], g[2])); // 6to4
-    if (g[0] === 0x2001 && g[1] === 0) return true; // Teredo
+    if (g[0] === 0x2001 && g[1] < 0x200) return true; // 2001::/23: Teredo, benchmarking, ORCHID, other protocol assignments
+    if (g[0] === 0x5f00) return true; // SRv6 segment identifiers
+    if (g[0] === 0x3fff && g[1] < 0x1000) return true; // 3fff::/20 documentation
     if (g[0] === 0x2001 && g[1] === 0xdb8) return true; // documentation
     if (g[0] === 0x100 && zeros(1, 4)) return true; // discard-only 100::/64
     if ((g[0] & 0xfe00) === 0xfc00) return true; // fc00::/7 unique local
