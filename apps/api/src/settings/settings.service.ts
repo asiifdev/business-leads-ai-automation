@@ -1,11 +1,12 @@
 import { randomBytes, createHash } from "crypto";
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { encryptSecret, decryptSecret } from "./encryption.util";
 import { AiClientService, assertAllowedBaseUrl } from "../ai/ai-client.service";
 import { KnowledgeService } from "../ai/knowledge.service";
 import { friendlyAiError, mergeAiConfig, type SaveAiInput } from "./ai-settings";
+import { assertOwnerOrAdmin } from "../auth/roles";
 
 const DEFAULT_WORKSPACE_ID = "default-workspace";
 const SECRET_CONFIG_KEYS = ["apiKey"];
@@ -59,8 +60,10 @@ export class SettingsService {
     name: string,
     config: Record<string, string>,
     workspaceId = DEFAULT_WORKSPACE_ID,
+    userId?: string,
   ) {
-    if (type === "openai") return this.saveAi(workspaceId, config);
+    await this.requireOwnerOrAdmin(workspaceId, userId);
+    if (type === "openai") return this.saveAi(workspaceId, config, userId);
     const encryptedConfig = this.encryptConfig(config);
     const existing = await this.prisma.integration.findFirst({ where: { workspaceId, type } });
     if (existing) {
@@ -100,10 +103,8 @@ export class SettingsService {
 
   // ---- AI provider (per workspace) ----
 
-  private async requireOwnerOrAdmin(workspaceId: string, userId: string | undefined) {
-    if (!userId) return; // API-key calls act for the workspace itself
-    const m = await this.prisma.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } } });
-    if (!m || !["owner", "admin"].includes(m.role)) throw new ForbiddenException("Only workspace owners and admins can change the AI provider");
+  private requireOwnerOrAdmin(workspaceId: string, userId: string | undefined) {
+    return assertOwnerOrAdmin(this.prisma, workspaceId, userId, "change the AI provider or integrations");
   }
 
   async aiStatus(workspaceId: string) {
@@ -168,7 +169,8 @@ export class SettingsService {
   }
 
   /** One tiny chat call and one embedding call with the settings this workspace really uses. */
-  async testAi(workspaceId: string) {
+  async testAi(workspaceId: string, userId?: string) {
+    await this.requireOwnerOrAdmin(workspaceId, userId);
     const ai = await this.aiClient.forWorkspace(workspaceId);
     if (!ai.enabled) return { ok: false, source: ai.source, error: "No AI provider is configured for this workspace." };
     const started = Date.now();

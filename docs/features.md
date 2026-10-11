@@ -95,7 +95,7 @@ Prospex covers one part of marketing well: **finding local businesses, understan
 - Official WhatsApp Business Cloud API. Routing, the entitlement check (hosted plans only) and the settings choice exist; the connector is not built. See [editions.md](editions.md).
 - Instagram, LinkedIn or SMS sending. Email is built (see above) but does not read replies or send follow-ups; LinkedIn notes are generated for high-priority leads but not sent.
 - Content and SEO writing, social posts and calendars, ads, landing pages, reviews and reputation, attribution beyond the CRM counters.
-- Teams with several users per workspace (the Settings screen shows the current user only) and workspace deletion. A removed member's token keeps working until it expires (30 days).
+- Teams with several users per workspace (the Settings screen shows the current user only) and workspace deletion. Removing a member takes effect within about 10 seconds (the token's membership is re-checked).
 - Proposals and invoices, an agent or MCP server.
 
 The roadmap in the [README](../README.md#roadmap) lists what is next.

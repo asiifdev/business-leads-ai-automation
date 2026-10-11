@@ -3,7 +3,9 @@ import { ConfigService } from "@nestjs/config";
 import OpenAI from "openai";
 import { PrismaService } from "../prisma/prisma.service";
 import { decryptSecret } from "../settings/encryption.util";
-import { hostIsPublic } from "../marketing/url-fetch";
+import * as dns from "dns";
+import * as https from "https";
+import { hostIsPublic, isBlockedAddress } from "../marketing/url-fetch";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -92,13 +94,43 @@ export async function assertAllowedBaseUrl(raw: string, opts: { allowPrivate: bo
   if (!(await hostIsPublic(u.hostname))) throw new Error("On this server the base URL must be a public address.");
 }
 
+/**
+ * `dns.lookup` replacement for connections to a user-supplied host: it refuses private, loopback and link-local
+ * addresses at connect time. Checking the name once and connecting later would let a name that changes its answer
+ * (DNS rebinding) or a redirect reach the internal network; this runs for every connection, redirects included.
+ */
+export function publicOnlyLookup(hostname: string, options: dns.LookupOptions, callback: (err: NodeJS.ErrnoException | null, address: string | dns.LookupAddress[], family?: number) => void): void {
+  dns.lookup(hostname, { ...options, all: true }, (err, addresses) => {
+    if (err) return callback(err, "", 0);
+    const list = addresses as dns.LookupAddress[];
+    const bad = list.find((a) => isBlockedAddress(a.address));
+    if (!list.length || bad) {
+      const e: NodeJS.ErrnoException = new Error("The AI base URL resolves to a private address, which is not allowed on this server.");
+      e.code = "EBLOCKED";
+      return callback(e, "", 0);
+    }
+    if (options.all) return callback(null, list);
+    callback(null, list[0].address, list[0].family);
+  });
+}
+
 /** A chat and embeddings client bound to one workspace's settings. Retries transient failures (429 and 5xx). */
 export class WorkspaceAi {
   private readonly logger = new Logger("WorkspaceAi");
   private readonly client: OpenAI | null;
 
-  constructor(readonly settings: AiSettings) {
-    this.client = settings.apiKey ? new OpenAI({ apiKey: settings.apiKey, baseURL: settings.baseURL }) : null;
+  /**
+   * `publicOnly` is set for workspace-supplied endpoints on a shared server: connections go through
+   * `publicOnlyLookup`. The server's own endpoint is the operator's choice and is left alone.
+   */
+  constructor(readonly settings: AiSettings, opts: { publicOnly?: boolean } = {}) {
+    this.client = settings.apiKey
+      ? new OpenAI({
+          apiKey: settings.apiKey,
+          baseURL: settings.baseURL,
+          ...(opts.publicOnly && settings.baseURL ? { httpAgent: new https.Agent({ lookup: publicOnlyLookup as never, keepAlive: false }) } : {}),
+        })
+      : null;
   }
 
   get enabled(): boolean {
@@ -201,7 +233,8 @@ export class AiClientService {
   async forWorkspace(workspaceId: string): Promise<WorkspaceAi> {
     const hit = this.cache.get(workspaceId);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.ai;
-    const ai = new WorkspaceAi(await this.resolve(workspaceId));
+    const settings = await this.resolve(workspaceId);
+    const ai = new WorkspaceAi(settings, { publicOnly: settings.source === "workspace" && !this.allowPrivateBaseUrl });
     this.cache.set(workspaceId, { at: Date.now(), ai });
     return ai;
   }

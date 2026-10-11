@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 import { JwtGuard } from "../auth/jwt.guard";
 import { WorkspaceId } from "../auth/current-workspace.decorator";
+import { CurrentUserId } from "../auth/current-user.decorator";
 import { KnowledgeService } from "./knowledge.service";
 
 class AddKnowledgeDto {
@@ -40,8 +41,8 @@ export class KnowledgeController {
 
   @Post("reindex")
   @ApiOperation({ summary: "Embed every source again with the workspace's current embedding model" })
-  reindex(@WorkspaceId() workspaceId: string) {
-    return this.knowledge.reindexAll(workspaceId);
+  reindex(@WorkspaceId() workspaceId: string, @CurrentUserId() userId: string) {
+    return this.knowledge.reindexAll(workspaceId, userId);
   }
 
   @Post("search")

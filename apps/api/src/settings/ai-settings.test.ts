@@ -48,3 +48,17 @@ test("base URL rules: private only for self-hosted, https and public on a shared
   await assert.rejects(assertAllowedBaseUrl("https://user:pw@example.com", { allowPrivate: true }));
   await assert.rejects(assertAllowedBaseUrl("not a url", { allowPrivate: true }));
 });
+
+test("connect-time lookup refuses private answers and passes public ones", async () => {
+  const { publicOnlyLookup } = await import("../ai/ai-client.service");
+  const run = (host: string) =>
+    new Promise<{ err: NodeJS.ErrnoException | null; address: unknown }>((resolve) =>
+      publicOnlyLookup(host, {}, (err, address) => resolve({ err, address })),
+    );
+  const loop = await run("localhost");
+  assert.equal(loop.err?.code, "EBLOCKED");
+  const literal = await run("127.0.0.1");
+  assert.equal(literal.err?.code, "EBLOCKED");
+  const meta = await run("169.254.169.254");
+  assert.equal(meta.err?.code, "EBLOCKED");
+});

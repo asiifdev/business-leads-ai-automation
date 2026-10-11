@@ -4,6 +4,7 @@
 
 - **Several businesses per login.** A workspace menu in the sidebar lists the businesses you belong to, switches between them and creates new ones (`GET /workspace/mine`, `POST /workspace`, `POST /workspace/switch`). The token follows the active workspace and `GET /auth/me` now returns it.
 - **AI provider per workspace.** Every AI feature (drafts, brief, fit, knowledge, AI Style, first-contact notes) now resolves its client from the workspace's saved provider, then the server `.env`. Settings gained an embedding model, a status line, "Test connection", and re-indexing after a model change. Saved keys are no longer sent back to the browser. `GET/PUT/DELETE /settings/ai`, `POST /settings/ai/test`, `POST /knowledge/reindex`.
+- Security: only workspace owners and admins can change the AI provider, any integration, test it or re-index; a token's workspace membership is re-checked (cached 10 s) so a removed member loses access immediately instead of at token expiry; on a shared server connections to a workspace's AI endpoint are refused at connect time if the name resolves to a private address (no DNS rebinding, redirects included).
 - On a hosted server a workspace's base URL must be public https (`AI_ALLOW_PRIVATE_BASE_URL=true` lifts this); self-hosted installs may use localhost.
 - Added `EDITION` and an entitlements service; `GET /entitlements`; 402 `UPGRADE_REQUIRED`.
 - Added a per-workspace WhatsApp gateway and a connection-type choice in Outbox settings. The official API option is locked outside hosted plans.

@@ -22,9 +22,10 @@ export class SettingsController {
   @ApiOperation({ summary: "Save or update an integration" })
   upsertIntegration(
     @WorkspaceId() workspaceId: string,
+    @CurrentUserId() userId: string,
     @Body() body: { type: string; name: string; config: Record<string, string> },
   ) {
-    return this.settingsService.upsertIntegration(body.type, body.name, body.config, workspaceId);
+    return this.settingsService.upsertIntegration(body.type, body.name, body.config, workspaceId, userId);
   }
 
   @Get("ai")
@@ -51,8 +52,8 @@ export class SettingsController {
 
   @Post("ai/test")
   @ApiOperation({ summary: "Make one real chat and one embedding call with the settings this workspace uses" })
-  testAi(@WorkspaceId() workspaceId: string) {
-    return this.settingsService.testAi(workspaceId);
+  testAi(@WorkspaceId() workspaceId: string, @CurrentUserId() userId: string) {
+    return this.settingsService.testAi(workspaceId, userId);
   }
 
   @Get("api-keys")

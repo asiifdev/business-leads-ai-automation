@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, ServiceUnavailableException } fr
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AiClientService } from "./ai-client.service";
+import { assertOwnerOrAdmin } from "../auth/roles";
 import { chunkText } from "./text-chunker";
 
 export type Confidence = "high" | "low" | "none";
@@ -138,7 +139,8 @@ export class KnowledgeService {
    * Embeds every source again with the workspace's current embedding model. Needed after the model changes,
    * because search only compares vectors made by the same model. Sources without stored text cannot be redone.
    */
-  async reindexAll(workspaceId: string): Promise<{ reindexed: number; failed: number; skipped: number }> {
+  async reindexAll(workspaceId: string, userId?: string): Promise<{ reindexed: number; failed: number; skipped: number }> {
+    await assertOwnerOrAdmin(this.prisma, workspaceId, userId, "re-index the knowledge base");
     const ai = await this.ai.forWorkspace(workspaceId);
     if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
     const sources = await this.prisma.knowledgeSource.findMany({ where: { workspaceId }, select: { id: true, text: true } });
