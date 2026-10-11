@@ -45,6 +45,7 @@ import { EntitlementsModule } from "./entitlements/entitlements.module";
         WA_AUTH_DIR: Joi.string().allow("").default(""),
         BRIEF_SOURCE_CHARS: Joi.number().default(30000),
         EDITION: Joi.string().valid("community", "hosted").default("community"),
+        AI_ALLOW_PRIVATE_BASE_URL: Joi.string().valid("true", "false").optional(),
         WHATSAPP_CLOUD_PLUGIN: Joi.string().allow("").default(""),
         SCRAPER_MODE: Joi.string().valid("live", "fixture").default("live"),
         WHATSAPP_DISABLED: Joi.string().valid("true", "false").default("false"),

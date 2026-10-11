@@ -46,7 +46,8 @@ export class MessageWriterService {
 
   /** First-contact message, or follow-up number `followUp.number`, in the owner's voice when a style exists. */
   async outreach(workspaceId: string, lead: LeadWithCampaign, followUp?: { number: number; of: number; previousMessage: string; daysSince: number }, channel: "whatsapp" | "email" = "whatsapp"): Promise<WrittenMessage> {
-    if (!this.ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
+    const ai = await this.ai.forWorkspace(workspaceId);
+    if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
     const started = Date.now();
     const language = lead.campaign.language === "english" ? "english" : "indonesian";
     const profile = await this.prisma.styleProfile.findUnique({ where: { workspaceId } });
@@ -89,7 +90,7 @@ export class MessageWriterService {
     return {
       text: channel === "email" ? body.text : `${body.text}\n\n${hint}`,
       risks: draftRisks(body.text, facts.hits.map((h) => h.content)),
-      trace: { styled: !!stats, examples: examples.length, knowledge: facts.confidence, model: this.ai.chatModel, latencyMs: Date.now() - started },
+      trace: { styled: !!stats, examples: examples.length, knowledge: facts.confidence, model: ai.chatModel, latencyMs: Date.now() - started },
     };
   }
 
@@ -105,7 +106,8 @@ export class MessageWriterService {
       ].join("\n") },
       { role: "user", content: `<data_email>\n${body.slice(0, 1500)}\n</data_email>` },
     ];
-    const raw = (await this.ai.chat(messages)).split("\n")[0].replace(/^(subjek|subject)\s*:\s*/i, "").replace(/^["“”'`]+|["“”'`]+$/g, "").trim();
+    const ai = await this.ai.forWorkspace(workspaceId);
+    const raw = (await ai.chat(messages)).split("\n")[0].replace(/^(subjek|subject)\s*:\s*/i, "").replace(/^["“”'`]+|["“”'`]+$/g, "").trim();
     if (!raw || raw.length > 90 || PLACEHOLDER.test(raw) || /!/.test(raw)) throw new ServiceUnavailableException("Could not write a safe subject");
     const subject = raw.charAt(0).toUpperCase() + raw.slice(1);
     return subject.length > 70 ? `${subject.slice(0, 67).trimEnd()}...` : subject;
@@ -113,7 +115,8 @@ export class MessageWriterService {
 
   /** Reply to something a known lead just wrote. `history` is the recent thread, oldest first. */
   async reply(workspaceId: string, lead: LeadWithCampaign | null, incoming: string, history: string): Promise<WrittenMessage> {
-    if (!this.ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
+    const ai = await this.ai.forWorkspace(workspaceId);
+    if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
     const started = Date.now();
     const profile = await this.prisma.styleProfile.findUnique({ where: { workspaceId } });
     if (!profile) throw new BadRequestException("No style profile yet");
@@ -133,15 +136,16 @@ export class MessageWriterService {
       history,
     });
     const body = await this.generate(workspaceId, "reply", incoming, messages, facts.hits.map((h) => h.sourceId), facts.confidence, { language: lead?.campaign.language === "english" ? "english" : "auto", names: [...(lead ? [lead.name] : []), await this.businessDescription(workspaceId)] });
-    return { text: body.text, risks: draftRisks(body.text, facts.hits.map((h) => h.content)), trace: { styled: true, examples: examples.length, knowledge: facts.confidence, model: this.ai.chatModel, latencyMs: Date.now() - started } };
+    return { text: body.text, risks: draftRisks(body.text, facts.hits.map((h) => h.content)), trace: { styled: true, examples: examples.length, knowledge: facts.confidence, model: ai.chatModel, latencyMs: Date.now() - started } };
   }
 
   private async generate(workspaceId: string, kind: string, input: string, messages: { role: "system" | "user"; content: string }[], sourceIds: string[], confidence: string, norm: { language: "indonesian" | "english" | "auto"; names: string[] }) {
+    const ai = await this.ai.forWorkspace(workspaceId);
     const started = Date.now();
     let output = "";
     let error: string | undefined;
     try {
-      output = normalizeDraft(neutralGreeting(clean(await this.ai.chat(messages))), norm);
+      output = normalizeDraft(neutralGreeting(clean(await ai.chat(messages))), norm);
       if (!output) error = "empty output";
       else if (PLACEHOLDER.test(output)) error = "output contains a template placeholder";
     } catch (e) {
@@ -149,7 +153,7 @@ export class MessageWriterService {
       error = "generation failed";
     }
     await this.prisma.aiRun.create({
-      data: { workspaceId, kind, model: this.ai.chatModel, input: input.slice(0, 2000), output: output || null, sourceIds, confidence, latencyMs: Date.now() - started, error },
+      data: { workspaceId, kind, model: ai.chatModel, input: input.slice(0, 2000), output: output || null, sourceIds, confidence, latencyMs: Date.now() - started, error },
     });
     if (error) throw new ServiceUnavailableException(`Could not write a safe draft (${error})`);
     return { text: output };

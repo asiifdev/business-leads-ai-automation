@@ -39,8 +39,8 @@ export class AuthController {
     if (!auth?.startsWith("Bearer ")) throw new UnauthorizedException();
     const token = auth.slice(7);
     try {
-      const payload = this.jwt.verify<{ sub: string }>(token);
-      return this.authService.me(payload.sub);
+      const payload = this.jwt.verify<{ sub: string; workspaceId?: string }>(token);
+      return this.authService.me(payload.sub, payload.workspaceId);
     } catch {
       throw new UnauthorizedException("Invalid or expired token");
     }

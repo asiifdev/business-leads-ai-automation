@@ -4,7 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useRouter, usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Megaphone, Users, BarChart3, Settings, Zap, ChevronDown, Building2, LogOut, Sparkles, Send, ClipboardList,
+  LayoutDashboard, Megaphone, Users, BarChart3, Settings, Zap, LogOut, Sparkles, Send, ClipboardList,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
+import { WorkspaceSwitcher } from "./workspace-switcher";
 import { useI18n } from "@/lib/i18n";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -59,15 +60,7 @@ export function SidebarContent() {
       </div>
 
       <div className="px-3 py-2 border-b border-sidebar-border">
-        <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground text-sm transition-colors">
-          <div className="w-5 h-5 bg-gradient-brand rounded flex items-center justify-center flex-shrink-0">
-            <Building2 className="w-3 h-3 text-white" />
-          </div>
-          <span className="flex-1 text-left font-medium truncate">
-            {workspace?.name ?? "My Workspace"}
-          </span>
-          <ChevronDown className="w-3.5 h-3.5 text-sidebar-foreground/50 flex-shrink-0" />
-        </button>
+        <WorkspaceSwitcher />
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">

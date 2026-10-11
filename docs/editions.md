@@ -13,7 +13,7 @@ Prospex ships in two editions from the same code base. This page says what diffe
 | Feature key | What it is | Status |
 |-------------|------------|--------|
 | `whatsapp.cloud_api` | Official WhatsApp Business Cloud API as the sending channel | **Not built.** The routing, the entitlement check and the settings screen exist; the connector itself does not |
-| `ai.managed` | AI calls through the platform's key instead of your own | **Not built.** Per-workspace keys are also not built yet |
+| `ai.managed` | AI calls through the platform's key instead of your own | **Not built.** Per-workspace keys are built (a workspace saves its own provider in Settings); metering and quotas for a platform-managed key are not |
 
 ## How the restriction works
 

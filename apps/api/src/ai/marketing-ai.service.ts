@@ -1,6 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import OpenAI from "openai";
+import { AiClientService, WorkspaceAi } from "./ai-client.service";
 
 export interface GenerateContentInput {
   businessName: string;
@@ -28,31 +27,21 @@ export interface MarketingContent {
 @Injectable()
 export class MarketingAiService {
   private readonly logger = new Logger(MarketingAiService.name);
-  private openai: OpenAI | null = null;
-
-  constructor(private config: ConfigService) {
-    const apiKey = this.config.get<string>("OPENAI_API_KEY");
-    if (apiKey) {
-      this.openai = new OpenAI({
-        apiKey,
-        baseURL: this.config.get<string>("OPENAI_BASE_URL") || undefined,
-      });
-    }
-  }
+  constructor(private readonly aiClient: AiClientService) {}
 
   /** Returns null when no model is available or it fails: we never store canned text that looks like a real draft. */
-  async generateContent(input: GenerateContentInput): Promise<MarketingContent | null> {
-    if (!this.openai) return null;
+  async generateContent(workspaceId: string, input: GenerateContentInput): Promise<MarketingContent | null> {
+    const ai = await this.aiClient.forWorkspace(workspaceId);
+    if (!ai.enabled) return null;
     try {
-      return await this.callOpenAI(input);
+      return await this.callModel(ai, input);
     } catch (err) {
       this.logger.error("Content generation failed", err);
       return null;
     }
   }
 
-  private async callOpenAI(input: GenerateContentInput): Promise<MarketingContent> {
-    const model = this.config.get<string>("OPENAI_MODEL") || "gpt-4o-mini";
+  private async callModel(ai: WorkspaceAi, input: GenerateContentInput): Promise<MarketingContent> {
     const isIndonesian = input.language === "indonesian";
     const styleCues: Record<string, string> = {
       professional: "formal, professional, direct",
@@ -85,13 +74,8 @@ Respond ONLY with valid JSON:
   "coldCall": { "opening": "..." }
 }`;
 
-    const response = await this.openai!.chat.completions.create({
-      model,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      response_format: { type: "json_object" },
-    });
-    const parsed = JSON.parse(response.choices[0].message.content!) as Omit<MarketingContent, "source">;
+    const reply = await ai.chat([{ role: "user", content: prompt }], { json: true, temperature: 0.7 });
+    const parsed = JSON.parse(reply) as Omit<MarketingContent, "source">;
     return { ...parsed, source: "llm" };
   }
 }

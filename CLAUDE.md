@@ -60,7 +60,7 @@ Everything in Prisma is scoped under `Workspace` (`packages/database/prisma/sche
 State is threaded through by hand rather than a state machine, so when changing this pipeline check `scraper.controller`, `scraper.processor`, the `ai` services and `campaigns.service`.
 
 ### AI (`apps/api/src/ai`)
-- `AiClientService`: OpenAI-compatible chat and embeddings (`OPENAI_BASE_URL` can point at OpenRouter or Ollama). With `OPENAI_API_KEY` empty `enabled` is false and AI features refuse to run.
+- `AiClientService.forWorkspace(workspaceId)` returns the OpenAI-compatible client for that workspace: its saved `openai` integration (key, models, base URL; cached 30 s, `invalidate()` on save) or else the server `.env` (`OPENAI_*`, `EMBEDDING_MODEL`). Never hold a global client and never read `OPENAI_*` outside this service. A workspace key never inherits the server's base URL or model names. With neither, `enabled` is false and AI features refuse to run. Workspace base URLs go through `assertAllowedBaseUrl` (public https only when `EDITION=hosted`).
 - `KnowledgeService`: chunks and vectors (pgvector), two-tier confidence (high/low/none) so drafts do not state facts the knowledge base lacks.
 - `StyleService` + `chat-import/`: parse WhatsApp exports, compute style statistics, store anonymized (incoming → reply) pairs with embeddings, retrieve similar pairs. Never store raw chats. Vectors are only compared within the same `embeddingModel` and `dimensions`.
 - `chat-import/style-prompt.ts` builds prompts. Text from outside (scraped listings, customers, exported chats) must stay inside `<data_*>` / `<pesan_pelanggan>` delimiters and go through `clip()`; do not interpolate it into instructions.
@@ -86,6 +86,9 @@ Read `docs/architecture.md` and `docs/whatsapp-outbox.md` first. Invariants to k
 
 ### Email (`apps/api/src/email`)
 Read `docs/email-channel.md` first. Same rules as WhatsApp: drafts need approval (`MessagingService.approve` branches on `channel`), the sender claims `approved -> sending` atomically, opt-outs (`email_opt_outs`) are checked at draft, approve and send. Extra invariants: every message carries the footer and `List-Unsubscribe` headers; the unsubscribe GET never changes state; the SMTP host goes through `resolvePublic` and only allowed ports; never return `passwordEnc` to a client. WhatsApp code must filter `channel: "whatsapp"` (counts, queue, follow-ups, crash recovery) because both channels share `outbound_messages`.
+
+### Workspaces
+One login can belong to many workspaces (businesses). The JWT carries the active `workspaceId`; `POST /workspace/switch` checks membership and issues a new token. Everything a business owns (brief, style, knowledge, WhatsApp, email, AI provider, campaigns, leads) hangs off `workspaceId`, so new per-business state must too. The web app reloads after a switch so no data from the previous business stays in memory.
 
 ### Secrets at rest
 Integration secrets (e.g. a workspace's own OpenAI key under `Settings → Integrations`) are encrypted with AES-256-GCM using `ENCRYPTION_KEY` before being stored — never store or log third-party API keys in plaintext.

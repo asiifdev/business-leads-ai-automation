@@ -38,6 +38,12 @@ export class KnowledgeController {
     return this.knowledge.remove(workspaceId, id);
   }
 
+  @Post("reindex")
+  @ApiOperation({ summary: "Embed every source again with the workspace's current embedding model" })
+  reindex(@WorkspaceId() workspaceId: string) {
+    return this.knowledge.reindexAll(workspaceId);
+  }
+
   @Post("search")
   @ApiOperation({ summary: "Semantic search over the workspace knowledge with a confidence level" })
   search(@WorkspaceId() workspaceId: string, @Body() dto: SearchKnowledgeDto) {

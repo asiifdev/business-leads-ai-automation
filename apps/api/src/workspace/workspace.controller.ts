@@ -4,6 +4,14 @@ import { WorkspaceService } from "./workspace.service";
 import { JwtGuard } from "../auth/jwt.guard";
 import { WorkspaceId } from "../auth/current-workspace.decorator";
 import { CurrentUserId } from "../auth/current-user.decorator";
+import { IsString, MaxLength, MinLength } from "class-validator";
+
+class CreateWorkspaceDto {
+  @IsString() @MinLength(2) @MaxLength(80) name!: string;
+}
+class SwitchWorkspaceDto {
+  @IsString() @MinLength(1) @MaxLength(64) workspaceId!: string;
+}
 
 @ApiTags("Workspace")
 @ApiBearerAuth()
@@ -16,6 +24,24 @@ export class WorkspaceController {
   @ApiOperation({ summary: "Get the current workspace" })
   getWorkspace(@WorkspaceId() workspaceId: string) {
     return this.workspaceService.getWorkspace(workspaceId);
+  }
+
+  @Get("mine")
+  @ApiOperation({ summary: "Every workspace (business) this login belongs to" })
+  mine(@CurrentUserId() userId: string, @WorkspaceId() workspaceId: string) {
+    return this.workspaceService.listMine(userId, workspaceId);
+  }
+
+  @Post()
+  @ApiOperation({ summary: "Create another workspace for this login and switch to it" })
+  create(@CurrentUserId() userId: string, @Body() body: CreateWorkspaceDto) {
+    return this.workspaceService.create(userId, body.name);
+  }
+
+  @Post("switch")
+  @ApiOperation({ summary: "Switch to another workspace this login belongs to; returns a new token" })
+  switchTo(@CurrentUserId() userId: string, @Body() body: SwitchWorkspaceDto) {
+    return this.workspaceService.switchTo(userId, body.workspaceId);
   }
 
   @Patch()

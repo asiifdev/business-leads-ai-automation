@@ -75,6 +75,8 @@ Details: [whatsapp-outbox.md](whatsapp-outbox.md).
 |---------|--------------|--------|
 | **English and Indonesian** | Every screen, switchable in the header and on the login page. | Verified |
 | **API and keys** | REST API with Swagger; API keys per workspace. | Existing feature |
+| **Several businesses per login** | Each workspace is a separate business: its own marketing brief, AI Style, knowledge base, WhatsApp number, email account, AI provider, campaigns, leads and API keys. Create and switch from the workspace menu at the top of the sidebar. | Verified (API: create, switch, membership check; isolation of AI key, brief and knowledge search between two workspaces) |
+| **AI provider per workspace** | A workspace can save its own key, chat model, embedding model and base URL (Settings). Without one it uses the server `.env`. The key is encrypted, never sent back to the browser, and "Test connection" runs a real chat and embedding call. After an embedding model change, the knowledge base can be re-indexed from Settings; AI Style must be imported again. On a hosted server the base URL must be public https. | Verified with Ollama; not tried against OpenAI or OpenRouter |
 | **Self-hosting** | Docker Compose for local and production (PostgreSQL with pgvector, Redis, API, web, Nginx). WhatsApp sessions on a persistent volume. | Partial: compose files validated, a full production deployment has not been exercised |
 | **Any OpenAI-compatible AI** | OpenAI, OpenRouter, Ollama, or your own endpoint. Set in the server `.env`. | Verified with Ollama |
 
@@ -93,7 +95,7 @@ Prospex covers one part of marketing well: **finding local businesses, understan
 - Official WhatsApp Business Cloud API. Routing, the entitlement check (hosted plans only) and the settings choice exist; the connector is not built. See [editions.md](editions.md).
 - Instagram, LinkedIn or SMS sending. Email is built (see above) but does not read replies or send follow-ups; LinkedIn notes are generated for high-priority leads but not sent.
 - Content and SEO writing, social posts and calendars, ads, landing pages, reviews and reputation, attribution beyond the CRM counters.
-- Teams with several users per workspace (the Settings screen shows the current user only), workspace deletion, and per-workspace AI keys (the Settings screen stores them, the AI features read the server `.env`).
+- Teams with several users per workspace (the Settings screen shows the current user only) and workspace deletion. A removed member's token keeps working until it expires (30 days).
 - Proposals and invoices, an agent or MCP server.
 
 The roadmap in the [README](../README.md#roadmap) lists what is next.

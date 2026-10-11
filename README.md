@@ -255,12 +255,12 @@ Done:
 - [x] Outbox: approve, edit, reject, then send one at a time with limits
 - [x] WhatsApp through Baileys: pairing, replies as drafts, STOP handling, follow-up drafts
 - [x] English and Indonesian interface on every screen
+- [x] Several businesses per login: separate brief, AI Style, knowledge, WhatsApp number and AI key for each workspace
 
 Next:
 
 - [ ] Test sending at volume on a dedicated number (one real message and one real reply are verified; the pacing logic is tested with a stand-in WhatsApp)
 - [ ] Official WhatsApp Business Cloud API provider
-- [ ] Per-workspace AI provider keys for the AI features (the Settings screen stores them encrypted today, but the AI features read the server `.env`)
 - [ ] Knowledge base screen (sources are managed from the Marketing brief page today)
 - [ ] Edit-rate and reply-rate dashboard, to see whether drafts are improving
 - [ ] More of marketing than outreach: email and other channels, content, social, ads

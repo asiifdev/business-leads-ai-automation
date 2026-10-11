@@ -72,7 +72,8 @@ export class StyleService {
 
   /** Step 2: learn the owner's style. Only statistics and anonymized example pairs are stored, never raw chats. */
   async train(workspaceId: string, files: UploadedFile[], me: string) {
-    if (!this.ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
+    const ai = await this.ai.forWorkspace(workspaceId);
+    if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
     const chats: ParsedChat[] = extractTexts(files).map((f) => parseWhatsAppExport(f.text)).filter((c) => c.senders.includes(me));
     if (chats.length === 0) throw new BadRequestException(`No chat contains a participant named "${me}"`);
 
@@ -88,7 +89,7 @@ export class StyleService {
       .slice(0, MAX_EXAMPLES);
     if (pairs.length === 0) throw new BadRequestException("No question-and-reply pairs found");
 
-    const vectors = await this.ai.embed(pairs.map((p) => p.incoming));
+    const vectors = await ai.embed(pairs.map((p) => p.incoming));
     const dims = vectors[0].length;
 
     await this.prisma.$transaction(async (tx) => {
@@ -96,13 +97,13 @@ export class StyleService {
       const profile = await tx.styleProfile.create({
         data: {
           workspaceId, ownerName: me, stats: stats as unknown as Prisma.InputJsonValue, messageCount: stats.messageCount,
-          exampleCount: pairs.length, embeddingModel: this.ai.embeddingModel, dimensions: dims,
+          exampleCount: pairs.length, embeddingModel: ai.embeddingModel, dimensions: dims,
         },
       });
       for (let i = 0; i < pairs.length; i++) {
         await tx.$executeRaw`
           INSERT INTO style_examples (id, incoming, reply, "embeddingModel", dimensions, embedding, "workspaceId", "profileId")
-          VALUES (${`se_${profile.id}_${i}`}, ${pairs[i].incoming}, ${pairs[i].reply}, ${this.ai.embeddingModel}, ${dims}, ${`[${vectors[i].join(",")}]`}::vector, ${workspaceId}, ${profile.id})`;
+          VALUES (${`se_${profile.id}_${i}`}, ${pairs[i].incoming}, ${pairs[i].reply}, ${ai.embeddingModel}, ${dims}, ${`[${vectors[i].join(",")}]`}::vector, ${workspaceId}, ${profile.id})`;
       }
     }, { timeout: 120_000 });
     return this.profile(workspaceId);
@@ -121,8 +122,9 @@ export class StyleService {
 
   /** Finds the owner's real replies to the most similar past messages (pgvector cosine distance). */
   async retrieveExamples(workspaceId: string, profile: { embeddingModel: string; dimensions: number }, text: string) {
-    const [qv] = await this.ai.embed([text]);
-    if (qv.length !== profile.dimensions || this.ai.embeddingModel !== profile.embeddingModel) {
+    const ai = await this.ai.forWorkspace(workspaceId);
+    const [qv] = await ai.embed([text]);
+    if (qv.length !== profile.dimensions || ai.embeddingModel !== profile.embeddingModel) {
       throw new BadRequestException("The embedding model changed since training; re-import your chats");
     }
     const dims = Number(profile.dimensions);
@@ -139,7 +141,8 @@ export class StyleService {
    * facts found) so the user can see why the draft says what it says.
    */
   async draft(workspaceId: string, incoming: string, businessDescription?: string) {
-    if (!this.ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
+    const ai = await this.ai.forWorkspace(workspaceId);
+    if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
     const started = Date.now();
     const profile = await this.prisma.styleProfile.findUnique({ where: { workspaceId } });
     if (!profile) throw new NotFoundException("No style profile yet: import your chat exports first");
@@ -159,7 +162,7 @@ export class StyleService {
     let draft = "";
     let error: string | undefined;
     try {
-      draft = await this.ai.chat(messages);
+      draft = await ai.chat(messages);
     } catch (err) {
       this.logger.error("Draft generation failed", err as Error);
       error = "generation failed";
@@ -167,14 +170,14 @@ export class StyleService {
     const latencyMs = Date.now() - started;
     await this.prisma.aiRun.create({
       data: {
-        workspaceId, kind: "draft", model: this.ai.chatModel, input: incoming, output: draft || null,
+        workspaceId, kind: "draft", model: ai.chatModel, input: incoming, output: draft || null,
         sourceIds: facts.hits.map((h) => h.sourceId), confidence: facts.confidence, latencyMs, error,
       },
     });
     if (error) throw new ServiceUnavailableException("The AI provider could not write a draft. Check its settings and try again.");
     return {
       draft: normalizeDraft(draft.trim(), { language: "auto", names: [profile.ownerName] }),
-      trace: { style: stats, examples, knowledge: facts, model: this.ai.chatModel, latencyMs },
+      trace: { style: stats, examples, knowledge: facts, model: ai.chatModel, latencyMs },
     };
   }
 }

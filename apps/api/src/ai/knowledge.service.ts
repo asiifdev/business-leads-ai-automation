@@ -52,7 +52,8 @@ export class KnowledgeService {
   }
 
   async addText(workspaceId: string, input: { title: string; content: string; kind?: string; url?: string }) {
-    if (!this.ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
+    const ai = await this.ai.forWorkspace(workspaceId);
+    if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
     if (chunkText(input.content).length === 0) throw new NotFoundException("No text to index");
     const source = await this.prisma.knowledgeSource.create({
       data: { workspaceId, title: input.title, kind: input.kind ?? "text", url: input.url ?? null, text: input.content.slice(0, 200_000), status: "processing" },
@@ -62,18 +63,19 @@ export class KnowledgeService {
 
   /** Chunks, embeds and stores the text of an existing source, then marks it ready (or failed). */
   async index(workspaceId: string, sourceId: string, content: string) {
+    const ai = await this.ai.forWorkspace(workspaceId);
     const source = { id: sourceId };
     const chunks = chunkText(content);
     try {
       if (chunks.length === 0) throw new Error("no text to index");
-      const vectors = await this.ai.embed(chunks);
+      const vectors = await ai.embed(chunks);
       const dims = vectors[0].length;
       await this.prisma.knowledgeChunk.deleteMany({ where: { sourceId, workspaceId } });
       for (let i = 0; i < chunks.length; i++) {
         const id = `kc_${source.id}_${i}`;
         await this.prisma.$executeRaw`
           INSERT INTO knowledge_chunks (id, content, position, "embeddingModel", dimensions, embedding, "workspaceId", "sourceId")
-          VALUES (${id}, ${chunks[i]}, ${i}, ${this.ai.embeddingModel}, ${dims}, ${toVector(vectors[i])}::vector, ${workspaceId}, ${source.id})`;
+          VALUES (${id}, ${chunks[i]}, ${i}, ${ai.embeddingModel}, ${dims}, ${toVector(vectors[i])}::vector, ${workspaceId}, ${source.id})`;
       }
       return this.prisma.knowledgeSource.update({
         where: { id: source.id },
@@ -94,8 +96,9 @@ export class KnowledgeService {
 
   /** Semantic search limited to one workspace and to chunks made by the current embedding model. */
   async search(workspaceId: string, query: string): Promise<{ hits: KnowledgeHit[]; confidence: Confidence }> {
-    if (!this.ai.enabled) return { hits: [], confidence: "none" };
-    const [qv] = await this.ai.embed([query]);
+    const ai = await this.ai.forWorkspace(workspaceId);
+    if (!ai.enabled) return { hits: [], confidence: "none" };
+    const [qv] = await ai.embed([query]);
     const dims = qv.length;
     if (!Number.isInteger(dims) || dims < 1 || dims > 16000) throw new Error("Invalid embedding dimension");
 
@@ -107,7 +110,7 @@ export class KnowledgeService {
       FROM knowledge_chunks c
       JOIN knowledge_sources s ON s.id = c."sourceId"
       WHERE c."workspaceId" = ${workspaceId}
-        AND c."embeddingModel" = ${this.ai.embeddingModel}
+        AND c."embeddingModel" = ${ai.embeddingModel}
         AND c.dimensions = ${dims}
       ORDER BY distance ASC
       LIMIT ${TOP_K}`;
@@ -121,6 +124,35 @@ export class KnowledgeService {
       confidence,
       hits: chosen.map(({ distance: _d, ...r }) => r),
     };
+  }
+
+  /** Number of sources whose vectors were made by a different embedding model than the workspace uses now. */
+  async staleSourceCount(workspaceId: string, embeddingModel: string): Promise<number> {
+    const rows = await this.prisma.$queryRaw<{ n: bigint }[]>`
+      SELECT COUNT(DISTINCT "sourceId") AS n FROM knowledge_chunks
+      WHERE "workspaceId" = ${workspaceId} AND "embeddingModel" <> ${embeddingModel}`;
+    return Number(rows[0]?.n ?? 0);
+  }
+
+  /**
+   * Embeds every source again with the workspace's current embedding model. Needed after the model changes,
+   * because search only compares vectors made by the same model. Sources without stored text cannot be redone.
+   */
+  async reindexAll(workspaceId: string): Promise<{ reindexed: number; failed: number; skipped: number }> {
+    const ai = await this.ai.forWorkspace(workspaceId);
+    if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
+    const sources = await this.prisma.knowledgeSource.findMany({ where: { workspaceId }, select: { id: true, text: true } });
+    let reindexed = 0, failed = 0, skipped = 0;
+    for (const s of sources) {
+      if (!s.text) { skipped++; continue; }
+      try {
+        await this.index(workspaceId, s.id, s.text);
+        reindexed++;
+      } catch {
+        failed++;
+      }
+    }
+    return { reindexed, failed, skipped };
   }
 }
 

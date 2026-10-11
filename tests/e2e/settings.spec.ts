@@ -75,6 +75,11 @@ test.describe("Settings", () => {
       await saveBtn.click();
       // Should not crash — success feedback or no error
       await expect(page.locator("text=error").or(page.locator(".text-red-400"))).not.toBeVisible({ timeout: 3000 });
+      // The key is now this workspace's own provider. Remove it so later specs run without a (fake) AI key.
+      const useServer = page.getByRole("button", { name: /Use the server's key|Pakai kunci server/ });
+      await expect(useServer).toBeVisible({ timeout: 5000 });
+      await useServer.click();
+      await expect(useServer).not.toBeVisible({ timeout: 5000 });
     }
   });
 });

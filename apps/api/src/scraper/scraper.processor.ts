@@ -66,7 +66,7 @@ export class ScraperProcessor extends WorkerHost {
           let marketingContent = null;
           if (lead.priority === "HIGH") {
             try {
-              marketingContent = await this.marketingAi.generateContent({
+              marketingContent = await this.marketingAi.generateContent(workspaceId, {
                 businessName: lead.name,
                 address: lead.address,
                 industry: data.industry,

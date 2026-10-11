@@ -149,7 +149,8 @@ export class BriefService {
   }
 
   async generate(workspaceId: string, input: GenerateInput): Promise<BriefView> {
-    if (!this.ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
+    const ai = await this.ai.forWorkspace(workspaceId);
+    if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
     const language = input.language === "english" ? "english" : "indonesian";
     const rows = await this.prisma.knowledgeSource.findMany({
       where: { workspaceId, ...(input.sourceIds?.length ? { id: { in: input.sourceIds } } : {}), text: { not: null } },
@@ -172,7 +173,7 @@ export class BriefService {
       let ok = false;
       for (let attempt = 0; attempt < 2 && !ok; attempt++) {
         try {
-          const reply = await this.ai.chat(buildBriefMessages(base, pass, context), { json: true, temperature: 0.3 });
+          const reply = await ai.chat(buildBriefMessages(base, pass, context), { json: true, temperature: 0.3 });
           replies.push(reply);
           const raw = extractJson(reply);
           raws.push(raw);
@@ -223,7 +224,8 @@ export class BriefService {
     return this.view(saved.version, saved.language, saved.summary, saved.content as unknown as BriefContent & { __campaign?: CampaignSuggestion }, saved.sourceIds, saved.updatedAt);
   }
 
-  private logRun(workspaceId: string, input: string, output: string, latencyMs: number, error?: string) {
-    return this.prisma.aiRun.create({ data: { workspaceId, kind: "brief", model: this.ai.chatModel, input: input.slice(0, 2000), output: output.slice(0, 20000) || null, sourceIds: [], latencyMs, error } }).catch(() => undefined);
+  private async logRun(workspaceId: string, input: string, output: string, latencyMs: number, error?: string) {
+    const ai = await this.ai.forWorkspace(workspaceId);
+    return this.prisma.aiRun.create({ data: { workspaceId, kind: "brief", model: ai.chatModel, input: input.slice(0, 2000), output: output.slice(0, 20000) || null, sourceIds: [], latencyMs, error } }).catch(() => undefined);
   }
 }

@@ -77,6 +77,35 @@ export function useAuth() {
     return data;
   };
 
+  /** Stores the token for another workspace and reloads, so nothing from the previous business stays on screen. */
+  const enterWorkspace = (data: { token: string; user: AuthUser; workspace: AuthWorkspace }) => {
+    localStorage.setItem(TOKEN_KEY, data.token);
+    localStorage.setItem(USER_KEY, JSON.stringify({ user: data.user, workspace: data.workspace }));
+    window.location.assign("/dashboard");
+  };
+
+  const switchWorkspace = async (workspaceId: string) => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const res = await fetch(`${API}/workspace/switch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ workspaceId }),
+    });
+    if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { message?: string }).message || "Switch failed");
+    enterWorkspace(await res.json());
+  };
+
+  const createWorkspace = async (name: string) => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const res = await fetch(`${API}/workspace`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { message?: string }).message || "Create failed");
+    enterWorkspace(await res.json());
+  };
+
   const logout = () => {
     const token = localStorage.getItem(TOKEN_KEY);
     // Fire-and-forget server-side logout (no-op for stateless JWT, but good practice)
@@ -91,5 +120,5 @@ export function useAuth() {
     window.location.href = "/login";
   };
 
-  return { user, workspace, loading, login, register, logout };
+  return { user, workspace, loading, login, register, logout, switchWorkspace, createWorkspace };
 }

@@ -71,7 +71,8 @@ export class FitService {
 
   async assess(workspaceId: string, leads: FitCandidate[], offer: string, language: "indonesian" | "english"): Promise<(FitVerdict | undefined)[]> {
     const none = leads.map(() => undefined);
-    if (!this.ai.enabled || leads.length === 0 || !offer.trim()) return none;
+    const ai = await this.ai.forWorkspace(workspaceId);
+    if (!ai.enabled || leads.length === 0 || !offer.trim()) return none;
     const brief = await this.prisma.marketingBrief.findUnique({ where: { workspaceId }, select: { summary: true, content: true } });
     const content = brief?.content as { audience?: { targetCustomers?: string }; angles?: { segment?: string }[] } | null;
     const targets = [content?.audience?.targetCustomers, ...(content?.angles ?? []).map((a) => a.segment)].filter(Boolean).join("; ");
@@ -80,7 +81,7 @@ export class FitService {
     for (let from = 0; from < capped; from += BATCH) {
       const slice = leads.slice(from, Math.min(from + BATCH, capped));
       try {
-        const reply = await this.ai.chat(buildFitMessages({ offer: brief?.summary || offer, targets, language, leads: slice }), { json: true, temperature: 0.1 });
+        const reply = await ai.chat(buildFitMessages({ offer: brief?.summary || offer, targets, language, leads: slice }), { json: true, temperature: 0.1 });
         parseFit(reply, slice.length).forEach((v, i) => { out[from + i] = v; });
       } catch (e) {
         this.logger.warn(`Fit assessment skipped for a batch: ${(e as Error).message}`);

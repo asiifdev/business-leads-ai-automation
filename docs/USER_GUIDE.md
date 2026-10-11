@@ -90,7 +90,7 @@ Buka browser: **http://localhost:3000**
 
 Prospex mendukung penyedia AI mana pun yang kompatibel dengan API OpenAI. Draf pesan membutuhkan **model chat**, sedangkan Gaya AI dan basis pengetahuan juga membutuhkan **model embedding** (`EMBEDDING_MODEL`).
 
-> **Penting:** saat ini penyedia AI diatur lewat file `.env` server (`OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `EMBEDDING_MODEL`). Form di **Settings → AI Configuration** menyimpan kunci terenkripsi per workspace, tetapi fitur AI belum membacanya. Memakainya per workspace ada di roadmap. Setelah mengubah `.env`, restart API.
+> **Dua tempat mengatur AI.** File `.env` server (`OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `EMBEDDING_MODEL`) berlaku untuk semua workspace dan butuh restart API. Di **Settings → AI Configuration** tiap workspace bisa menyimpan kunci, model, model embedding, dan base URL sendiri; ini menggantikan `.env` untuk workspace itu saja dan berlaku tanpa restart. Workspace tanpa kunci sendiri memakai `.env`.
 
 ### OpenAI
 
@@ -467,7 +467,11 @@ File `.vcf` bisa langsung dibuka di HP untuk save kontak:
 
 ### AI Configuration
 
-**Settings → AI Configuration** — simpan OpenAI key, model, dan base URL. Data tersimpan di database (bukan file `.env`), jadi bisa diupdate live tanpa restart.
+**Settings → AI Configuration** — kunci, model chat, model embedding, dan base URL untuk workspace yang sedang aktif. Disimpan terenkripsi di database, berlaku tanpa restart, dan kunci tidak pernah ditampilkan lagi setelah disimpan (kosongkan kolomnya untuk tetap memakai kunci yang ada). Tombol **Uji koneksi** membuat satu panggilan chat dan satu panggilan embedding dengan pengaturan yang benar-benar dipakai. Bila model embedding diganti, sumber pengetahuan perlu **Indeks ulang** dan AI Style perlu diimpor ulang.
+
+### Beberapa bisnis (workspace)
+
+Satu login bisa memegang banyak bisnis. Klik nama workspace di kiri atas, pilih bisnis lain, atau **Workspace baru**. Tiap workspace punya brief pemasaran, AI Style, knowledge base, nomor WhatsApp, akun email, kunci AI, kampanye, lead, dan kunci API sendiri; tidak ada yang tercampur.
 
 ### Prospex API Keys
 

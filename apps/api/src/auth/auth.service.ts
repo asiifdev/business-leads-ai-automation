@@ -4,6 +4,7 @@ import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../prisma/prisma.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
+import { makeWorkspaceSlug } from "../workspace/slug";
 
 @Injectable()
 export class AuthService {
@@ -17,8 +18,7 @@ export class AuthService {
     if (existing) throw new ConflictException("Email already registered");
 
     const hashed = await bcrypt.hash(dto.password, 12);
-    const slug = dto.workspaceName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    const uniqueSlug = `${slug}-${Date.now().toString(36)}`;
+    const uniqueSlug = makeWorkspaceSlug(dto.workspaceName);
 
     const user = await this.prisma.user.create({
       data: {
@@ -61,7 +61,7 @@ export class AuthService {
       where: { email: dto.email },
       include: {
         accounts: { where: { providerId: "credential" } },
-        memberships: { include: { workspace: true }, take: 1 },
+        memberships: { include: { workspace: true }, orderBy: { createdAt: "asc" }, take: 1 },
       },
     });
 
@@ -88,13 +88,14 @@ export class AuthService {
     };
   }
 
-  async me(userId: string) {
+  /** The workspace the token points at (after a switch), or the oldest one when the token's workspace is gone. */
+  async me(userId: string, workspaceId?: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { memberships: { include: { workspace: true }, take: 1 } },
+      include: { memberships: { include: { workspace: true }, orderBy: { createdAt: "asc" } } },
     });
     if (!user) throw new UnauthorizedException();
-    const workspace = user.memberships[0]?.workspace;
+    const workspace = (user.memberships.find((m) => m.workspaceId === workspaceId) ?? user.memberships[0])?.workspace;
     return {
       user: { id: user.id, name: user.name, email: user.email },
       workspace: workspace

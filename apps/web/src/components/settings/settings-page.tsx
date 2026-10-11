@@ -40,6 +40,27 @@ interface Workspace {
   slug: string;
 }
 
+interface AiStatus {
+  source: "workspace" | "server" | "none";
+  enabled: boolean;
+  chatModel: string;
+  embeddingModel: string;
+  workspace: { hasKey: boolean; model: string; embeddingModel: string; baseURL: string };
+  serverKeyAvailable: boolean;
+  allowPrivateBaseUrl: boolean;
+  staleKnowledgeSources: number;
+  styleNeedsRetraining: boolean;
+}
+
+interface AiTestResult {
+  ok: boolean;
+  chatModel?: string;
+  embeddingModel?: string;
+  dimensions?: number;
+  latencyMs?: number;
+  error?: string;
+}
+
 export function SettingsPage() {
   const { user } = useAuth();
   const { t, lang } = useI18n();
@@ -62,12 +83,19 @@ export function SettingsPage() {
   const [newKey, setNewKey] = useState<NewKeyResult | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
   const [openaiKey, setOpenaiKey] = useState("");
-  const [openaiModel, setOpenaiModel] = useState("gpt-4o-mini");
+  const [openaiModel, setOpenaiModel] = useState("");
+  const [openaiEmbed, setOpenaiEmbed] = useState("");
   const [openaiBase, setOpenaiBase] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [savingIntegration, setSavingIntegration] = useState(false);
   const [savedIntegration, setSavedIntegration] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiTesting, setAiTesting] = useState(false);
+  const [aiTestMsg, setAiTestMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [reindexing, setReindexing] = useState(false);
+  const [reindexMsg, setReindexMsg] = useState("");
 
   const [keyPendingDelete, setKeyPendingDelete] = useState<ApiKey | null>(null);
   const [confirmDeleteWorkspace, setConfirmDeleteWorkspace] = useState(false);
@@ -113,19 +141,18 @@ export function SettingsPage() {
     }
   };
 
-  // Load saved AI integration config
-  useEffect(() => {
-    api.get<Array<{ type: string; config: Record<string, string> }>>("/settings/integrations")
-      .then((integrations) => {
-        const openai = integrations.find((i) => i.type === "openai");
-        if (openai) {
-          setOpenaiKey(openai.config.apiKey ?? "");
-          setOpenaiModel(openai.config.model ?? "gpt-4o-mini");
-          setOpenaiBase(openai.config.baseURL ?? "");
-        }
-      })
-      .catch(console.error);
+  const applyAiStatus = useCallback((st: AiStatus) => {
+    setAiStatus(st);
+    setOpenaiModel(st.workspace.model);
+    setOpenaiEmbed(st.workspace.embeddingModel);
+    setOpenaiBase(st.workspace.baseURL);
+    setOpenaiKey("");
   }, []);
+
+  // Which AI provider this workspace uses, and its saved (non-secret) settings
+  useEffect(() => {
+    api.get<AiStatus>("/settings/ai").then(applyAiStatus).catch(console.error);
+  }, [applyAiStatus]);
 
   const createApiKey = async () => {
     if (!newKeyName.trim()) return;
@@ -161,18 +188,63 @@ export function SettingsPage() {
 
   const saveAiIntegration = async () => {
     setSavingIntegration(true);
+    setAiError("");
+    setAiTestMsg(null);
     try {
-      await api.post("/settings/integrations", {
-        type: "openai",
-        name: "OpenAI / Compatible API",
-        config: { apiKey: openaiKey, model: openaiModel, baseURL: openaiBase },
+      const st = await api.put<AiStatus>("/settings/ai", {
+        apiKey: openaiKey,
+        model: openaiModel,
+        embeddingModel: openaiEmbed,
+        baseURL: openaiBase,
       });
+      applyAiStatus(st);
       setSavedIntegration(true);
       setTimeout(() => setSavedIntegration(false), 2000);
     } catch (e) {
-      console.error("Failed to save integration:", e);
+      setAiError(e instanceof Error ? e.message : t("ai.error.save"));
     } finally {
       setSavingIntegration(false);
+    }
+  };
+
+  const useServerAi = async () => {
+    setAiError("");
+    setAiTestMsg(null);
+    try {
+      applyAiStatus(await api.delete<AiStatus>("/settings/ai"));
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : t("ai.error.save"));
+    }
+  };
+
+  const testAi = async () => {
+    setAiTesting(true);
+    setAiTestMsg(null);
+    try {
+      const r = await api.post<AiTestResult>("/settings/ai/test", {});
+      setAiTestMsg(
+        r.ok
+          ? { ok: true, text: t("ai.testOk", { chat: r.chatModel ?? "", embed: r.embeddingModel ?? "", dims: r.dimensions ?? 0, ms: r.latencyMs ?? 0 }) }
+          : { ok: false, text: t("ai.testFail", { error: r.error ?? "" }) },
+      );
+    } catch (e) {
+      setAiTestMsg({ ok: false, text: t("ai.testFail", { error: e instanceof Error ? e.message : "" }) });
+    } finally {
+      setAiTesting(false);
+    }
+  };
+
+  const reindexKnowledge = async () => {
+    setReindexing(true);
+    setReindexMsg("");
+    try {
+      const r = await api.post<{ reindexed: number; failed: number; skipped: number }>("/knowledge/reindex", {});
+      setReindexMsg(t("ai.reindexed", { n: r.reindexed, f: r.failed, s: r.skipped }));
+      applyAiStatus(await api.get<AiStatus>("/settings/ai"));
+    } catch (e) {
+      setReindexMsg(e instanceof Error ? e.message : "");
+    } finally {
+      setReindexing(false);
     }
   };
 
@@ -236,12 +308,40 @@ export function SettingsPage() {
               <CardDescription>{t("settings.ai.desc")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                <p className="font-medium">
+                  {aiStatus ? t(aiStatus.source === "workspace" ? "ai.status.workspace" : aiStatus.source === "server" ? "ai.status.server" : "ai.status.none") : "..."}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {aiStatus?.source === "server" && t("ai.status.serverHint")}
+                  {aiStatus?.source === "none" && t("ai.status.noneHint")}
+                  {aiStatus?.enabled && ` ${aiStatus.chatModel} · ${aiStatus.embeddingModel}`}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">{t("ai.scope", { name: workspaceName || "-" })}</p>
+              </div>
+
+              {aiStatus && aiStatus.staleKnowledgeSources > 0 && (
+                <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm space-y-2">
+                  <p>{t("ai.stale.kb", { n: aiStatus.staleKnowledgeSources })}</p>
+                  <Button size="sm" variant="outline" onClick={reindexKnowledge} disabled={reindexing}>
+                    {reindexing && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                    {reindexing ? t("ai.reindexing") : t("ai.stale.reindex")}
+                  </Button>
+                </div>
+              )}
+              {reindexMsg && <p className="text-xs text-muted-foreground">{reindexMsg}</p>}
+              {aiStatus?.styleNeedsRetraining && (
+                <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm">{t("ai.stale.style")}</p>
+              )}
+
               <div className="space-y-2">
-                <Label>{t("settings.ai.keyLabel")}</Label>
+                <Label htmlFor="ai-key">{t("settings.ai.keyLabel")}</Label>
                 <div className="flex gap-2">
                   <Input
+                    id="ai-key"
                     type={showKey ? "text" : "password"}
-                    placeholder={t("settings.ai.keyPlaceholder")}
+                    autoComplete="off"
+                    placeholder={aiStatus?.workspace.hasKey ? "••••••••••••" : t("settings.ai.keyPlaceholder")}
                     value={openaiKey}
                     onChange={(e) => setOpenaiKey(e.target.value)}
                     className="flex-1"
@@ -256,37 +356,71 @@ export function SettingsPage() {
                     {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">{t("settings.ai.keyHelp")}</p>
+                <p className="text-xs text-muted-foreground">
+                  {aiStatus?.workspace.hasKey ? t("ai.keySaved") : t("settings.ai.keyHelp")}
+                </p>
               </div>
               <Separator />
-              <div className="space-y-2">
-                <Label>{t("settings.ai.model")}</Label>
-                <Input
-                  placeholder={t("settings.ai.modelPlaceholder")}
-                  value={openaiModel}
-                  onChange={(e) => setOpenaiModel(e.target.value)}
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="ai-model">{t("settings.ai.model")}</Label>
+                  <Input
+                    id="ai-model"
+                    placeholder={t("settings.ai.modelPlaceholder")}
+                    value={openaiModel}
+                    onChange={(e) => setOpenaiModel(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ai-embed">{t("ai.embedding")}</Label>
+                  <Input
+                    id="ai-embed"
+                    placeholder={t("ai.embeddingPlaceholder")}
+                    value={openaiEmbed}
+                    onChange={(e) => setOpenaiEmbed(e.target.value)}
+                  />
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground">{t("ai.embeddingHelp")}</p>
               <Separator />
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>{t("settings.ai.baseUrl")}</Label>
+                  <Label htmlFor="ai-base">{t("settings.ai.baseUrl")}</Label>
                   <Badge variant="secondary" className="text-xs">{t("settings.ai.baseUrlOptional")}</Badge>
                 </div>
                 <Input
+                  id="ai-base"
                   placeholder={t("settings.ai.basePlaceholder")}
                   value={openaiBase}
                   onChange={(e) => setOpenaiBase(e.target.value)}
                 />
+                {aiStatus && (
+                  <p className="text-xs text-muted-foreground">
+                    {aiStatus.allowPrivateBaseUrl ? t("ai.baseUrlPrivate") : t("ai.baseUrlPublic")}
+                  </p>
+                )}
               </div>
-              <Button variant="gradient" onClick={saveAiIntegration} disabled={savingIntegration}>
-                {savingIntegration ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : savedIntegration ? (
-                  <Check className="mr-2 h-4 w-4" />
-                ) : null}
-                {savedIntegration ? t("settings.saved") : t("settings.ai.save")}
-              </Button>
+              {aiError && <p className="text-sm text-destructive">{aiError}</p>}
+              {aiTestMsg && (
+                <p className={aiTestMsg.ok ? "text-sm text-success" : "text-sm text-destructive"}>{aiTestMsg.text}</p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="gradient" onClick={saveAiIntegration} disabled={savingIntegration}>
+                  {savingIntegration ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : savedIntegration ? (
+                    <Check className="mr-2 h-4 w-4" />
+                  ) : null}
+                  {savedIntegration ? t("settings.saved") : t("settings.ai.save")}
+                </Button>
+                <Button variant="outline" onClick={testAi} disabled={aiTesting || !aiStatus?.enabled}>
+                  {aiTesting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {aiTesting ? t("ai.testing") : t("ai.test")}
+                </Button>
+                {aiStatus?.workspace.hasKey && (
+                  <Button variant="ghost" onClick={useServerAi}>{t("ai.useServer")}</Button>
+                )}
+              </div>
             </CardContent>
           </Card>
 
