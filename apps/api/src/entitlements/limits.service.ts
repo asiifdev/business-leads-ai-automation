@@ -87,6 +87,41 @@ export class LimitsService {
     if (used >= snap.limits.draftsPerMonth) throw new LimitReachedException("drafts", snap.limits.draftsPerMonth, used, "limit");
   }
 
+  /**
+   * Takes one draft from the owner's monthly allowance *before* the AI is called. The counter is incremented first and then
+   * checked, so parallel requests cannot all pass a check-then-count gap: a request that finds the total over the limit
+   * gives its unit back and is refused (it errs on the side of refusing). The returned function refunds the unit when
+   * generation fails, so a failed draft is not charged.
+   */
+  async reserveDraft(workspaceId: string): Promise<() => Promise<void>> {
+    if (!this.enabled) return async () => undefined;
+    const snap = await this.snapshotFor(workspaceId);
+    if (snap.readOnly) throw new LimitReachedException("drafts", 0, 0, "read_only");
+    const ownerId = await this.ownerOf(workspaceId);
+    if (!ownerId) return async () => undefined;
+    const period = periodKey(new Date());
+    const where = { workspaceId_period_metric: { workspaceId, period, metric: "draft" } };
+    await this.prisma.usageCounter.upsert({ where, create: { workspaceId, period, metric: "draft", count: 1 }, update: { count: { increment: 1 } } });
+    const refund = async () => {
+      await this.prisma.usageCounter.update({ where, data: { count: { decrement: 1 } } }).catch(() => undefined);
+    };
+    const used = (await this.usageForOwner(ownerId)).drafts;
+    if (used > snap.limits.draftsPerMonth) {
+      await refund();
+      throw new LimitReachedException("drafts", snap.limits.draftsPerMonth, used - 1, "limit");
+    }
+    return refund;
+  }
+
+  /**
+   * Refuses work that spends the platform's own AI key when the account is read-only (trial over, subscription lapsed).
+   * Accounts that bring their own key cost nothing to serve, so they are not blocked here.
+   */
+  async assertActive(workspaceId: string): Promise<void> {
+    if (!this.enabled) return;
+    if ((await this.snapshotFor(workspaceId)).readOnly) throw new LimitReachedException("ai", 0, 0, "read_only");
+  }
+
   async draftsLeft(workspaceId: string): Promise<number> {
     if (!this.enabled) return Infinity;
     const snap = await this.snapshotFor(workspaceId);

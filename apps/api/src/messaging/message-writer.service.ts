@@ -47,8 +47,18 @@ export class MessageWriterService {
   }
 
   /** First-contact message, or follow-up number `followUp.number`, in the owner's voice when a style exists. */
+  /** First-contact message, or a follow-up. Takes one draft from the plan allowance first and gives it back if writing fails. */
   async outreach(workspaceId: string, lead: LeadWithCampaign, followUp?: { number: number; of: number; previousMessage: string; daysSince: number }, channel: "whatsapp" | "email" = "whatsapp"): Promise<WrittenMessage> {
-    await this.limits.assertCan(workspaceId, "draft");
+    const release = await this.limits.reserveDraft(workspaceId);
+    try {
+      return await this.writeOutreach(workspaceId, lead, followUp, channel);
+    } catch (e) {
+      await release();
+      throw e;
+    }
+  }
+
+  private async writeOutreach(workspaceId: string, lead: LeadWithCampaign, followUp?: { number: number; of: number; previousMessage: string; daysSince: number }, channel: "whatsapp" | "email" = "whatsapp"): Promise<WrittenMessage> {
     const ai = await this.ai.forWorkspace(workspaceId);
     if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
     const started = Date.now();
@@ -88,7 +98,6 @@ export class MessageWriterService {
 
     const business = await this.businessDescription(workspaceId);
     const body = await this.generate(workspaceId, followUp ? "followup" : "outreach", `${lead.id}`, messages, facts.hits.map((h) => h.sourceId), facts.confidence, { language, names: [lead.name, business] });
-    await this.limits.record(workspaceId, "draft");
     const hint = language === "english" ? OPT_OUT_HINT_EN : OPT_OUT_HINT_ID;
     // Email carries an unsubscribe link in its footer instead of a "reply STOP" line.
     return {
@@ -118,8 +127,18 @@ export class MessageWriterService {
   }
 
   /** Reply to something a known lead just wrote. `history` is the recent thread, oldest first. */
+  /** Reply to a known lead. Same allowance rule as `outreach`. */
   async reply(workspaceId: string, lead: LeadWithCampaign | null, incoming: string, history: string): Promise<WrittenMessage> {
-    await this.limits.assertCan(workspaceId, "draft");
+    const release = await this.limits.reserveDraft(workspaceId);
+    try {
+      return await this.writeReply(workspaceId, lead, incoming, history);
+    } catch (e) {
+      await release();
+      throw e;
+    }
+  }
+
+  private async writeReply(workspaceId: string, lead: LeadWithCampaign | null, incoming: string, history: string): Promise<WrittenMessage> {
     const ai = await this.ai.forWorkspace(workspaceId);
     if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
     const started = Date.now();
@@ -141,7 +160,6 @@ export class MessageWriterService {
       history,
     });
     const body = await this.generate(workspaceId, "reply", incoming, messages, facts.hits.map((h) => h.sourceId), facts.confidence, { language: lead?.campaign.language === "english" ? "english" : "auto", names: [...(lead ? [lead.name] : []), await this.businessDescription(workspaceId)] });
-    await this.limits.record(workspaceId, "draft");
     return { text: body.text, risks: draftRisks(body.text, facts.hits.map((h) => h.content)), trace: { styled: true, examples: examples.length, knowledge: facts.confidence, model: ai.chatModel, latencyMs: Date.now() - started } };
   }
 

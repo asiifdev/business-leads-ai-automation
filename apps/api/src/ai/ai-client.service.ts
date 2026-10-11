@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import OpenAI from "openai";
+import { LimitsService } from "../entitlements/limits.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { decryptSecret } from "../settings/encryption.util";
 import * as dns from "dns";
@@ -256,7 +257,7 @@ export class AiClientService {
   private readonly server: ServerAiDefaults;
   private readonly allowPrivateBaseUrl: boolean;
 
-  constructor(private readonly config: ConfigService, private readonly prisma: PrismaService) {
+  constructor(private readonly config: ConfigService, private readonly prisma: PrismaService, private readonly limits: LimitsService) {
     this.server = {
       apiKey: config.get<string>("OPENAI_API_KEY") || undefined,
       baseURL: config.get<string>("OPENAI_BASE_URL") || undefined,
@@ -278,7 +279,14 @@ export class AiClientService {
 
   async forWorkspace(workspaceId: string): Promise<WorkspaceAi> {
     const hit = this.cache.get(workspaceId);
-    if (hit && Date.now() - hit.at < CACHE_MS) return hit.ai;
+    const cached = hit && Date.now() - hit.at < CACHE_MS ? hit.ai : null;
+    const ai = cached ?? (await this.build(workspaceId));
+    // Spending the platform's own key needs an active plan; a workspace's own key is its owner's cost.
+    if (ai.source === "server") await this.limits.assertActive(workspaceId);
+    return ai;
+  }
+
+  private async build(workspaceId: string): Promise<WorkspaceAi> {
     const settings = await this.resolve(workspaceId);
     const ai = new WorkspaceAi(settings, {
       publicOnly: settings.source === "workspace" && !this.allowPrivateBaseUrl,
