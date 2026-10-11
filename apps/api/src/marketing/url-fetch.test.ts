@@ -53,3 +53,15 @@ test("htmlToText treats a bare < as text and skips unclosed script content", () 
   assert.match(htmlToText("<p>5 < 6 dan 7 > 3</p>").text, /5 < 6 dan 7 > 3/);
   assert.doesNotMatch(htmlToText("<p>aman</p><script>jahat()").text, /jahat/);
 });
+
+test("isBlockedAddress covers IPv6 forms that embed an IPv4 address", () => {
+  const blocked = [
+    "::1", "::", "::ffff:127.0.0.1", "::ffff:7f00:1", "::127.0.0.1", "::7f00:1", "::a00:1",
+    "64:ff9b::7f00:1", "64:ff9b::10.0.0.5", "64:ff9b:1::1", "2002:7f00:1::", "2002:a9fe:a9fe::1", "2001::1", "2001:db8::1",
+    "fc00::1", "fd12::1", "fe80::1", "fec0::1", "ff02::1", "100::1",
+    "169.254.169.254", "100.64.0.1", "192.0.2.1", "198.51.100.7", "203.0.113.9", "0.0.0.0", "255.255.255.255",
+  ];
+  for (const ip of blocked) assert.equal(isBlockedAddress(ip), true, ip);
+  const open = ["8.8.8.8", "1.1.1.1", "2606:4700::1111", "2001:4860:4860::8888", "64:ff9b::808:808", "2002:808:808::1", "::ffff:8.8.8.8"];
+  for (const ip of open) assert.equal(isBlockedAddress(ip), false, ip);
+});

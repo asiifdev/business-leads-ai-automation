@@ -12,26 +12,62 @@ const ALLOWED_TYPES = /^(text\/html|text\/plain|text\/markdown|application\/xhtm
 /** True for addresses a server must never be tricked into calling: loopback, private, link-local (cloud metadata), CGNAT, multicast, unspecified, IPv6 equivalents. */
 export function isBlockedAddress(ip: string): boolean {
   if (net.isIPv6(ip)) {
-    const v = ip.toLowerCase();
-    if (v === "::" || v === "::1") return true;
-    if (v.startsWith("::ffff:")) return isBlockedAddress(v.slice(7)); // IPv4-mapped
-    if (/^f[cd]/.test(v)) return true; // fc00::/7 unique local
-    if (/^fe[89ab]/.test(v)) return true; // fe80::/10 link-local
-    if (v.startsWith("ff")) return true; // multicast
+    const g = expandIPv6(ip);
+    if (!g) return true;
+    const embeddedV4 = (hi: number, lo: number) => `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+    const zeros = (from: number, to: number) => g.slice(from, to).every((x) => x === 0);
+    if (zeros(0, 7) && (g[7] === 0 || g[7] === 1)) return true; // :: and ::1
+    if (zeros(0, 5) && g[5] === 0xffff) return isBlockedAddress(embeddedV4(g[6], g[7])); // IPv4-mapped
+    if (zeros(0, 6)) return isBlockedAddress(embeddedV4(g[6], g[7])); // IPv4-compatible (deprecated)
+    if (g[0] === 0x64 && g[1] === 0xff9b) { // NAT64: the IPv4 sits in the last 32 bits; the local-use /48 is all internal
+      if (g[2] !== 0) return true;
+      return isBlockedAddress(embeddedV4(g[6], g[7]));
+    }
+    if (g[0] === 0x2002) return isBlockedAddress(embeddedV4(g[1], g[2])); // 6to4
+    if (g[0] === 0x2001 && g[1] === 0) return true; // Teredo
+    if (g[0] === 0x2001 && g[1] === 0xdb8) return true; // documentation
+    if (g[0] === 0x100 && zeros(1, 4)) return true; // discard-only 100::/64
+    if ((g[0] & 0xfe00) === 0xfc00) return true; // fc00::/7 unique local
+    if ((g[0] & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+    if ((g[0] & 0xffc0) === 0xfec0) return true; // fec0::/10 site-local (deprecated)
+    if ((g[0] & 0xff00) === 0xff00) return true; // multicast
     return false;
   }
   if (!net.isIPv4(ip)) return true;
-  const [a, b] = ip.split(".").map(Number);
+  const [a, b, c] = ip.split(".").map(Number);
   return (
     a === 0 || a === 10 || a === 127 ||
     (a === 100 && b >= 64 && b <= 127) || // CGNAT
     (a === 169 && b === 254) || // link-local, cloud metadata
     (a === 172 && b >= 16 && b <= 31) ||
     (a === 192 && b === 168) ||
-    (a === 192 && b === 0) ||
+    (a === 192 && b === 0) || // 192.0.0.0/24 and 192.0.2.0/24
+    (a === 192 && b === 88 && c === 99) || // 6to4 relay
     (a === 198 && (b === 18 || b === 19)) ||
+    (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113) || // documentation
     a >= 224 // multicast and reserved
   );
+}
+
+/** Eight 16-bit groups of an IPv6 address (handles "::" and a dotted IPv4 tail), or null if it does not parse. */
+function expandIPv6(ip: string): number[] | null {
+  let v = ip.toLowerCase().split("%")[0];
+  const dotted = v.match(/(\d+\.\d+\.\d+\.\d+)$/);
+  if (dotted) {
+    const p = dotted[1].split(".").map(Number);
+    if (p.some((n) => n > 255)) return null;
+    v = v.slice(0, -dotted[1].length) + ((p[0] << 8) | p[1]).toString(16) + ":" + ((p[2] << 8) | p[3]).toString(16);
+  }
+  const halves = v.split("::");
+  if (halves.length > 2) return null;
+  const head = halves[0] ? halves[0].split(":") : [];
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+  const fill = halves.length === 2 ? 8 - head.length - tail.length : 0;
+  if (fill < 0 || (halves.length === 1 && head.length !== 8)) return null;
+  const all = [...head, ...Array(fill).fill("0"), ...tail];
+  if (all.length !== 8) return null;
+  const out = all.map((h) => (/^[0-9a-f]{1,4}$/.test(h) ? parseInt(h, 16) : NaN));
+  return out.some(Number.isNaN) ? null : out;
 }
 
 /** Syntax-level checks that need no network. Throws a user-readable error. */
