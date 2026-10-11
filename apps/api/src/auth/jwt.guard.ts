@@ -4,7 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 
 const MEMBERSHIP_CACHE_MS = 10_000;
-// Tokens issued to a login that has no workspace yet carry this placeholder; it grants no data.
+// Tokens issued to a login that has no workspace carry this placeholder; it must never pass the guard.
 const PLACEHOLDER_WORKSPACE = "default-workspace";
 
 @Injectable()
@@ -36,7 +36,9 @@ export class JwtGuard implements CanActivate {
 
   /** A token outlives the membership it was issued for (30 days). Re-check it, briefly cached, so removal takes effect. */
   private async requireMembership(userId: string | undefined, workspaceId: string | undefined): Promise<void> {
-    if (!userId || !workspaceId || workspaceId === PLACEHOLDER_WORKSPACE) return;
+    // No user, no workspace, or the placeholder a membership-less login gets: there is no membership to confirm,
+    // so refuse rather than let the request run against whatever "default-workspace" resolves to.
+    if (!userId || !workspaceId || workspaceId === PLACEHOLDER_WORKSPACE) throw new UnauthorizedException("This login does not belong to a workspace");
     const key = `${userId}:${workspaceId}`;
     const seen = this.members.get(key);
     if (seen && Date.now() - seen < MEMBERSHIP_CACHE_MS) return;
