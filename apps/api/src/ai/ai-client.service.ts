@@ -5,6 +5,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { decryptSecret } from "../settings/encryption.util";
 import * as dns from "dns";
 import * as https from "https";
+import * as net from "net";
 import { hostIsPublic, isBlockedAddress } from "../marketing/url-fetch";
 
 export interface ChatMessage {
@@ -114,6 +115,29 @@ export function publicOnlyLookup(hostname: string, options: dns.LookupOptions, c
   });
 }
 
+/**
+ * HTTPS agent for workspace-supplied endpoints. `publicOnlyLookup` covers names, but Node never calls `lookup` for an
+ * IP literal (a redirect to https://10.0.0.5/ would skip it), so this also refuses blocked literals before connecting
+ * and destroys any socket whose remote address turns out to be blocked, before a byte is sent.
+ */
+export class PublicOnlyAgent extends https.Agent {
+  constructor() {
+    super({ lookup: publicOnlyLookup as never, keepAlive: false });
+  }
+
+  createConnection(options: never, callback?: never): never {
+    const o = options as { host?: string; hostname?: string };
+    const host = (o.host ?? o.hostname ?? "").replace(/^\[|\]$/g, "");
+    const blocked = () => Object.assign(new Error("The AI base URL points at a private address, which is not allowed on this server."), { code: "EBLOCKED" });
+    if (host && net.isIP(host) && isBlockedAddress(host)) throw blocked();
+    const socket = (super.createConnection as (o: unknown, c?: unknown) => net.Socket)(options, callback);
+    socket.on("connect", () => {
+      if (socket.remoteAddress && isBlockedAddress(socket.remoteAddress)) socket.destroy(blocked());
+    });
+    return socket as never;
+  }
+}
+
 /** A chat and embeddings client bound to one workspace's settings. Retries transient failures (429 and 5xx). */
 export class WorkspaceAi {
   private readonly logger = new Logger("WorkspaceAi");
@@ -128,7 +152,7 @@ export class WorkspaceAi {
       ? new OpenAI({
           apiKey: settings.apiKey,
           baseURL: settings.baseURL,
-          ...(opts.publicOnly && settings.baseURL ? { httpAgent: new https.Agent({ lookup: publicOnlyLookup as never, keepAlive: false }) } : {}),
+          ...(opts.publicOnly && settings.baseURL ? { httpAgent: new PublicOnlyAgent() } : {}),
         })
       : null;
   }
