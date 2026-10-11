@@ -90,6 +90,9 @@ Read `docs/email-channel.md` first. Same rules as WhatsApp: drafts need approval
 ### Workspaces
 One login can belong to many workspaces (businesses). The JWT carries the active `workspaceId`; `POST /workspace/switch` checks membership and issues a new token. Everything a business owns (brief, style, knowledge, WhatsApp, email, AI provider, campaigns, leads) hangs off `workspaceId`, so new per-business state must too. `JwtGuard` re-checks the membership behind the token (10 s cache), so removal works at once. Changing the AI provider or integrations, testing it, and re-indexing need `assertOwnerOrAdmin` (`auth/roles.ts`); a missing user id is refused. The web app reloads after a switch so no data from the previous business stays in memory.
 
+### Entitlements and limits
+`apps/api/src/entitlements`: the host asks an `EntitlementProvider` what a workspace owner may do; plans, prices, subscriptions and payments are **never** added to this repository (they live in the private `@alatpintar/cloud` package, loaded via `ALATPINTAR_CLOUD_PLUGIN`). Add new limits as keys in `PlanLimits` and enforce them through `LimitsService`; never hard-code plan names or numbers here. Drafts are gated and counted in `MessageWriterService`, the single place every AI draft passes through. See docs/editions.md.
+
 ### Secrets at rest
 Integration secrets (e.g. a workspace's own OpenAI key under `Settings → Integrations`) are encrypted with AES-256-GCM using `ENCRYPTION_KEY` before being stored — never store or log third-party API keys in plaintext.
 

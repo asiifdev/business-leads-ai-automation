@@ -4,12 +4,16 @@ import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
+import { CLOUD_HOST, type CloudHost } from "./entitlements/cloud-host";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.use(helmet());
   app.setGlobalPrefix("api");
+  // Routes from the commercial package (checkout, payment webhooks, billing admin), if one is installed.
+  const cloud = app.get<CloudHost>(CLOUD_HOST);
+  if (cloud.router) app.use("/api/billing", cloud.router);
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
   app.useGlobalFilters(new HttpExceptionFilter());
   app.enableCors({ origin: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000" });

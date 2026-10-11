@@ -2,6 +2,7 @@ import { Controller, Post, Param, HttpCode, HttpStatus, UseGuards } from "@nestj
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
+import { LimitsService } from "../entitlements/limits.service";
 import { CampaignsService } from "../campaigns/campaigns.service";
 import { JwtGuard } from "../auth/jwt.guard";
 import { WorkspaceId } from "../auth/current-workspace.decorator";
@@ -15,6 +16,7 @@ export class ScraperController {
   constructor(
     @InjectQueue("scraper") private readonly scraperQueue: Queue<ScraperJobData>,
     private readonly campaigns: CampaignsService,
+    private readonly limits: LimitsService,
   ) {}
 
   @Post("campaigns/:id/start")
@@ -25,6 +27,8 @@ export class ScraperController {
     @WorkspaceId() workspaceId: string,
   ) {
     const campaign = await this.campaigns.findOne(id, workspaceId);
+    await this.limits.assertCan(workspaceId, "scrape");
+    await this.limits.record(workspaceId, "scrape");
     const job = await this.scraperQueue.add(
       "scrape",
       {

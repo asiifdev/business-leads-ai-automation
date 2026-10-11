@@ -24,9 +24,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
       this.logger.error(`${request.method} ${request.url} → ${status}`, exception instanceof Error ? exception.stack : String(exception));
     }
 
+    // Machine-readable details the UI relies on (402 UPGRADE_REQUIRED / LIMIT_REACHED / SUBSCRIPTION_INACTIVE). Allowlisted.
+    const body = exception instanceof HttpException ? (exception.getResponse() as Record<string, unknown>) : {};
+    const detail: Record<string, unknown> = {};
+    for (const k of ["code", "feature", "metric", "limit", "used"]) if (typeof body === "object" && body && k in body) detail[k] = body[k];
+
     response.status(status).json({
       statusCode: status,
       message,
+      ...detail,
       timestamp: new Date().toISOString(),
       path: request.url,
     });

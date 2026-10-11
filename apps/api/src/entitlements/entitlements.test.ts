@@ -3,29 +3,23 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { featuresFor, parseEdition } from "./entitlements";
+import { parseEdition } from "./entitlements";
 import { EntitlementsService, UpgradeRequiredException } from "./entitlements.service";
+import { loadCloudPlugin } from "./plugin";
+import { CommunityProvider, UNLIMITED } from "./provider";
 import { loadCloudProvider } from "../messaging/cloud-plugin";
 import { WhatsappGateway } from "../messaging/whatsapp.gateway";
 import { ProviderUnavailableError } from "../messaging/whatsapp.provider";
 
 const cfg = (edition?: string) => ({ get: (k: string) => (k === "EDITION" ? edition : undefined) }) as never;
-const prismaWithPlan = (plan: string) => ({ workspace: { findUnique: async () => ({ plan }) }, whatsappAccount: { findMany: async () => [] } }) as never;
+/** A limits service whose owner has the given features. */
+const limitsWith = (features: string[], plan = "x") => ({ snapshotFor: async () => ({ plan, status: "active", readOnly: false, endsAt: null, features, limits: UNLIMITED }), ownerOf: async () => "u", enabled: true, usageForOwner: async () => ({}) }) as never;
 
-test("the community edition has no commercial features, whatever the plan says", () => {
-  for (const plan of ["free", "pro", "business", "starter", undefined]) {
-    const f = featuresFor("community", plan);
-    assert.equal(f["whatsapp.cloud_api"], false);
-    assert.equal(f["ai.managed"], false);
-  }
-});
-
-test("the hosted edition grants features by plan; unknown plans get nothing", () => {
-  assert.deepEqual(featuresFor("hosted", "starter"), { "whatsapp.cloud_api": false, "ai.managed": true });
-  assert.deepEqual(featuresFor("hosted", "PRO"), { "whatsapp.cloud_api": true, "ai.managed": true });
-  assert.deepEqual(featuresFor("hosted", "business"), { "whatsapp.cloud_api": true, "ai.managed": true });
-  assert.deepEqual(featuresFor("hosted", "free"), { "whatsapp.cloud_api": false, "ai.managed": false });
-  assert.deepEqual(featuresFor("hosted", "nonsense"), { "whatsapp.cloud_api": false, "ai.managed": false });
+test("the community provider grants no commercial features and no limits", async () => {
+  const s = await new CommunityProvider().snapshotForUser();
+  assert.deepEqual(s.features, []);
+  assert.equal(s.limits.draftsPerMonth, Infinity);
+  assert.equal(new CommunityProvider().enforcing, false);
 });
 
 test("anything but 'hosted' means community (a typo cannot unlock features)", () => {
@@ -33,15 +27,34 @@ test("anything but 'hosted' means community (a typo cannot unlock features)", ()
   for (const v of [undefined, "", "Hosted ", "enterprise", "true", "community"]) assert.equal(parseEdition(v), "community");
 });
 
+test("features come from the provider's snapshot, nothing is hard-coded here", async () => {
+  const e = new EntitlementsService(cfg("hosted"), limitsWith(["ai.managed"], "pro"));
+  assert.equal(await e.has("w", "ai.managed"), true);
+  assert.equal(await e.has("w", "whatsapp.cloud_api"), false);
+  const l = await e.list("w", "u");
+  assert.equal(l.plan, "pro");
+  assert.equal(l.isOwner, true);
+  assert.equal(l.limits.draftsPerMonth, null); // Infinity is sent as null
+});
+
 test("assert throws a 402 UPGRADE_REQUIRED with a clear message per edition", async () => {
-  const community = new EntitlementsService(cfg(), prismaWithPlan("pro"));
-  await assert.rejects(community.assert("w", "whatsapp.cloud_api"), (e: UpgradeRequiredException) => {
+  await assert.rejects(new EntitlementsService(cfg(), limitsWith([])).assert("w", "whatsapp.cloud_api"), (e: UpgradeRequiredException) => {
     const body = e.getResponse() as { code: string; message: string };
     return e.getStatus() === 402 && body.code === "UPGRADE_REQUIRED" && /alatpintar\.id/.test(body.message);
   });
-  const hostedStarter = new EntitlementsService(cfg("hosted"), prismaWithPlan("starter"));
-  await assert.rejects(hostedStarter.assert("w", "whatsapp.cloud_api"), /does not include|402|UPGRADE/i);
-  await assert.doesNotReject(new EntitlementsService(cfg("hosted"), prismaWithPlan("pro")).assert("w", "whatsapp.cloud_api"));
+  await assert.rejects(new EntitlementsService(cfg("hosted"), limitsWith(["ai.managed"])).assert("w", "whatsapp.cloud_api"), /does not include|402|UPGRADE/i);
+  await assert.doesNotReject(new EntitlementsService(cfg("hosted"), limitsWith(["ai.managed", "whatsapp.cloud_api"])).assert("w", "whatsapp.cloud_api"));
+});
+
+test("the commercial entitlement package loads only if it exists and exports createProvider", () => {
+  assert.equal(loadCloudPlugin("definitely-not-installed-package-xyz"), null);
+  const dir = mkdtempSync(join(tmpdir(), "plugin-"));
+  const bad = join(dir, "bad.js");
+  writeFileSync(bad, "module.exports = { nothing: true };");
+  assert.equal(loadCloudPlugin(bad), null);
+  const good = join(dir, "good.js");
+  writeFileSync(good, "module.exports = { createProvider: () => ({ name: 'x' }) };");
+  assert.equal(typeof loadCloudPlugin(good)?.createProvider, "function");
 });
 
 test("the cloud connector loads only if the package exists and exports createProvider", () => {

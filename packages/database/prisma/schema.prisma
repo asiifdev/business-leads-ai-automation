@@ -36,6 +36,8 @@ model Workspace {
   outboundMessages OutboundMessage[]
   inboundMessages  InboundMessage[]
   messageOptOuts   MessageOptOut[]
+  usageCounters    UsageCounter[]
+  usageEvents      UsageEvent[]
 
   @@map("workspaces")
 }
@@ -545,4 +547,51 @@ model MarketingBrief {
   workspaceId String    @unique
 
   @@map("marketing_briefs")
+}
+
+
+// ============ USAGE METERING ============
+// Counters and per-call AI usage. Useful to any install (self-hosters can see what their AI key costs). Plans,
+// subscriptions and payments are NOT here: they live in a separate commercial package with its own tables.
+
+/** Monthly counters per workspace (period = "YYYY-MM"). Limits sum the counters of every workspace the owner has. */
+model UsageCounter {
+  id          String   @id @default(cuid())
+  period      String
+  metric      String // draft | scrape | message_sent
+  count       Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+
+  @@unique([workspaceId, period, metric])
+  @@map("usage_counters")
+}
+
+/** One row per AI call: tokens and model, so cost per draft can be measured before prices and limits are locked. */
+model UsageEvent {
+  id               String   @id @default(cuid())
+  kind             String // ai_chat | ai_embed
+  model            String?
+  source           String? // workspace | server
+  promptTokens     Int?
+  completionTokens Int?
+  latencyMs        Int?
+  createdAt        DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+
+  @@index([workspaceId, createdAt])
+  @@map("usage_events")
+}
+
+/// Install-wide settings that belong to no workspace (instance id, licence key and the last signed licence document).
+model InstanceSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("instance_settings")
 }

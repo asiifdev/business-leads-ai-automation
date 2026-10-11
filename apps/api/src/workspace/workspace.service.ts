@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException, ConflictException, ForbiddenException, BadRequestException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { PrismaService } from "../prisma/prisma.service";
+import { LimitsService } from "../entitlements/limits.service";
 import { makeWorkspaceSlug, MAX_WORKSPACES_PER_USER } from "./slug";
 
 @Injectable()
 export class WorkspaceService {
-  constructor(private prisma: PrismaService, private jwt: JwtService) {}
+  constructor(private prisma: PrismaService, private jwt: JwtService, private limits: LimitsService) {}
 
   /** Every workspace the user belongs to, with enough numbers to tell businesses apart in a switcher. */
   async listMine(userId: string, currentWorkspaceId: string) {
@@ -30,6 +31,7 @@ export class WorkspaceService {
   async create(userId: string, name: string) {
     const clean = name.trim().replace(/\s+/g, " ");
     if (clean.length < 2 || clean.length > 80) throw new BadRequestException("Give the workspace a name of 2 to 80 characters");
+    await this.limits.assertCanCreateWorkspace(userId);
     const owned = await this.prisma.workspaceMember.count({ where: { userId } });
     if (owned >= MAX_WORKSPACES_PER_USER) throw new BadRequestException(`A login can have at most ${MAX_WORKSPACES_PER_USER} workspaces`);
     const workspace = await this.prisma.workspace.create({
@@ -102,6 +104,7 @@ export class WorkspaceService {
       where: { workspaceId_userId: { workspaceId, userId: user.id } },
     });
     if (existing) throw new ConflictException("User is already a member of this workspace");
+    await this.limits.assertCanAddMember(workspaceId);
 
     return this.prisma.workspaceMember.create({
       data: { workspaceId, userId: user.id, role: role || "member" },

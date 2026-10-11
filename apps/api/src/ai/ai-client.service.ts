@@ -139,6 +139,15 @@ export class PublicOnlyAgent extends https.Agent {
 }
 
 /** A chat and embeddings client bound to one workspace's settings. Retries transient failures (429 and 5xx). */
+export interface AiUsage {
+  kind: "ai_chat" | "ai_embed";
+  model: string;
+  source: AiSource;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  latencyMs: number;
+}
+
 export class WorkspaceAi {
   private readonly logger = new Logger("WorkspaceAi");
   private readonly client: OpenAI | null;
@@ -147,7 +156,7 @@ export class WorkspaceAi {
    * `publicOnly` is set for workspace-supplied endpoints on a shared server: connections go through
    * `publicOnlyLookup`. The server's own endpoint is the operator's choice and is left alone.
    */
-  constructor(readonly settings: AiSettings, opts: { publicOnly?: boolean } = {}) {
+  constructor(readonly settings: AiSettings, private readonly opts: { publicOnly?: boolean; onUsage?: (u: AiUsage) => void } = {}) {
     this.client = settings.apiKey
       ? new OpenAI({
           apiKey: settings.apiKey,
@@ -172,6 +181,7 @@ export class WorkspaceAi {
 
   async chat(messages: ChatMessage[], opts: { temperature?: number; json?: boolean } = {}): Promise<string> {
     const client = this.requireClient();
+    const t0 = Date.now();
     const res = await this.withRetry(() =>
       client.chat.completions.create({
         model: this.settings.chatModel,
@@ -181,6 +191,7 @@ export class WorkspaceAi {
         ...(this.settings.reasoningEffort ? ({ reasoning_effort: this.settings.reasoningEffort } as object) : {}),
       }),
     );
+    this.report({ kind: "ai_chat", model: this.settings.chatModel, promptTokens: res.usage?.prompt_tokens ?? null, completionTokens: res.usage?.completion_tokens ?? null, latencyMs: Date.now() - t0 });
     return res.choices[0]?.message?.content ?? "";
   }
 
@@ -191,11 +202,22 @@ export class WorkspaceAi {
     const out: number[][] = [];
     for (let i = 0; i < texts.length; i += 64) {
       const batch = texts.slice(i, i + 64);
+      const t0 = Date.now();
       const res = await this.withRetry(() => client.embeddings.create({ model: this.settings.embeddingModel, input: batch }));
+      this.report({ kind: "ai_embed", model: this.settings.embeddingModel, promptTokens: res.usage?.prompt_tokens ?? null, completionTokens: null, latencyMs: Date.now() - t0 });
       if (res.data.length !== batch.length) throw new Error(`Embedding provider returned ${res.data.length} vectors for ${batch.length} inputs`);
       out.push(...res.data.sort((a, b) => a.index - b.index).map((d) => d.embedding));
     }
     return out;
+  }
+
+  /** Usage accounting must never break the call it measures. */
+  private report(u: Omit<AiUsage, "source">): void {
+    try {
+      this.opts.onUsage?.({ ...u, source: this.settings.source });
+    } catch {
+      /* ignore */
+    }
   }
 
   private requireClient(): OpenAI {
@@ -258,9 +280,20 @@ export class AiClientService {
     const hit = this.cache.get(workspaceId);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.ai;
     const settings = await this.resolve(workspaceId);
-    const ai = new WorkspaceAi(settings, { publicOnly: settings.source === "workspace" && !this.allowPrivateBaseUrl });
+    const ai = new WorkspaceAi(settings, {
+      publicOnly: settings.source === "workspace" && !this.allowPrivateBaseUrl,
+      onUsage: (u) => void this.logUsage(workspaceId, u),
+    });
     this.cache.set(workspaceId, { at: Date.now(), ai });
     return ai;
+  }
+
+  private async logUsage(workspaceId: string, u: AiUsage): Promise<void> {
+    try {
+      await this.prisma.usageEvent.create({ data: { workspaceId, kind: u.kind, model: u.model, source: u.source, promptTokens: u.promptTokens, completionTokens: u.completionTokens, latencyMs: u.latencyMs } });
+    } catch (e) {
+      this.logger.debug(`usage event not saved: ${(e as Error).message}`);
+    }
   }
 
   /** Call after the workspace's AI settings change so the next request sees them. */

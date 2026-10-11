@@ -4,7 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useRouter, usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Megaphone, Users, BarChart3, Settings, Zap, LogOut, Sparkles, Send, ClipboardList,
+  LayoutDashboard, Megaphone, Users, BarChart3, Settings, Zap, LogOut, Sparkles, Send, ClipboardList, CreditCard,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,7 @@ const navItems = [
 
 const bottomItems = [
   { title: "nav.integrations" as MessageKey, href: "/integrations", icon: Zap },
+  { title: "nav.billing" as MessageKey, href: "/billing", icon: CreditCard },
   { title: "nav.settings" as MessageKey, href: "/settings", icon: Settings },
 ];
 

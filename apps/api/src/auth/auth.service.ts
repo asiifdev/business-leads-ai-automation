@@ -1,16 +1,18 @@
-import { Injectable, ConflictException, UnauthorizedException } from "@nestjs/common";
+import { Inject, Injectable, ConflictException, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../prisma/prisma.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { makeWorkspaceSlug } from "../workspace/slug";
+import { ENTITLEMENT_PROVIDER, type EntitlementProvider } from "../entitlements/provider";
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
+    @Inject(ENTITLEMENT_PROVIDER) private provider: EntitlementProvider,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -46,6 +48,7 @@ export class AuthService {
       include: { memberships: { include: { workspace: true } } },
     });
 
+    await this.provider.onUserRegistered?.(user.id);
     const workspace = user.memberships[0].workspace;
     const token = this.jwt.sign({ sub: user.id, workspaceId: workspace.id, email: user.email });
 

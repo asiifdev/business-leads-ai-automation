@@ -17,7 +17,9 @@ import { marketingId } from "./features-marketing.id";
 import { adminId } from "./features-admin.id";
 import { workspaceEn } from "./features-workspace.en";
 import { workspaceId } from "./features-workspace.id";
+import { billingEn } from "./features-billing.en";
+import { billingId } from "./features-billing.id";
 
-export const enAll = { ...en, ...authEn, ...campaignsEn, ...leadsEn, ...adminEn, ...marketingEn, ...workspaceEn } as const;
+export const enAll = { ...en, ...authEn, ...campaignsEn, ...leadsEn, ...adminEn, ...marketingEn, ...workspaceEn, ...billingEn } as const;
 export type MessageKey = keyof typeof enAll;
-export const idAll: Record<MessageKey, string> = { ...id, ...authId, ...campaignsId, ...leadsId, ...adminId, ...marketingId, ...workspaceId };
+export const idAll: Record<MessageKey, string> = { ...id, ...authId, ...campaignsId, ...leadsId, ...adminId, ...marketingId, ...workspaceId, ...billingId };
