@@ -32,7 +32,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`Prospex API running on http://localhost:${port}`);
+  console.log(`Prospex API running on http://localhost:${port} (${process.env.EDITION === "hosted" ? "hosted" : "community"} edition)`);
   console.log(`Swagger docs: http://localhost:${port}/api/docs`);
 }
 

@@ -49,8 +49,15 @@ export function BillingPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api.get<Entitlements>("/entitlements").then(setSub).catch((e: Error) => setError(e.message));
-    api.get<Catalog>("/billing/plans").then(setCatalog).catch(() => setCatalog(null));
+    api
+      .get<Entitlements>("/entitlements")
+      .then((e) => {
+        setSub(e);
+        // The price list comes from the commercial package, so only ask for it when plans are enforced.
+        if (!e.enforcing) return setCatalog(null);
+        return api.get<Catalog>("/billing/plans").then(setCatalog).catch(() => setCatalog(null));
+      })
+      .catch((e: Error) => setError(e.message));
   }, []);
 
   if (error) return <p className="p-6 text-sm text-destructive">{error}</p>;
