@@ -110,7 +110,25 @@ export interface OutreachPromptInput {
   followUp?: { number: number; of: number; previousMessage: string; daysSince: number };
   /** Defaults to whatsapp. Email gets a longer, more formal message with no "Kak". */
   channel?: "whatsapp" | "email";
+  /** Which opening to use for a first message, so the owner can see which one gets answers. */
+  variant?: OutreachVariant;
 }
+
+export const OUTREACH_VARIANTS = ["pain", "observation", "outcome"] as const;
+export type OutreachVariant = (typeof OUTREACH_VARIANTS)[number];
+
+/** Same lead, same variant: stable across regenerations, spread evenly across a campaign. */
+export function pickVariant(seed: string): OutreachVariant {
+  let h = 0;
+  for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return OUTREACH_VARIANTS[h % OUTREACH_VARIANTS.length];
+}
+
+const OPENING: Record<OutreachVariant, string> = {
+  pain: "Buka dengan SATU pertanyaan tentang masalah yang lazim dialami bisnis sejenis (ambil dari sudut brief bila ada). Tulis sebagai pertanyaan, bukan pernyataan bahwa penerima mengalaminya. Contoh bentuk: \"Pernah ada dua orang memesan barang yang sama di tanggal yang sama?\"",
+  observation: "Buka dengan SATU fakta dari data penerima, ditulis apa adanya dengan angkanya (rating dan ulasan Google, atau belum ada website), lalu kaitkan langsung dengan satu hal yang bisa dibenahi.",
+  outcome: "Buka dengan hasil yang bisa dirasakan penerima sehari-hari (mis. stok dan jadwal sewa terpantau dari satu layar, pelanggan tahu barang kosong atau tersedia tanpa bertanya), tulis dalam bahasa pemilik usaha, bukan bahasa fitur.",
+};
 
 function leadLines(l: LeadFacts): string {
   const rows: [string, string | null | undefined][] = [
@@ -140,22 +158,24 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
       ? `Penerima belum membalas pesan sebelumnya (${fu.daysSince} hari lalu):\n"${fu.previousMessage}"\nAwali dengan ${email ? "\"Halo,\"" : "\"Halo, Kak,\""}. Tulis tindak lanjut yang singkat dan tidak memaksa. Jangan mengulang isi pesan sebelumnya. ${fu.number >= fu.of ? "Ini yang terakhir: tutup dengan sopan dan katakan tidak akan mengganggu lagi." : "Berikan satu alasan baru atau pertanyaan ringan."}`
       : email
         ? [
-            "Penerima belum mengenal pemilik dan belum pernah menghubungi lebih dulu. Ini email penjualan pertama: tulis dengan jelas dan meyakinkan, bukan obrolan santai. Susun dalam 4 sampai 6 kalimat pendek (sekitar 400 sampai 700 karakter), dipisah paragraf pendek:",
-            `1. Salam dan perkenalan dalam satu kalimat: "Halo, perkenalkan saya dari tim ${input.businessDescription}." Jangan memakai kata "Kak". Jangan menyapa dengan nama bisnis penerima.`,
-            "2. Pengamatan spesifik: satu fakta dari data penerima, ditulis apa adanya dengan angkanya (mis. rating dan jumlah ulasan di Google Maps, atau belum ada website).",
-            "3. Manfaat nyata: satu sampai dua kalimat tentang apa yang ditawarkan dan apa yang bisa dilakukan pelanggan penerima dengannya. Jangan menjanjikan hasil atau angka.",
-            "4. Ajakan: satu langkah berikutnya yang kecil, mis. \"Boleh saya kirim contohnya?\" atau \"Apakah lebih baik kami jelaskan lewat telepon singkat?\".",
-            "Hindari kata ragu dan jargon: mungkin, sepertinya, barangkali, digitalisasi, solusi, terstruktur, inovatif, optimal, terdepan.",
+            "Penerima belum mengenal pemilik dan belum pernah menghubungi lebih dulu. Ini email penjualan pertama. Tujuannya: membuat pemilik usaha penasaran sampai membalas dengan pertanyaan, bukan menjelaskan semuanya. Tulis jelas dan rapi dalam 4 sampai 6 kalimat pendek (sekitar 450 sampai 750 karakter), dipisah paragraf pendek, dalam urutan ini:",
+            `1. Pembuka yang menarik perhatian, JANGAN memulai dengan perkenalan. ${OPENING[input.variant ?? "pain"]} Jangan memakai kata "Kak". Jangan menyapa dengan nama bisnis penerima.`,
+            "2. Jembatan: satu sampai dua kalimat tentang apa yang dibereskan penawaran ini untuk bisnis sejenis, ditulis sebagai hasil bagi pemilik (waktu, kerepotan, pelanggan, uang yang tidak bocor), bukan sebagai aplikasi atau daftar fitur. Jangan menjanjikan hasil atau angka.",
+            "3. Pancing rasa ingin tahu: sebut SATU sampai dua hal konkret yang akan mereka lihat atau dapatkan (hanya dari fakta di brief atau fakta bisnis di bawah), tanpa menjelaskan semua caranya.",
+            `4. Perkenalan singkat dalam satu kalimat: "Saya dari ${input.businessDescription}."`,
+            "5. Ajakan: satu langkah kecil yang mengundang balasan, mis. \"Mau saya kirim contoh tampilannya?\" atau \"Bagaimana pemesanan di tempat Anda dicatat sekarang?\".",
+            "Hindari kata ragu, jargon, dan klise iklan: mungkin, sepertinya, barangkali, digitalisasi, solusi, terstruktur, inovatif, optimal, terdepan, revolusioner, perkenalkan.",
             "Jangan menulis baris tanda tangan, nama pengirim, alamat, atau tautan berhenti berlangganan: sistem menambahkannya.",
           ].join("\n")
         : [
-          "Penerima belum mengenal pemilik dan belum pernah menghubungi lebih dulu. Ini pesan penjualan pertama: tulis dengan jelas dan meyakinkan, bukan obrolan santai. Susun empat bagian dalam 3 sampai 4 kalimat pendek (sekitar 250 sampai 400 karakter):",
-          `1. Salam dan perkenalan dalam satu kalimat: "Halo, Kak, perkenalkan saya dari tim ${input.businessDescription}." Sapaan "Kak" dipakai karena nama kontak tidak diketahui. Jangan menyapa dengan nama bisnis penerima.`,
-          "2. Pengamatan spesifik: satu fakta dari data penerima, ditulis apa adanya dengan angkanya (mis. rating dan jumlah ulasan di Google Maps, atau belum ada website).",
-          "3. Manfaat nyata: satu kalimat tentang apa yang ditawarkan dan apa yang bisa dilakukan pelanggan penerima dengannya (mis. memesan atau reservasi dari ponsel). Jangan menjanjikan hasil atau angka.",
-          "4. Ajakan: satu pertanyaan ringan yang mudah dijawab ya atau tidak, mis. \"Boleh saya jelaskan singkat, Kak?\".",
-          "Hindari kata ragu dan jargon: mungkin, sepertinya, barangkali, tertarik atau tidak, digitalisasi, solusi, terstruktur, inovatif, optimal, terdepan.",
-          "Contoh bentuk (jangan disalin, sesuaikan dengan data dan penawaran): Halo, Kak, perkenalkan saya dari tim Asiifdev Digital Agency. Saya lihat Kopi Contoh punya rating 4,5 dari 120 ulasan di Google Maps, tapi belum ada website untuk pesan atau reservasi. Kami membuatkan website pemesanan online untuk kafe, jadi pelanggan bisa memesan dari ponsel. Boleh saya jelaskan singkat, Kak?",
+          "Penerima belum mengenal pemilik dan belum pernah menghubungi lebih dulu. Ini pesan penjualan pertama. Tujuannya satu: membuat pemilik usaha penasaran sampai membalas dengan pertanyaan. Bukan menjelaskan semuanya. Tiga sampai lima kalimat pendek (sekitar 280 sampai 480 karakter), dalam urutan ini:",
+          `1. Pembuka yang menarik perhatian, JANGAN memulai dengan perkenalan. ${OPENING[input.variant ?? "pain"]}`,
+          "2. Jembatan: satu kalimat tentang apa yang dibereskan penawaran ini untuk bisnis sejenis, dituliskan sebagai hasil untuk pemilik (waktu, kerepotan, pelanggan, uang yang tidak bocor), bukan sebagai aplikasi atau daftar fitur. Jangan menyebut kata aplikasi, platform, sistem canggih, atau teknologi.",
+          "3. Pancing rasa ingin tahu: sebut SATU hal konkret yang akan mereka lihat atau dapatkan (hanya dari fakta di brief atau fakta bisnis di bawah), tanpa menjelaskan caranya, sehingga pertanyaan lanjutan muncul dengan sendirinya.",
+          `4. Perkenalan sangat singkat di dalam kalimat, mis. \"Saya dari ${input.businessDescription}\". Sapaan \"Kak\" boleh dipakai satu kali karena nama kontak tidak diketahui. Jangan menyapa dengan nama bisnis penerima.`,
+          "5. Penutup: satu pertanyaan kecil yang membuat mereka ingin bertanya balik, bukan sekadar ya atau tidak, mis. \"Mau saya tunjukkan seperti apa tampilannya?\" atau \"Biasanya pemesanan di tempat Kakak dicatat di mana?\".",
+          "Hindari kata ragu, jargon, dan klise iklan: mungkin, sepertinya, barangkali, tertarik atau tidak, digitalisasi, solusi, terstruktur, inovatif, optimal, terdepan, revolusioner, perkenalkan.",
+          "Contoh bentuk (jangan disalin, sesuaikan dengan data, penawaran, dan jenis bisnis): Halo, Kak. Pernah ada dua orang memesan barang yang sama di tanggal yang sama? Biasanya itu terjadi karena jadwal sewa dicatat di beberapa tempat. Saya dari tim Contoh Digital; kami bantu pemilik rental melihat stok dan jadwal sewa dari satu layar, lengkap dengan pengingat otomatis ke penyewa. Mau saya tunjukkan seperti apa tampilannya, Kak?",
         ].join("\n"),
     "",
     input.brief
@@ -183,6 +203,9 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
     "- Jangan mengarang fakta tentang penerima di luar data di atas. Dilarang menyebut bisnis mereka ramai, laris, diminati, populer, enak, terkenal, bagus, terbaik, atau sejenisnya kecuali tertulis di data; sebut angka (rating, jumlah ulasan) apa adanya. Jangan memuji secara umum.",
     "- Sebut tepat satu fakta spesifik dari data apa adanya (mis. rating dan jumlah ulasan, belum ada website, atau lokasi), lalu hubungkan dengan penawaran.",
     "- Jangan menjanjikan hasil atau angka. Jangan menulis seperti iklan atau broadcast.",
+    "- Jangan menebak atau menyimpulkan keadaan penerima (\"pasti ramai\", \"permintaan tinggi\", \"masih mencatat di buku\"). Tanyakan, jangan menyatakan. Jangan memakai istilah campuran Inggris yang tidak perlu (real-time, tracking, dashboard); pakai kata sehari-hari.",
+    "- Tulis dengan ejaan baku dan kalimat natural seperti pemilik usaha berbicara. Hindari kata kaku seperti \"Pernahkah\"; pakai \"Pernah\" atau \"Apakah pernah\". Baca ulang: setiap kata harus bermakna dan benar (tidak ada kata asing yang tidak nyambung).",
+    "- Jangan menulis kalimat penutup kedua setelah pertanyaan. Pertanyaan adalah kalimat terakhir.",
     email ? "- Tanpa baris tanda tangan, tanpa placeholder seperti [Nama]. Tanpa emoji." : "- Satu pesan pendek, tanpa baris tanda tangan, tanpa placeholder seperti [Nama].",
     `- Bahasa: ${id ? "Indonesia" : "English"}. Jangan menambahkan kalimat berhenti/opt-out, itu ditambahkan sistem.`,
     `Tulis HANYA isi ${email ? "email" : "pesan"}, tanpa penjelasan, tanpa tanda kutip, tanpa label.`,

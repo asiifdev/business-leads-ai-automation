@@ -5,7 +5,7 @@ import { LimitsService } from "../entitlements/limits.service";
 import { AiClientService } from "../ai/ai-client.service";
 import { KnowledgeService } from "../ai/knowledge.service";
 import { StyleService } from "../ai/style.service";
-import { buildDraftMessages, buildOutreachMessages } from "../ai/chat-import/style-prompt";
+import { buildDraftMessages, buildOutreachMessages, pickVariant } from "../ai/chat-import/style-prompt";
 import type { StyleStats } from "../ai/chat-import/style-stats";
 import { draftRisks } from "./draft-risk";
 import { neutralGreeting, normalizeDraft } from "../ai/orthography";
@@ -15,7 +15,7 @@ import { OPT_OUT_HINT_EN, OPT_OUT_HINT_ID } from "./opt-out";
 
 export interface WrittenMessage {
   text: string;
-  trace: { styled: boolean; examples: number; knowledge: string; model: string; latencyMs: number };
+  trace: { variant?: string; styled: boolean; examples: number; knowledge: string; model: string; latencyMs: number };
   /** Things in the draft a reviewer should double-check (links, prices, discounts...). Empty when nothing stands out. */
   risks: string[];
 }
@@ -80,6 +80,7 @@ export class MessageWriterService {
     const briefRow = await this.prisma.marketingBrief.findUnique({ where: { workspaceId }, select: { summary: true, content: true } });
     const brief = briefRow ? briefForDraft(briefRow.summary, briefRow.content as unknown as BriefContent, lead) : undefined;
 
+    const variant = followUp ? undefined : pickVariant(lead.id);
     const messages = buildOutreachMessages({
       businessDescription: await this.businessDescription(workspaceId),
       offer: lead.campaign.yourService,
@@ -94,6 +95,7 @@ export class MessageWriterService {
       brief,
       followUp,
       channel,
+      variant,
     });
 
     const business = await this.businessDescription(workspaceId);
@@ -103,7 +105,7 @@ export class MessageWriterService {
     return {
       text: channel === "email" ? body.text : `${body.text}\n\n${hint}`,
       risks: draftRisks(body.text, facts.hits.map((h) => h.content)),
-      trace: { styled: !!stats, examples: examples.length, knowledge: facts.confidence, model: ai.chatModel, latencyMs: Date.now() - started },
+      trace: { variant, styled: !!stats, examples: examples.length, knowledge: facts.confidence, model: ai.chatModel, latencyMs: Date.now() - started },
     };
   }
 
