@@ -17,6 +17,7 @@ class AccountDto {
   @IsEmail() @MaxLength(254) fromEmail!: string;
   @IsOptional() @IsEmail() @MaxLength(254) replyTo?: string;
   @IsString() @MinLength(10) @MaxLength(300) postalAddress!: string;
+  @IsOptional() @IsString() @MaxLength(300) ctaUrl?: string;
   @IsOptional() @IsInt() @Min(1) @Max(30) hourlyLimit?: number;
   @IsOptional() @IsInt() @Min(1) @Max(200) dailyLimit?: number;
   @IsOptional() @IsInt() @Min(0) @Max(23) quietStartHour?: number;

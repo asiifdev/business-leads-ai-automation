@@ -119,3 +119,10 @@ test("stripMarkdown removes symbols that would show literally in a message", () 
   assert.equal(stripMarkdown("snake_case_name tetap"), "snake_case_name tetap");
   assert.equal(stripMarkdown("# Judul\n* satu\n* dua"), "Judul\n- satu\n- dua");
 });
+
+import { withLink } from "./message-writer.service";
+
+test("withLink puts the owner's link before the closing", () => {
+  assert.equal(withLink("Halo,\n\nIsi.\n\nSalam,", "https://invly.id/", "indonesian"), "Halo,\n\nIsi.\n\nSelengkapnya: https://invly.id/\n\nSalam,");
+  assert.equal(withLink("Hello,\n\nBody.", "https://x.id/", "english"), "Hello,\n\nBody.\n\nMore details: https://x.id/");
+});

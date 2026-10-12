@@ -475,6 +475,7 @@ model EmailAccount {
   fromEmail     String
   replyTo       String?
   postalAddress String // printed in every message, required by anti-spam laws in many countries
+  ctaUrl        String? // one link added to the first email, written by the owner (never invented by the model)
   hourlyLimit   Int       @default(8)
   dailyLimit    Int       @default(40)
   quietStartHour Int      @default(20)

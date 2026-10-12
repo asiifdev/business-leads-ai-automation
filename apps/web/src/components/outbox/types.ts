@@ -31,7 +31,7 @@ export type Counts = Record<string, number>;
 
 export interface EmailOverview {
   account: {
-    host: string; port: number; secure: boolean; username: string; hasPassword: boolean; fromName: string; fromEmail: string; replyTo: string | null; postalAddress: string;
+    host: string; port: number; secure: boolean; username: string; hasPassword: boolean; fromName: string; fromEmail: string; replyTo: string | null; postalAddress: string; ctaUrl: string | null;
     hourlyLimit: number; dailyLimit: number; quietStartHour: number; quietEndHour: number; timezone: string; paused: boolean;
     status: "untested" | "ready" | "error"; lastError: string | null; verifiedAt: string | null;
   } | null;

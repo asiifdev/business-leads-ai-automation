@@ -199,6 +199,7 @@ export const id: Record<keyof typeof en, string> = {
   "email.fromName": "Nama pengirim",
   "email.fromEmail": "Alamat pengirim",
   "email.replyTo": "Alamat balasan (opsional)",
+  "email.ctaUrl": "Tautan di email pertama (opsional)",
   "email.address": "Alamat surat pengirim",
   "email.addressHint": "Dicetak di bagian bawah setiap email. Undang-undang anti-spam di banyak negara mewajibkannya.",
   "email.remove": "Hapus akun",

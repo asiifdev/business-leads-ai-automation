@@ -13,7 +13,7 @@ export const MAX_GENERATE = 200;
 
 export interface EmailAccountInput {
   host: string; port: number; secure: boolean; username: string; password?: string;
-  fromName: string; fromEmail: string; replyTo?: string | null; postalAddress: string;
+  fromName: string; fromEmail: string; replyTo?: string | null; postalAddress: string; ctaUrl?: string | null;
   hourlyLimit?: number; dailyLimit?: number; quietStartHour?: number; quietEndHour?: number; timezone?: string; paused?: boolean;
 }
 
@@ -66,7 +66,18 @@ export class EmailService {
     if (!isValidEmail(s.fromEmail)) throw new BadRequestException("The sender address is not a valid email");
     if (s.replyTo && !isValidEmail(s.replyTo)) throw new BadRequestException("The reply-to address is not a valid email");
     if (s.timezone) { try { new Intl.DateTimeFormat("en", { timeZone: s.timezone }); } catch { throw new BadRequestException("Unknown timezone"); } }
+    let ctaUrl: string | null = null;
+    if (s.ctaUrl?.trim()) {
+      try {
+        const u = new URL(s.ctaUrl.trim());
+        if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("scheme");
+        ctaUrl = u.toString();
+      } catch {
+        throw new BadRequestException("The link must be a full web address such as https://invly.id");
+      }
+    }
     const data = {
+      ctaUrl,
       host: s.host.trim().toLowerCase(), port: s.port, secure: s.secure, username: s.username.trim(),
       fromName: headerLine(s.fromName, 120), fromEmail: s.fromEmail.trim(), replyTo: s.replyTo?.trim() || null, postalAddress: s.postalAddress.trim(),
       ...(s.hourlyLimit !== undefined ? { hourlyLimit: s.hourlyLimit } : {}), ...(s.dailyLimit !== undefined ? { dailyLimit: s.dailyLimit } : {}),

@@ -199,6 +199,7 @@ export const en = {
   "email.fromName": "Sender name",
   "email.fromEmail": "Sender address",
   "email.replyTo": "Reply-to (optional)",
+  "email.ctaUrl": "Link in the first email (optional)",
   "email.address": "Postal address of the sender",
   "email.addressHint": "Printed at the bottom of every email. Anti-spam laws in many countries require it.",
   "email.remove": "Remove account",

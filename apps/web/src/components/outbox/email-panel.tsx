@@ -80,10 +80,10 @@ export function EmailPanel({ overview, refresh }: { overview: EmailOverview; ref
 
 type Account = NonNullable<EmailOverview["account"]>;
 function accountBody(a: Account) {
-  return { host: a.host, port: a.port, secure: a.secure, username: a.username, fromName: a.fromName, fromEmail: a.fromEmail, ...(a.replyTo ? { replyTo: a.replyTo } : {}), postalAddress: a.postalAddress, hourlyLimit: a.hourlyLimit, dailyLimit: a.dailyLimit, quietStartHour: a.quietStartHour, quietEndHour: a.quietEndHour, timezone: a.timezone };
+  return { host: a.host, port: a.port, secure: a.secure, username: a.username, fromName: a.fromName, fromEmail: a.fromEmail, ...(a.replyTo ? { replyTo: a.replyTo } : {}), postalAddress: a.postalAddress, ...(a.ctaUrl ? { ctaUrl: a.ctaUrl } : {}), hourlyLimit: a.hourlyLimit, dailyLimit: a.dailyLimit, quietStartHour: a.quietStartHour, quietEndHour: a.quietEndHour, timezone: a.timezone };
 }
 
-const EMPTY = { host: "", port: 587, secure: false, username: "", password: "", fromName: "", fromEmail: "", replyTo: "", postalAddress: "", hourlyLimit: 8, dailyLimit: 40, quietStartHour: 20, quietEndHour: 7, timezone: "Asia/Jakarta" };
+const EMPTY = { host: "", port: 587, secure: false, username: "", password: "", fromName: "", fromEmail: "", replyTo: "", postalAddress: "", ctaUrl: "", hourlyLimit: 8, dailyLimit: 40, quietStartHour: 20, quietEndHour: 7, timezone: "Asia/Jakarta" };
 
 function AccountDialog({ open, onClose, overview, refresh }: { open: boolean; onClose: () => void; overview: EmailOverview; refresh: () => void }) {
   const { t } = useI18n();
@@ -93,7 +93,7 @@ function AccountDialog({ open, onClose, overview, refresh }: { open: boolean; on
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (open) setV(initial as typeof EMPTY); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const text = (k: "host" | "username" | "fromName" | "fromEmail" | "replyTo" | "timezone", label: string, type = "text") => (
+  const text = (k: "host" | "username" | "fromName" | "fromEmail" | "replyTo" | "ctaUrl" | "timezone", label: string, type = "text") => (
     <div className="space-y-1.5">
       <Label htmlFor={`e-${k}`}>{label}</Label>
       <Input id={`e-${k}`} type={type} value={v[k]} onChange={(e) => setV({ ...v, [k]: e.target.value })} autoComplete="off" />
@@ -143,6 +143,7 @@ function AccountDialog({ open, onClose, overview, refresh }: { open: boolean; on
             <Textarea id="e-address" rows={2} maxLength={300} value={v.postalAddress} onChange={(e) => setV({ ...v, postalAddress: e.target.value })} />
             <p className="text-xs text-muted-foreground">{t("email.addressHint")}</p>
           </div>
+          {text("ctaUrl", t("email.ctaUrl"), "url")}
           {num("hourlyLimit", t("outbox.set.hourly"), 1, 30)}
           {num("dailyLimit", t("outbox.set.daily"), 1, 200)}
           {num("quietStartHour", t("outbox.set.quietStart"), 0, 23)}

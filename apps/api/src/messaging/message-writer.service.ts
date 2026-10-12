@@ -26,6 +26,13 @@ type LeadWithCampaign = Lead & { campaign: Pick<Campaign, "yourService" | "langu
 /** Models sometimes leave template markers behind; a message with "[Nama Anda]" must never reach a customer. */
 const PLACEHOLDER = /\[[^\]\n]{1,40}\]|\{\{[^}]+\}\}/;
 
+/** Adds the owner's own link before the closing "Salam,". The model never writes URLs, so none can be invented. */
+export function withLink(body: string, url: string, language: "indonesian" | "english"): string {
+  const line = language === "english" ? `More details: ${url}` : `Selengkapnya: ${url}`;
+  const m = body.match(/\n+\s*(Salam|Regards|Best regards|Sincerely)[,.]?\s*$/i);
+  return m ? `${body.slice(0, m.index).trimEnd()}\n\n${line}\n\n${m[0].trim()}` : `${body.trimEnd()}\n\n${line}`;
+}
+
 function clean(raw: string): string {
   return stripMarkdown(raw).trim().replace(/^["“”']+|["“”']+$/g, "").replace(/\n{3,}/g, "\n\n").trim();
 }
@@ -103,8 +110,13 @@ export class MessageWriterService {
     const body = await this.generate(workspaceId, followUp ? "followup" : "outreach", `${lead.id}`, messages, facts.hits.map((h) => h.sourceId), facts.confidence, { language, names: [lead.name, business] });
     const hint = language === "english" ? OPT_OUT_HINT_EN : OPT_OUT_HINT_ID;
     // Email carries an unsubscribe link in its footer instead of a "reply STOP" line.
+    let emailText = body.text;
+    if (channel === "email" && !followUp) {
+      const acct = await this.prisma.emailAccount.findUnique({ where: { workspaceId }, select: { ctaUrl: true } });
+      if (acct?.ctaUrl) emailText = withLink(body.text, acct.ctaUrl, language);
+    }
     return {
-      text: channel === "email" ? body.text : `${body.text}\n\n${hint}`,
+      text: channel === "email" ? emailText : `${body.text}\n\n${hint}`,
       risks: draftRisks(body.text, facts.hits.map((h) => h.content)),
       trace: { variant, styled: !!stats, examples: examples.length, knowledge: facts.confidence, model: ai.chatModel, latencyMs: Date.now() - started },
     };
