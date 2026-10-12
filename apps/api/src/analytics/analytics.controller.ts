@@ -17,6 +17,12 @@ export class AnalyticsController {
     return this.analyticsService.getOverview(workspaceId);
   }
 
+  @Get("pipeline")
+  @ApiOperation({ summary: "Pipeline to closing: stage counts and value, replies waiting, quiet leads, lost reasons" })
+  getPipeline(@WorkspaceId() workspaceId: string) {
+    return this.analyticsService.getPipeline(workspaceId);
+  }
+
   @Get("industries")
   @ApiOperation({ summary: "Get leads grouped by industry" })
   getByIndustry(@WorkspaceId() workspaceId: string) {

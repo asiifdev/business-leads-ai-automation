@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { MessageWriterService } from "./message-writer.service";
 import { isOptOut, looksLikeInjection } from "./opt-out";
+import { classifyReply, planReplyOutcome } from "./reply-intent";
 import { normalizePhone } from "./phone";
 import { WHATSAPP_PROVIDER, type InboundWhatsappMessage, type WhatsappProvider } from "./whatsapp.provider";
 
@@ -55,8 +56,19 @@ export class InboundService implements OnModuleInit {
     }
     if (!lead) return; // unknown sender: stored, never auto-answered
 
-    await this.prisma.lead.update({ where: { id: lead.id }, data: { repliedAt: msg.at, ...(["new", "contacted"].includes(lead.crmStatus) ? { crmStatus: "replied" } : {}) } });
-    await this.prisma.leadActivity.create({ data: { leadId: lead.id, type: "replied", note: msg.text.slice(0, 140) } });
+    const outcome = planReplyOutcome(lead.crmStatus, classifyReply(msg.text));
+    await this.prisma.inboundMessage.updateMany({ where: { workspaceId, providerMessageId: msg.id }, data: { intent: outcome.intent } });
+    await this.prisma.lead.update({
+      where: { id: lead.id },
+      data: {
+        repliedAt: msg.at,
+        needsReply: outcome.needsReply,
+        lastIntent: outcome.intent,
+        ...(outcome.stage ? { crmStatus: outcome.stage } : {}),
+        ...(outcome.followUpInDays ? { followUpDate: new Date(msg.at.getTime() + outcome.followUpInDays * 86_400_000) } : {}),
+      },
+    });
+    await this.prisma.leadActivity.create({ data: { leadId: lead.id, type: "replied", note: msg.text.slice(0, 140), metadata: { intent: outcome.intent, stage: outcome.stage } } });
     // they answered: pending follow-ups no longer make sense
     await this.prisma.outboundMessage.updateMany({ where: { workspaceId, leadId: lead.id, source: "ai_followup", status: { in: ["draft", "approved"] } }, data: { status: "cancelled", error: "Lead replied" } });
 

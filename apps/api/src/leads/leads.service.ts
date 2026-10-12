@@ -67,6 +67,10 @@ export class LeadsService {
       where: { id },
       data: {
         ...dto,
+        ...(dto.followUpDate && { followUpDate: new Date(dto.followUpDate) }),
+        // moving a deal on means the owner has dealt with the last reply
+        ...(dto.crmStatus && dto.needsReply === undefined && { needsReply: false }),
+        ...(dto.crmStatus && dto.crmStatus !== "lost" && { lostReason: null }),
         ...(dto.crmStatus === "contacted" && { contactedAt: now }),
         ...(dto.crmStatus === "replied" && { repliedAt: now }),
         ...(["won", "lost"].includes(dto.crmStatus ?? "") && { closedAt: now }),
@@ -76,7 +80,7 @@ export class LeadsService {
       data: {
         leadId: id,
         type: "crm_update",
-        note: `Status changed to ${dto.crmStatus}`,
+        note: dto.crmStatus ? `Status changed to ${dto.crmStatus}` : "Deal details updated",
         metadata: dto as object,
       },
     });

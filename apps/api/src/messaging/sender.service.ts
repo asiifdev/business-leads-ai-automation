@@ -92,7 +92,7 @@ export class SenderService implements OnModuleInit, OnModuleDestroy {
       this.consecutiveFailures.delete(a.workspaceId);
       if (next.leadId) {
         await this.prisma.lead.updateMany({ where: { id: next.leadId, crmStatus: "new" }, data: { crmStatus: "contacted" } });
-        await this.prisma.lead.update({ where: { id: next.leadId }, data: { contactedAt: at } });
+        await this.prisma.lead.update({ where: { id: next.leadId }, data: { contactedAt: at, ...(next.source === "ai_reply" || next.source === "manual" ? { needsReply: false } : {}) } });
         await this.prisma.leadActivity.create({ data: { leadId: next.leadId, type: "whatsapp_sent", note: next.body.slice(0, 140), metadata: { messageId: next.id, source: next.source } } });
       }
     } catch (e) {

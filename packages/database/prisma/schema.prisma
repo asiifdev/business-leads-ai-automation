@@ -189,6 +189,14 @@ model Lead {
   closedAt     DateTime?
   closeResult  String?
 
+  // Following a lead to the close. dealValue is set when it is won; lostReason when it is lost.
+  dealValue  Int?
+  lostReason String? // not_interested | later | wrong_number | competitor | price | no_reply | other
+  // They wrote and nobody has answered yet. Set by an incoming reply, cleared when a message goes out to them.
+  needsReply Boolean @default(false)
+  // What their latest reply meant: interested | meeting | question | later | not_interested | wrong_number | other
+  lastIntent String?
+
   scrapedAt DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -206,6 +214,7 @@ model Lead {
   inbound    InboundMessage[]
 
   @@index([workspaceId, phoneE164])
+  @@index([workspaceId, needsReply])
   @@map("leads")
 }
 
@@ -504,6 +513,7 @@ model InboundMessage {
   body              String
   providerMessageId String
   receivedAt        DateTime @default(now())
+  intent            String? // what this message meant, see Lead.lastIntent
 
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId String

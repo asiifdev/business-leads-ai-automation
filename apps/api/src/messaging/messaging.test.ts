@@ -89,3 +89,25 @@ test("isValidEmail accepts ordinary addresses and rejects obvious junk", async (
   assert.equal(isValidEmail("a.b+c@sub.example.co.id"), true);
   for (const bad of ["", "halo", "halo@", "@x.id", "a b@x.id", "a@@x.id", "a@x", "a@x.c", `${"a".repeat(65)}@x.id`]) assert.equal(isValidEmail(bad), false, bad);
 });
+
+import { classifyReply, planReplyOutcome } from "./reply-intent";
+
+test("classifyReply understands common Indonesian and English replies", () => {
+  assert.equal(classifyReply("Boleh, berapa harganya?"), "price");
+  assert.equal(classifyReply("Bisa demo hari Jumat?"), "meeting");
+  assert.equal(classifyReply("Kami sudah punya sistem sendiri"), "not_interested");
+  assert.equal(classifyReply("Nanti ya, bulan depan saja"), "not_now");
+  assert.equal(classifyReply("Tertarik, kirimkan info lengkapnya"), "interested");
+  assert.equal(classifyReply("Ini untuk sewa kamera juga bisa?"), "question");
+  assert.equal(classifyReply("ok"), "other");
+  assert.equal(classifyReply("Tell me more"), "interested");
+});
+
+test("planReplyOutcome moves forward only and never closes a deal", () => {
+  assert.equal(planReplyOutcome("contacted", "meeting").stage, "meeting");
+  assert.equal(planReplyOutcome("proposal", "question").stage, null);
+  assert.equal(planReplyOutcome("won", "meeting").stage, null);
+  assert.equal(planReplyOutcome("contacted", "not_interested").stage, "replied");
+  assert.equal(planReplyOutcome("replied", "not_now").followUpInDays, 30);
+  assert.equal(planReplyOutcome("replied", "not_now").needsReply, false);
+});
