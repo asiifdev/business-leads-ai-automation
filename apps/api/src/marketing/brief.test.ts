@@ -143,3 +143,12 @@ test("dedupeGaps removes near-repeats and keeps distinct items", () => {
   const out = dedupeGaps(["[NEED: Harga pasti untuk paket Booking dan Care]", "[NEED: Daftar harga lengkap untuk paket Booking dan Care]", "[NEED: Batasan geografis layanan selain Yogyakarta]", "[NEED: Harga pasti untuk paket Booking dan Care]"]);
   assert.deepEqual(out, ["[NEED: Harga pasti untuk paket Booking dan Care]", "[NEED: Batasan geografis layanan selain Yogyakarta]"]);
 });
+
+
+test("extractJson repairs the slips small models make", () => {
+  assert.deepEqual(extractJson('{"a": "satu", "b": ["x", "y",]}'), { a: "satu", b: ["x", "y"] });
+  assert.deepEqual(extractJson('{"a": "ia berkata "halo" lalu pergi", "b": 2}'), { a: 'ia berkata "halo" lalu pergi', b: 2 });
+  assert.deepEqual(extractJson('{"a": "baris\npertama", "b": 2 "c": 3}'), { a: "baris\npertama", b: 2, c: 3 });
+  assert.deepEqual(extractJson('{"a": {"x": 1} "b": [1, 2'), { a: { x: 1 }, b: [1, 2] });
+  assert.deepEqual(extractJson('```json\n{"a": 1}\n```'), { a: 1 });
+});

@@ -71,7 +71,68 @@ export function extractJson(text: string): unknown {
   const start = t.indexOf("{");
   const end = t.lastIndexOf("}");
   if (start < 0 || end <= start) throw new Error("no JSON object in the reply");
-  return JSON.parse(t.slice(start, end + 1));
+  const body = t.slice(start, end + 1);
+  try {
+    return JSON.parse(body);
+  } catch {
+    // small local models often slip on one quote or comma in a long answer: repair rather than discard two minutes of work
+    return JSON.parse(repairJson(t.slice(start)));
+  }
+}
+
+/**
+ * Fixes the usual slips of small models in a long JSON reply: raw line breaks and unescaped quotes inside strings,
+ * missing or trailing commas, smart quotes, and an answer cut off before its closing brackets.
+ * A quote ends a string only when what follows is structure (`,` `}` `]` `:`); otherwise it is text.
+ */
+export function repairJson(input: string): string {
+  const src = input.replace(/[\u201C\u201D]/g, '"');
+  let out = "";
+  const stack: string[] = [];
+  let inStr = false;
+  const nextSig = (i: number) => {
+    let j = i;
+    while (j < src.length && /\s/.test(src[j])) j++;
+    return src[j];
+  };
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (inStr) {
+      if (c === "\\") {
+        out += c + (src[i + 1] ?? "");
+        i++;
+      } else if (c === '"') {
+        const n = nextSig(i + 1);
+        if (n === undefined || n === "," || n === "}" || n === "]" || n === ":") {
+          inStr = false;
+          out += c;
+        } else out += '\\"';
+      } else if (c === "\n") out += "\\n";
+      else if (c === "\r") out += "";
+      else if (c === "\t") out += "\\t";
+      else out += c;
+      continue;
+    }
+    if (c === '"') {
+      // a value or key starting right after another value: a comma is missing
+      if (/[}\]"\d el]$/.test(out.trimEnd().slice(-1)) && /[}\]"]$|\d$|true$|false$|null$/.test(out.trimEnd())) out = out.trimEnd() + ",";
+      inStr = true;
+      out += c;
+    } else if (c === "{" || c === "[") {
+      if (/[}\]"]$|\d$|true$|false$|null$/.test(out.trimEnd())) out = out.trimEnd() + ",";
+      stack.push(c === "{" ? "}" : "]");
+      out += c;
+    } else if (c === "}" || c === "]") {
+      out = out.trimEnd().replace(/,$/, "");
+      if (stack.length) stack.pop();
+      out += c;
+      if (stack.length === 0) break;
+    } else out += c;
+  }
+  if (inStr) out += '"';
+  out = out.trimEnd().replace(/[,:]$/, "");
+  while (stack.length) out += stack.pop();
+  return out;
 }
 
 /** Finds a key anywhere in a (small) object tree: models sometimes nest a section inside another one. */
