@@ -7,7 +7,14 @@ import { LeadIntelligenceService } from "../ai/lead-intelligence.service";
 import { EnrichmentService } from "../leads/enrichment.service";
 import { FitService } from "../ai/fit.service";
 import { MarketingAiService } from "../ai/marketing-ai.service";
+import { planAreas, stripPlaces } from "./areas";
 import { GoogleMapsScraperService } from "./google-maps.scraper";
+
+/** Two results are the same business when they share a phone number, or else a name and an address. */
+export function leadKey(b: { name: string; address: string; phone: string }): string {
+  const digits = (b.phone ?? "").replace(/\D/g, "");
+  return digits.length >= 8 ? `tel:${digits.replace(/^0/, "62")}` : `${b.name.toLowerCase()}|${b.address.toLowerCase()}`;
+}
 
 export interface ScraperJobData {
   campaignId: string;
@@ -140,45 +147,53 @@ export class ScraperProcessor extends WorkerHost {
   }
 
   private async scrapeLeads(data: ScraperJobData, campaignId: string) {
-    const areas = data.location
-      .split(",")
-      .map((a) => a.trim())
-      .filter(Boolean);
-    if (areas.length === 0) areas.push(data.location);
-
-    const combos = data.searchQueries.flatMap((query) =>
-      areas.map((area) => ({ query: `${query} ${area}`.trim(), area })),
-    );
-    const perQuery = Math.ceil(data.maxResults / combos.length);
+    // "Seluruh Indonesia" becomes one search per city: Google ranks a country-wide search by where the searcher is.
+    const plan = planAreas(data.location, data.searchQueries.length, data.maxResults);
+    // City by city across all queries, so a stop part-way still covers the biggest markets for every query.
+    const combos = plan.areas.flatMap((area) => data.searchQueries.map((query) => ({ query: `${stripPlaces(query, plan.areas)} ${area}`.trim(), area })));
+    const perQuery = plan.perSearch;
+    if (plan.nationwide) this.logger.log(`Nationwide campaign: ${plan.areas.length} cities x ${data.searchQueries.length} queries, ${perQuery} results each`);
     const results: ReturnType<typeof this.normalizeRaw>[] = [];
     const errors: string[] = [];
     const fixtures = process.env.SCRAPER_MODE === "fixture";
 
+    const unique = new Set<string>();
+    const countNew = (list: { name: string; address: string; phone: string }[]) => {
+      for (const b of list) unique.add(leadKey(b));
+      return unique.size;
+    };
+
     for (let i = 0; i < combos.length; i++) {
       const combo = combos[i];
+      if (!fixtures && countNew(results) >= data.maxResults) {
+        this.logger.log(`Target of ${data.maxResults} reached after ${i} of ${combos.length} searches`);
+        break;
+      }
       if (fixtures) {
         results.push(...this.fixtureLeads(data, combo.query, combo.area, perQuery));
       } else {
         try {
-          const raw = await this.googleMaps.scrape(combo.query, perQuery);
+          const raw = await this.googleMaps.scrape(combo.query, perQuery, { area: combo.area });
           results.push(...raw.map((b) => this.normalizeRaw(b, data.industry)));
           this.logger.log(`Query "${combo.query}": ${raw.length} results`);
+          // A short random pause between searches: hundreds of searches in a row from one address look like a robot.
+          if (plan.nationwide && i < combos.length - 1) await new Promise((r) => setTimeout(r, 2500 + Math.random() * 3500));
         } catch (err) {
           // A failed search is reported, never replaced with invented businesses.
           this.logger.warn(`Scrape failed for "${combo.query}": ${err}`);
           errors.push(String((err as Error).message ?? err));
         }
       }
-      const pct = Math.round(((i + 1) / combos.length) * 28);
+      const pct = Math.min(28, Math.round(((i + 1) / combos.length) * 28));
       await this.campaigns.updateStatus(campaignId, "running", pct);
     }
 
     if (results.length === 0 && errors.length > 0) throw new Error(this.explainScrapeError(errors[0]));
 
-    // Deduplicate by name+address
+    // Deduplicate: the same listing can come up under several cities and queries.
     const seen = new Set<string>();
     return results.filter((b) => {
-      const key = `${b.name.toLowerCase()}|${b.address.toLowerCase()}`;
+      const key = leadKey(b);
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
