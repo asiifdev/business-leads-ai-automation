@@ -24,6 +24,8 @@ export const marketingId: Record<keyof typeof marketingEn, string> = {
   "mkt.src.added": "Sumber ditambahkan",
   "mkt.gen.notes": "Hal lain yang perlu diketahui AI (opsional)",
   "mkt.gen.notesPh": "mis. kami hanya melayani Jawa Tengah; paket awal adalah penawaran utama kami...",
+  "mkt.gen.fromBrief": "Isi dari brief tersimpan (instan)",
+  "mkt.gen.filledFromBrief": "Terisi dari brief tersimpan. Jalankan analisis baru hanya kalau sumber Anda berubah.",
   "mkt.gen.button": "Analisis dengan AI dan isi form",
   "mkt.gen.running": "Menganalisis… ini bisa memakan satu sampai dua menit",
   "mkt.gen.needSource": "Tambahkan dan pilih minimal satu sumber, atau tulis beberapa kalimat tentang penawaran Anda.",

@@ -53,6 +53,26 @@ export function CreateCampaignForm() {
     api.get<BriefResponse>("/marketing/brief").then((b) => { if (hasBrief(b)) setBrief(b); }).catch(() => undefined);
   }, []);
 
+  /** Fills every field the person has not touched from a brief's campaign suggestion. */
+  const applyBrief = (b: Brief) => {
+    setBrief(b);
+    const c = b.campaign;
+    const filled = new Set<string>();
+    const free = (k: string) => !touched.has(k);
+    setForm((p) => {
+      const n = { ...p };
+      if (c?.name && free("name")) { n.name = c.name; filled.add("name"); }
+      if (c?.target && free("industry")) { n.industry = c.target; filled.add("industry"); }
+      if (c?.location && free("location")) { n.location = c.location; filled.add("location"); }
+      if (b.summary && free("yourService")) { n.yourService = b.summary; filled.add("yourService"); }
+      if (c?.contentStyle && free("contentStyle")) { n.contentStyle = c.contentStyle; filled.add("contentStyle"); }
+      if (c?.language && free("language")) { n.language = c.language; filled.add("language"); }
+      return n;
+    });
+    if (c?.searchQueries?.length && free("queries")) { setQueries(c.searchQueries); filled.add("queries"); }
+    setAiFilled(filled);
+  };
+
   const analyze = async () => {
     setAnalyzing(true);
     try {
@@ -63,22 +83,7 @@ export function CreateCampaignForm() {
         location: touched.has("location") ? form.location || undefined : undefined,
         language: form.language === "english" ? "english" : "indonesian",
       });
-      setBrief(b);
-      const c = b.campaign;
-      const filled = new Set<string>();
-      const free = (k: string) => !touched.has(k);
-      setForm((p) => {
-        const n = { ...p };
-        if (c?.name && free("name")) { n.name = c.name; filled.add("name"); }
-        if (c?.target && free("industry")) { n.industry = c.target; filled.add("industry"); }
-        if (c?.location && free("location")) { n.location = c.location; filled.add("location"); }
-        if (b.summary && free("yourService")) { n.yourService = b.summary; filled.add("yourService"); }
-        if (c?.contentStyle && free("contentStyle")) { n.contentStyle = c.contentStyle; filled.add("contentStyle"); }
-        if (c?.language && free("language")) { n.language = c.language; filled.add("language"); }
-        return n;
-      });
-      if (c?.searchQueries?.length && free("queries")) { setQueries(c.searchQueries); filled.add("queries"); }
-      setAiFilled(filled);
+      applyBrief(b);
       toast.success(t("mkt.gen.done"));
     } catch (e) {
       toast.error(t("mkt.gen.failed", { err: (e as Error).message }));
@@ -140,7 +145,12 @@ export function CreateCampaignForm() {
             </button>
           )}
           <div className="space-y-2">
-            <Button type="button" className="w-full" onClick={analyze} disabled={analyzing || !canAnalyze}>
+            {brief?.campaign && (
+              <Button type="button" className="w-full" onClick={() => { applyBrief(brief); toast.success(t("mkt.gen.filledFromBrief")); }}>
+                <Sparkles className="mr-2 h-4 w-4" />{t("mkt.gen.fromBrief")}
+              </Button>
+            )}
+            <Button type="button" variant={brief?.campaign ? "outline" : "default"} className="w-full" onClick={analyze} disabled={analyzing || !canAnalyze}>
               {analyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
               {analyzing ? t("mkt.gen.running") : t("mkt.gen.button")}
             </Button>
