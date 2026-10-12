@@ -111,3 +111,11 @@ test("planReplyOutcome moves forward only and never closes a deal", () => {
   assert.equal(planReplyOutcome("replied", "not_now").followUpInDays, 30);
   assert.equal(planReplyOutcome("replied", "not_now").needsReply, false);
 });
+
+import { stripMarkdown } from "./plain-text";
+
+test("stripMarkdown removes symbols that would show literally in a message", () => {
+  assert.equal(stripMarkdown("kalender _booking_ yang **jelas** dan *rapi*"), "kalender booking yang jelas dan rapi");
+  assert.equal(stripMarkdown("snake_case_name tetap"), "snake_case_name tetap");
+  assert.equal(stripMarkdown("# Judul\n* satu\n* dua"), "Judul\n- satu\n- dua");
+});

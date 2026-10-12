@@ -158,13 +158,15 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
       ? `Penerima belum membalas pesan sebelumnya (${fu.daysSince} hari lalu):\n"${fu.previousMessage}"\nAwali dengan ${email ? "\"Halo,\"" : "\"Halo, Kak,\""}. Tulis tindak lanjut yang singkat dan tidak memaksa. Jangan mengulang isi pesan sebelumnya. ${fu.number >= fu.of ? "Ini yang terakhir: tutup dengan sopan dan katakan tidak akan mengganggu lagi." : "Berikan satu alasan baru atau pertanyaan ringan."}`
       : email
         ? [
-            "Penerima belum mengenal pemilik dan belum pernah menghubungi lebih dulu. Ini email penjualan pertama. Tujuannya: membuat pemilik usaha penasaran sampai membalas dengan pertanyaan, bukan menjelaskan semuanya. Tulis jelas dan rapi dalam 4 sampai 6 kalimat pendek (sekitar 450 sampai 750 karakter), dipisah paragraf pendek, dalam urutan ini:",
-            `1. Pembuka yang menarik perhatian, JANGAN memulai dengan perkenalan. ${OPENING[input.variant ?? "pain"]} Jangan memakai kata "Kak". Jangan menyapa dengan nama bisnis penerima.`,
-            "2. Jembatan: satu sampai dua kalimat tentang apa yang dibereskan penawaran ini untuk bisnis sejenis, ditulis sebagai hasil bagi pemilik (waktu, kerepotan, pelanggan, uang yang tidak bocor), bukan sebagai aplikasi atau daftar fitur. Jangan menjanjikan hasil atau angka.",
-            "3. Pancing rasa ingin tahu: sebut SATU sampai dua hal konkret yang akan mereka lihat atau dapatkan (hanya dari fakta di brief atau fakta bisnis di bawah), tanpa menjelaskan semua caranya.",
-            `4. Perkenalan singkat dalam satu kalimat: "Saya dari ${input.businessDescription}."`,
-            "5. Ajakan: satu langkah kecil yang mengundang balasan, mis. \"Mau saya kirim contoh tampilannya?\" atau \"Bagaimana pemesanan di tempat Anda dicatat sekarang?\".",
-            "Hindari kata ragu, jargon, dan klise iklan: mungkin, sepertinya, barangkali, digitalisasi, solusi, terstruktur, inovatif, optimal, terdepan, revolusioner, perkenalkan.",
+            "Penerima belum mengenal pemilik dan belum pernah menghubungi lebih dulu. Ini email penjualan pertama. Tujuannya: membuat pemilik usaha penasaran sampai membalas dengan pertanyaan, bukan menjelaskan semuanya. Tulis rapi dan hangat seperti surel dari orang sungguhan, 5 sampai 7 kalimat pendek (sekitar 500 sampai 800 karakter), setiap bagian satu paragraf pendek dipisah baris kosong, dalam urutan ini:",
+            "1. Salam satu baris: \"Halo,\" sendirian. Jangan memakai kata \"Kak\". Jangan menyapa dengan nama bisnis penerima.",
+            `2. Pembuka yang menarik perhatian, JANGAN memulai dengan perkenalan. ${OPENING[input.variant ?? "pain"]}`,
+            "3. Jembatan: satu sampai dua kalimat tentang apa yang dibereskan penawaran ini untuk bisnis sejenis, ditulis sebagai hasil bagi pemilik (waktu, kerepotan, pelanggan, uang yang tidak bocor), bukan sebagai aplikasi atau daftar fitur. Jangan menjanjikan hasil atau angka.",
+            "4. Pancing rasa ingin tahu: sebut SATU sampai dua hal konkret yang akan mereka lihat atau dapatkan (hanya dari fakta di brief atau fakta bisnis di bawah), tanpa menjelaskan semua caranya.",
+            `5. Perkenalan satu kalimat, nama usaha persis seperti tertulis ("${input.businessDescription}"), huruf besar kecilnya jangan diubah.`,
+            "6. Ajakan ringan dan konkret: satu langkah kecil yang mengundang balasan. Bila fakta di bawah menyebut masa coba gratis atau demo singkat, tawarkan itu (hanya yang tertulis). Bila tidak, tanyakan apakah boleh dikirimi contoh tampilannya.",
+            "7. Penutup satu baris: \"Salam,\" saja, tanpa nama (nama pengirim ditambahkan sistem).",
+            "Tulis teks biasa: tanpa tanda bintang, garis bawah, tanda pagar, atau format markdown lain, dan tanpa emoji. Istilah asing ditulis biasa (booking, bukan _booking_).",
             "Jangan menulis baris tanda tangan, nama pengirim, alamat, atau tautan berhenti berlangganan: sistem menambahkannya.",
           ].join("\n")
         : [
@@ -204,7 +206,7 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
     "- Sebut tepat satu fakta spesifik dari data apa adanya (mis. rating dan jumlah ulasan, belum ada website, atau lokasi), lalu hubungkan dengan penawaran.",
     "- Cocokkan dengan jenis bisnis penerima. Sebut hanya kemampuan penawaran yang berguna bagi bisnis seperti itu. Kemampuan yang khusus untuk jenis usaha lain (mis. dokumen kendaraan, STNK, servis kendaraan, untuk penyewaan alat acara, kamera, atau kebaya) JANGAN disebut, walaupun ada di brief atau fakta.",
     "- Jangan menjanjikan hasil atau angka. Jangan menulis seperti iklan atau broadcast.",
-    "- Jangan menebak atau menyimpulkan keadaan penerima (\"pasti ramai\", \"permintaan tinggi\", \"masih mencatat di buku\"). Tanyakan, jangan menyatakan. Jangan memakai istilah campuran Inggris yang tidak perlu (real-time, tracking, dashboard); pakai kata sehari-hari.",
+    "- Jangan menebak atau menyimpulkan keadaan penerima (\"pasti ramai\", \"permintaan tinggi\", \"pengelolaan sudah cukup baik\", \"masih mencatat di buku\"). Rating dan ulasan boleh disebut sebagai angka saja, tanpa menafsirkannya. Tanyakan, jangan menyatakan. Jangan memakai istilah campuran Inggris yang tidak perlu (real-time, tracking, dashboard); pakai kata sehari-hari.",
     "- Tulis dengan ejaan baku dan kalimat natural seperti pemilik usaha berbicara. Hindari kata kaku seperti \"Pernahkah\"; pakai \"Pernah\" atau \"Apakah pernah\". Baca ulang: setiap kata harus bermakna dan benar (tidak ada kata asing yang tidak nyambung).",
     "- Jangan menulis kalimat penutup kedua setelah pertanyaan. Pertanyaan adalah kalimat terakhir.",
     email ? "- Tanpa baris tanda tangan, tanpa placeholder seperti [Nama]. Tanpa emoji." : "- Satu pesan pendek, tanpa baris tanda tangan, tanpa placeholder seperti [Nama].",

@@ -5,6 +5,7 @@ import { LimitsService } from "../entitlements/limits.service";
 import { AiClientService } from "../ai/ai-client.service";
 import { KnowledgeService } from "../ai/knowledge.service";
 import { StyleService } from "../ai/style.service";
+import { stripMarkdown } from "./plain-text";
 import { buildDraftMessages, buildOutreachMessages, pickVariant } from "../ai/chat-import/style-prompt";
 import type { StyleStats } from "../ai/chat-import/style-stats";
 import { draftRisks } from "./draft-risk";
@@ -26,7 +27,7 @@ type LeadWithCampaign = Lead & { campaign: Pick<Campaign, "yourService" | "langu
 const PLACEHOLDER = /\[[^\]\n]{1,40}\]|\{\{[^}]+\}\}/;
 
 function clean(raw: string): string {
-  return raw.trim().replace(/^["“”']+|["“”']+$/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  return stripMarkdown(raw).trim().replace(/^["“”']+|["“”']+$/g, "").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 @Injectable()
