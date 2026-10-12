@@ -199,6 +199,7 @@ export const id: Record<keyof typeof en, string> = {
   "email.fromName": "Nama pengirim",
   "email.fromEmail": "Alamat pengirim",
   "email.replyTo": "Alamat balasan (opsional)",
+  "email.unsubscribeNotReady": "Pengiriman dihentikan: tautan berhenti berlangganan di setiap email akan mengarah ke komputer Anda sendiri, sehingga penerima tidak bisa memakainya. Isi PUBLIC_API_URL di server dengan alamat https publik (misalnya https://api.example.com/api) lalu restart API.",
   "email.ctaUrl": "Tautan di email pertama (opsional)",
   "email.address": "Alamat surat pengirim",
   "email.addressHint": "Dicetak di bagian bawah setiap email. Undang-undang anti-spam di banyak negara mewajibkannya.",

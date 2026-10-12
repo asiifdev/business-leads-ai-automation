@@ -199,6 +199,7 @@ export const en = {
   "email.fromName": "Sender name",
   "email.fromEmail": "Sender address",
   "email.replyTo": "Reply-to (optional)",
+  "email.unsubscribeNotReady": "Sending is stopped: the unsubscribe link in every email would point to your own computer, so recipients could not use it. Set PUBLIC_API_URL on the server to a public https address (for example https://api.example.com/api) and restart the API.",
   "email.ctaUrl": "Link in the first email (optional)",
   "email.address": "Postal address of the sender",
   "email.addressHint": "Printed at the bottom of every email. Anti-spam laws in many countries require it.",

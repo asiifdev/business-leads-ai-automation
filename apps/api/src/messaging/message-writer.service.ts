@@ -5,7 +5,7 @@ import { LimitsService } from "../entitlements/limits.service";
 import { AiClientService } from "../ai/ai-client.service";
 import { KnowledgeService } from "../ai/knowledge.service";
 import { StyleService } from "../ai/style.service";
-import { stripMarkdown } from "./plain-text";
+import { neutralHonorific, stripMarkdown } from "./plain-text";
 import { buildDraftMessages, buildOutreachMessages, pickVariant } from "../ai/chat-import/style-prompt";
 import type { StyleStats } from "../ai/chat-import/style-stats";
 import { draftRisks } from "./draft-risk";
@@ -51,7 +51,8 @@ export class MessageWriterService {
 
   private async businessDescription(workspaceId: string) {
     const ws = await this.prisma.workspace.findUnique({ where: { id: workspaceId }, select: { name: true } });
-    return ws?.name ?? "bisnis milik pengguna";
+    const name = ws?.name ?? "bisnis milik pengguna";
+    return /^[\w-]+(\.[\w-]+)+$/.test(name) ? name.toLowerCase() : name; // a domain-style name is written as a domain
   }
 
   /** First-contact message, or follow-up number `followUp.number`, in the owner's voice when a style exists. */
@@ -110,7 +111,7 @@ export class MessageWriterService {
     const body = await this.generate(workspaceId, followUp ? "followup" : "outreach", `${lead.id}`, messages, facts.hits.map((h) => h.sourceId), facts.confidence, { language, names: [lead.name, business] });
     const hint = language === "english" ? OPT_OUT_HINT_EN : OPT_OUT_HINT_ID;
     // Email carries an unsubscribe link in its footer instead of a "reply STOP" line.
-    let emailText = body.text;
+    let emailText = channel === "email" ? neutralHonorific(body.text) : body.text;
     if (channel === "email" && !followUp) {
       const acct = await this.prisma.emailAccount.findUnique({ where: { workspaceId }, select: { ctaUrl: true } });
       if (acct?.ctaUrl) emailText = withLink(body.text, acct.ctaUrl, language);

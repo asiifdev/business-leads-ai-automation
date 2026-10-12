@@ -49,3 +49,23 @@ export function authFailure(e: unknown): boolean {
   const x = e as { code?: string; responseCode?: number };
   return x?.code === "EAUTH" || x?.responseCode === 535;
 }
+
+/** Base address printed in unsubscribe links. */
+export function unsubscribeBase(env: { PUBLIC_API_URL?: string; PORT?: string } = process.env): string {
+  return (env.PUBLIC_API_URL || `http://localhost:${env.PORT || 3001}/api`).replace(/\/$/, "");
+}
+
+/** An unsubscribe link only works for the recipient when it points at a public https address. */
+export function isPublicUnsubscribeBase(url: string, env: { ALLOW_LOCAL_UNSUBSCRIBE?: string } = process.env): boolean {
+  if (env.ALLOW_LOCAL_UNSUBSCRIBE === "true") return true;
+  try {
+    const u = new URL(url);
+    const h = u.hostname.toLowerCase();
+    if (u.protocol !== "https:") return false;
+    if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal") || !h.includes(".")) return false;
+    if (/^(127\.|10\.|192\.168\.|169\.254\.|0\.)/.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}

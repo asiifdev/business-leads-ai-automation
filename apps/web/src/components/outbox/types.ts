@@ -9,6 +9,7 @@ export interface Overview {
   provider: "baileys" | "cloud_api";
   cloudApi: { entitled: boolean; installed: boolean; edition: "community" | "hosted" };
   usage: { sentLastHour: number; sentToday: number; drafts: number; approved: number };
+  unsubscribeReady?: boolean;
   quietNow: boolean;
   etaHours: number | null;
 }
@@ -36,6 +37,7 @@ export interface EmailOverview {
     status: "untested" | "ready" | "error"; lastError: string | null; verifiedAt: string | null;
   } | null;
   usage: { sentLastHour: number; sentToday: number; drafts: number; approved: number; leadsWithEmail: number };
+  unsubscribeReady: boolean;
   quietNow: boolean;
   etaHours: number | null;
 }

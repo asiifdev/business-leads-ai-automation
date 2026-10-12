@@ -37,3 +37,13 @@ test("only 5xx SMTP replies are permanent", () => {
   assert.equal(isPermanentSmtpError({ responseCode: 451 }), false);
   assert.equal(isPermanentSmtpError(new Error("ETIMEDOUT")), false);
 });
+
+import { isPublicUnsubscribeBase } from "./email-utils";
+
+test("unsubscribe links must be public https addresses", () => {
+  assert.equal(isPublicUnsubscribeBase("http://localhost:3001/api", {}), false);
+  assert.equal(isPublicUnsubscribeBase("https://api.alatpintar.id/api", {}), true);
+  assert.equal(isPublicUnsubscribeBase("http://api.alatpintar.id/api", {}), false);
+  assert.equal(isPublicUnsubscribeBase("https://192.168.1.5/api", {}), false);
+  assert.equal(isPublicUnsubscribeBase("http://localhost:3001/api", { ALLOW_LOCAL_UNSUBSCRIBE: "true" }), true);
+});

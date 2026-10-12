@@ -10,6 +10,9 @@ const RISKY: [RegExp, string][] = [
   [/\b(diskon|discount|gratis|free of charge|refund|cashback|promo)\b/i, "discount"],
   [/\b(rekening|no\.?\s?rek|transfer\s+ke|bank\s+(bca|bri|mandiri|bni)|virtual account)\b/i, "bank details"],
   [/\b(rp\.?|idr|usd|\$)\s?\d/i, "price"],
+  // reading meaning into a rating or review count is a claim about the recipient that the data does not support
+  [/\b(menunjukkan|membuktikan|mencerminkan|menandakan|berarti|tentu(nya)?|pasti)\b[^.!?\n]{0,60}\b(kepercayaan|puas|bagus|baik|ramai|laris|diminati|populer|tinggi|berkualitas|profesional)/i, "assumption"],
+  [/\b(Bapak|Ibu|Pak|Bu)\b(?!\s+[A-Z])/, "honorific"],
 ];
 
 export function draftRisks(draft: string, knowledge: string[]): string[] {

@@ -7,6 +7,7 @@ import { normalizePhone } from "./phone";
 import { inQuietHours, localHour, startOfLocalDay } from "./send-policy";
 import { WHATSAPP_PROVIDER, type RoutedWhatsappProvider } from "./whatsapp.provider";
 import { EntitlementsService } from "../entitlements/entitlements.service";
+import { isPublicUnsubscribeBase, unsubscribeBase } from "../email/email-utils";
 
 export const MAX_BODY = 1000;
 export const MAX_EMAIL_BODY = 4000;
@@ -266,6 +267,7 @@ export class MessagingService {
         if (!mailAccount) rejected.push({ id: m.id, reason: "email account is not set up" });
         else if (!isValidEmail(to)) rejected.push({ id: m.id, reason: "invalid email address" });
         else if (mailOptOuts.has(to)) rejected.push({ id: m.id, reason: "recipient opted out" });
+        else if (!isPublicUnsubscribeBase(unsubscribeBase())) rejected.push({ id: m.id, reason: "PUBLIC_API_URL is not a public https address, so the unsubscribe link would not work" });
         else if (!m.subject?.trim() || !m.body.trim() || m.body.length > MAX_EMAIL_BODY) rejected.push({ id: m.id, reason: "invalid text" });
         else ok.push(m.id);
         continue;

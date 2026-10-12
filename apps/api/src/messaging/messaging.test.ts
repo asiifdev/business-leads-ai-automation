@@ -133,3 +133,11 @@ test("a shop's automatic greeting is recognised and changes nothing", () => {
   const o = planReplyOutcome("contacted", "auto_reply");
   assert.deepEqual([o.stage, o.needsReply], [null, false]);
 });
+
+import { neutralHonorific } from "./plain-text";
+
+test("neutralHonorific replaces a guessed honorific but keeps a named one", () => {
+  assert.equal(neutralHonorific("agar Bapak bisa melihat"), "agar Anda bisa melihat");
+  assert.equal(neutralHonorific("Halo Bu Rina"), "Halo Bu Rina");
+  assert.deepEqual(draftRisks("Rating 5.0 menunjukkan kepercayaan pelanggan yang tinggi", []), ["assumption"]);
+});

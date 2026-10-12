@@ -7,7 +7,7 @@ import { MAX_BULK, MAX_EMAIL_BODY, isValidEmail } from "../messaging/messaging.s
 import { inQuietHours, localHour, startOfLocalDay } from "../messaging/send-policy";
 import { decryptSecret, encryptSecret } from "../settings/encryption.util";
 import { createTransport, friendlySmtpError } from "./email-transport";
-import { headerLine } from "./email-utils";
+import { headerLine, isPublicUnsubscribeBase, unsubscribeBase } from "./email-utils";
 
 export const MAX_GENERATE = 200;
 
@@ -55,6 +55,7 @@ export class EmailService {
     return {
       account: a ? publicAccount(a) : null,
       usage: { sentLastHour, sentToday, drafts, approved, leadsWithEmail: withEmail },
+      unsubscribeReady: isPublicUnsubscribeBase(unsubscribeBase({ PUBLIC_API_URL: this.config.get<string>("PUBLIC_API_URL"), PORT: this.config.get<string>("PORT") })),
       quietNow: a ? inQuietHours(localHour(now, a.timezone), a.quietStartHour, a.quietEndHour) : false,
       etaHours: a && a.hourlyLimit > 0 ? Math.round((approved / a.hourlyLimit) * 10) / 10 : null,
     };

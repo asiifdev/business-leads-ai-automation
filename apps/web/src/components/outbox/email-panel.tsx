@@ -70,6 +70,7 @@ export function EmailPanel({ overview, refresh }: { overview: EmailOverview; ref
           {a && <Button size="sm" variant="ghost" onClick={() => setOpen(true)}><SlidersHorizontal className="mr-1.5 h-4 w-4" />{t("outbox.wa.settings")}</Button>}
         </div>
       </div>
+      {!overview.unsubscribeReady && <p className="border-t border-destructive/40 bg-destructive/5 px-4 py-2.5 text-xs sm:px-5">{t("email.unsubscribeNotReady")}</p>}
       {overview.quietNow && a?.status === "ready" && <p className="border-t px-4 py-2.5 text-xs text-muted-foreground sm:px-5">{t("outbox.wa.quiet", { end: String(a.quietEndHour).padStart(2, "0") })}</p>}
       {a?.status === "ready" && overview.usage.approved > 0 && !!overview.etaHours && <p className="border-t px-4 py-2.5 text-xs text-muted-foreground sm:px-5">{t("outbox.wa.eta", { hours: overview.etaHours })}</p>}
       <p className="border-t px-4 py-2.5 text-xs text-muted-foreground sm:px-5">{t("email.note")}</p>

@@ -5,7 +5,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { decide, nextGapMs, startOfLocalDay } from "../messaging/send-policy";
 import { decryptSecret } from "../settings/encryption.util";
 import { createTransport, friendlySmtpError } from "./email-transport";
-import { authFailure, buildFooter, headerLine, isPermanentSmtpError, signUnsubscribe } from "./email-utils";
+import { authFailure, buildFooter, headerLine, isPermanentSmtpError, isPublicUnsubscribeBase, signUnsubscribe, unsubscribeBase } from "./email-utils";
 
 const TICK_MS = 20_000;
 const MAX_ATTEMPTS = 3;
@@ -47,10 +47,18 @@ export class EmailSenderService implements OnModuleInit, OnModuleDestroy {
   }
 
   private publicBase() {
-    return (this.config.get<string>("PUBLIC_API_URL") || `http://localhost:${this.config.get<string>("PORT") || 3001}/api`).replace(/\/$/, "");
+    return unsubscribeBase({ PUBLIC_API_URL: this.config.get<string>("PUBLIC_API_URL"), PORT: this.config.get<string>("PORT") });
   }
 
+  private warnedLocal = false;
+
   private async process(a: EmailAccount) {
+    // Never send mail whose unsubscribe link the recipient cannot open.
+    if (!isPublicUnsubscribeBase(this.publicBase())) {
+      if (!this.warnedLocal) this.logger.warn("Email sending is stopped: PUBLIC_API_URL is not a public https address, so recipients could not unsubscribe. Set it (e.g. https://api.example.com/api).");
+      this.warnedLocal = true;
+      return;
+    }
     const now = new Date();
     const base = { workspaceId: a.workspaceId, channel: "email", status: "sent" };
     const [sentLastHour, sentToday] = await Promise.all([
