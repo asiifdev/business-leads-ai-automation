@@ -91,13 +91,13 @@ export class BriefService {
     this.reading.set(workspaceId, (this.reading.get(workspaceId) ?? 0) + 1);
     try {
       this.progress.set(sourceId, { stage: "reading" });
-      const result = await crawlSite(url, { maxPages: 10, render: (u) => this.renderer.render(u) });
+      const result = await crawlSite(url, { maxPages: 40, deadlineMs: 150_000, render: (u) => this.renderer.render(u) });
       if (result.pages.length === 0) {
         const why = result.failed[0]?.reason ?? "nothing readable was found";
         throw new Error(`Could not read this site: ${why}. Paste the text instead.`);
       }
       const text = siteToText(result);
-      await this.prisma.knowledgeSource.update({ where: { id: sourceId }, data: { text: text.slice(0, 200_000), title: new URL(url).hostname } });
+      await this.prisma.knowledgeSource.update({ where: { id: sourceId }, data: { text: text.slice(0, 400_000), title: new URL(url).hostname } });
       this.progress.set(sourceId, { stage: "indexing", pages: result.pages.length, discovered: result.discovered });
       this.logger.log(`Read ${result.pages.length}/${result.discovered} pages of ${new URL(url).hostname} (${result.notes.join("; ")})`);
       await this.knowledge.index(workspaceId, sourceId, text);

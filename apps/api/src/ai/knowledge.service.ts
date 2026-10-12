@@ -57,7 +57,7 @@ export class KnowledgeService {
     if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
     if (chunkText(input.content).length === 0) throw new NotFoundException("No text to index");
     const source = await this.prisma.knowledgeSource.create({
-      data: { workspaceId, title: input.title, kind: input.kind ?? "text", url: input.url ?? null, text: input.content.slice(0, 200_000), status: "processing" },
+      data: { workspaceId, title: input.title, kind: input.kind ?? "text", url: input.url ?? null, text: input.content.slice(0, 400_000), status: "processing" },
     });
     return this.index(workspaceId, source.id, input.content);
   }

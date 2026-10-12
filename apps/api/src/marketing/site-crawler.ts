@@ -88,7 +88,7 @@ export function scoreUrl(url: string, startUrl: string): number {
 }
 
 /** Picks the pages worth reading: best-scored first, a few blog posts at most, never the same page twice. */
-export function selectPages(candidates: string[], startUrl: string, max: number, maxBlog = 2): string[] {
+export function selectPages(candidates: string[], startUrl: string, max: number, maxBlog = 4): string[] {
   const unique = [...new Set(candidates)];
   const ranked = unique.sort((a, b) => scoreUrl(b, startUrl) - scoreUrl(a, startUrl));
   const out: string[] = [];
