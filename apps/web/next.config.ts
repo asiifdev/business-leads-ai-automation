@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname, "..", ".."),
   },
+  allowedDevOrigins: ['app.alatpintar.id']
 };
 
 export default nextConfig;
