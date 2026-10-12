@@ -26,6 +26,7 @@ export const marketingId: Record<keyof typeof marketingEn, string> = {
   "mkt.gen.notesPh": "mis. kami hanya melayani Jawa Tengah; paket awal adalah penawaran utama kami...",
   "mkt.gen.fromBrief": "Isi dari brief tersimpan (instan)",
   "mkt.gen.filledFromBrief": "Terisi dari brief tersimpan. Jalankan analisis baru hanya kalau sumber Anda berubah.",
+  "mkt.gen.stage": "Menganalisis, tahap {n} dari 3. Anda boleh meninggalkan halaman ini.",
   "mkt.gen.button": "Analisis dengan AI dan isi form",
   "mkt.gen.running": "Menganalisis… ini bisa memakan satu sampai dua menit",
   "mkt.gen.needSource": "Tambahkan dan pilih minimal satu sumber, atau tulis beberapa kalimat tentang penawaran Anda.",

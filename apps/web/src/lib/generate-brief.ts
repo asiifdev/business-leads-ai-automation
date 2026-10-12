@@ -5,6 +5,19 @@ type Status<T> = { status: "idle" | "running" | "done" | "failed"; pass?: string
 /** Starts the brief in the background and waits for it by asking every few seconds: no single request has to survive minutes. */
 export async function generateBrief<T>(body: object, onPass?: (pass: string) => void, signal?: { cancelled: boolean }): Promise<T> {
   await api.post("/marketing/brief/generate", body);
+  return waitForBrief<T>(onPass, signal);
+}
+
+/** True when a brief is being written right now (e.g. the person left the page and came back). */
+export async function briefIsRunning(): Promise<boolean> {
+  try {
+    return (await api.get<Status<unknown>>("/marketing/brief/generate/status")).status === "running";
+  } catch {
+    return false;
+  }
+}
+
+export async function waitForBrief<T>(onPass?: (pass: string) => void, signal?: { cancelled: boolean }): Promise<T> {
   const deadline = Date.now() + 20 * 60_000;
   let misses = 0;
   while (Date.now() < deadline) {

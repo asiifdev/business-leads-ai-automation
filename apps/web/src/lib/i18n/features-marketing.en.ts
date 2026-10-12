@@ -24,6 +24,7 @@ export const marketingEn = {
   "mkt.gen.notesPh": "e.g. we only serve Central Java; the starter package is our main offer...",
   "mkt.gen.fromBrief": "Fill from my saved brief (instant)",
   "mkt.gen.filledFromBrief": "Filled from your saved brief. Run a new analysis only if your sources changed.",
+  "mkt.gen.stage": "Analyzing, step {n} of 3. You can leave this page.",
   "mkt.gen.button": "Analyze with AI and fill the form",
   "mkt.gen.running": "Analyzing… this can take a minute or two",
   "mkt.gen.needSource": "Add and select at least one source, or write a few sentences about your offer.",

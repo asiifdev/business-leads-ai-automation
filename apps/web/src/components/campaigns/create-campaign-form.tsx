@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus, Sparkles, X } from "lucide-react";
-import { generateBrief } from "@/lib/generate-brief";
+import { briefIsRunning, generateBrief, waitForBrief } from "@/lib/generate-brief";
 
 export function CreateCampaignForm() {
   const { t } = useI18n();
@@ -24,6 +24,7 @@ export function CreateCampaignForm() {
   const [selected, setSelected] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
+  const [pass, setPass] = useState("");
   const [brief, setBrief] = useState<Brief | null>(null);
   /** Fields the AI filled and the user has not changed: shown with a badge. A field the user edited is never overwritten. */
   const [aiFilled, setAiFilled] = useState<Set<string>>(new Set());
@@ -73,24 +74,30 @@ export function CreateCampaignForm() {
     setAiFilled(filled);
   };
 
-  const analyze = async () => {
+  const analyze = async (resume = false) => {
     setAnalyzing(true);
     try {
-      const b = await generateBrief<Brief>({
+      const b = resume ? await waitForBrief<Brief>(setPass) : await generateBrief<Brief>({
         sourceIds: selected.length ? selected : undefined,
         notes: [notes, !touched.has("yourService") ? "" : form.yourService].filter(Boolean).join("\n\n") || undefined,
         industry: touched.has("industry") ? form.industry || undefined : undefined,
         location: touched.has("location") ? form.location || undefined : undefined,
         language: form.language === "english" ? "english" : "indonesian",
-      });
+      }, setPass);
       applyBrief(b);
       toast.success(t("mkt.gen.done"));
     } catch (e) {
       toast.error(t("mkt.gen.failed", { err: (e as Error).message }));
     } finally {
       setAnalyzing(false);
+      setPass("");
     }
   };
+  // coming back to the page while an analysis is still running: pick it up instead of starting another
+  useEffect(() => {
+    void briefIsRunning().then((r) => { if (r) void analyze(true); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const badge = (k: string) => aiFilled.has(k) && (
     <span title={t("mkt.ai.badge")} className="ml-1.5 inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-px text-[10px] font-semibold text-primary">
       <Sparkles className="h-2.5 w-2.5" aria-hidden />AI<span className="sr-only"> {t("mkt.ai.badge")}</span>
@@ -150,9 +157,9 @@ export function CreateCampaignForm() {
                 <Sparkles className="mr-2 h-4 w-4" />{t("mkt.gen.fromBrief")}
               </Button>
             )}
-            <Button type="button" variant={brief?.campaign ? "outline" : "default"} className="w-full" onClick={analyze} disabled={analyzing || !canAnalyze}>
+            <Button type="button" variant={brief?.campaign ? "outline" : "default"} className="w-full" onClick={() => void analyze()} disabled={analyzing || !canAnalyze}>
               {analyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-              {analyzing ? t("mkt.gen.running") : t("mkt.gen.button")}
+              {analyzing ? (pass ? t("mkt.gen.stage", { n: ["positioning", "evidence", "outreach"].indexOf(pass) + 1 }) : t("mkt.gen.running")) : t("mkt.gen.button")}
             </Button>
             {!canAnalyze && <p className="text-xs text-muted-foreground">{t("mkt.gen.needSource")}</p>}
           </div>
