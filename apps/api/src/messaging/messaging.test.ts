@@ -126,3 +126,10 @@ test("withLink puts the owner's link before the closing", () => {
   assert.equal(withLink("Halo,\n\nIsi.\n\nSalam,", "https://invly.id/", "indonesian"), "Halo,\n\nIsi.\n\nSelengkapnya: https://invly.id/\n\nSalam,");
   assert.equal(withLink("Hello,\n\nBody.", "https://x.id/", "english"), "Hello,\n\nBody.\n\nMore details: https://x.id/");
 });
+
+test("a shop's automatic greeting is recognised and changes nothing", () => {
+  assert.equal(classifyReply("Terima kasih telah menghubungi DIPO RENTAL SEMARANG. Silakan pilih menu"), "auto_reply");
+  assert.equal(classifyReply("*PERSYARATAN*\n1. KTP"), "other");
+  const o = planReplyOutcome("contacted", "auto_reply");
+  assert.deepEqual([o.stage, o.needsReply], [null, false]);
+});

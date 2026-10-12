@@ -18,6 +18,7 @@ interface Pipeline {
   needsReply: LeadRow[];
   stale: LeadRow[];
   dueFollowUps: LeadRow[];
+  unmatched: { id: string; fromPhone: string; body: string; receivedAt: string; hidden: boolean }[];
   lostReasons: { reason: string; count: number }[];
   campaigns: { id: string; name: string; total: number; contacted: number; replied: number; won: number }[];
 }
@@ -71,6 +72,21 @@ export function PipelinePage() {
         <LeadList title={t("pipeline.due")} empty={t("pipeline.due.empty")} rows={data.dueFollowUps} note={(l) => date(l.followUpDate)} />
         <LeadList title={t("pipeline.stale")} empty={t("pipeline.stale.empty")} rows={data.stale} note={(l) => date(l.contactedAt)} />
       </div>
+
+      {data.unmatched.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="flex items-center justify-between text-base">{t("pipeline.unmatched")}<Badge variant="secondary">{data.unmatched.length}</Badge></CardTitle></CardHeader>
+          <CardContent className="space-y-1.5 text-sm">
+            <p className="text-xs text-muted-foreground">{t("pipeline.unmatched.hint")}</p>
+            {data.unmatched.map((m) => (
+              <div key={m.id} className="flex items-start justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-muted">
+                <span className="line-clamp-2">{m.body}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">{date(m.receivedAt)}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">

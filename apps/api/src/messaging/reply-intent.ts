@@ -3,12 +3,23 @@
  * Rule-based on purpose: free, instant, predictable, and testable. A wrong guess only changes a label
  * and a stage the owner can correct; it never sends anything.
  */
-export type ReplyIntent = "interested" | "meeting" | "price" | "question" | "not_now" | "not_interested" | "other";
+export type ReplyIntent = "auto_reply" | "interested" | "meeting" | "price" | "question" | "not_now" | "not_interested" | "other";
 
 export const STAGE_ORDER = ["new", "contacted", "replied", "meeting", "proposal", "won", "lost"] as const;
 export type Stage = (typeof STAGE_ORDER)[number];
 
 const RULES: { intent: ReplyIntent; patterns: RegExp[] }[] = [
+  {
+    // a shop's automatic greeting is not a person answering: it must not move the deal or call for an answer
+    intent: "auto_reply",
+    patterns: [
+      /\bterima\s+kasih\s+(telah|sudah)\s+(menghubungi|mengirim\s+pesan|menghubungkan)/i,
+      /\b(pesan|balasan)\s+otomatis\b|\bauto[\s-]?repl(y|ies)\b|\bautomated\s+(message|reply)\b/i,
+      /\b(jam|waktu)\s+(operasional|layanan|buka)\b/i,
+      /\bsilakan\s+(pilih|ketik|klik|isi)\b/i,
+      /\bthank\s+you\s+for\s+(contacting|messaging|reaching)\b/i,
+    ],
+  },
   {
     intent: "not_interested",
     patterns: [
@@ -78,6 +89,8 @@ const rank = (s: string) => STAGE_ORDER.indexOf(s as Stage);
 export function planReplyOutcome(currentStage: string, intent: ReplyIntent): ReplyOutcome {
   const forward = (target: Stage): Stage | null => (rank(currentStage) >= 0 && rank(currentStage) < rank(target) && !["won", "lost"].includes(currentStage) ? target : null);
   switch (intent) {
+    case "auto_reply":
+      return { intent, stage: null, needsReply: false, followUpInDays: null };
     case "meeting":
       return { intent, stage: forward("meeting"), needsReply: true, followUpInDays: null };
     case "interested":

@@ -50,7 +50,13 @@ export class InboundService implements OnModuleInit {
     if (isOptOut(msg.text)) {
       await this.prisma.messageOptOut.upsert({ where: { workspaceId_phone: { workspaceId, phone: msg.phone } }, create: { workspaceId, phone: msg.phone, reason: msg.text.slice(0, 200) }, update: {} });
       await this.prisma.outboundMessage.updateMany({ where: { workspaceId, toPhone: msg.phone, status: { in: ["draft", "approved"] } }, data: { status: "cancelled", error: "Recipient opted out" } });
-      if (lead) await this.prisma.leadActivity.create({ data: { leadId: lead.id, type: "opted_out", note: msg.text.slice(0, 140) } });
+      if (lead) {
+        await this.prisma.leadActivity.create({ data: { leadId: lead.id, type: "opted_out", note: msg.text.slice(0, 140) } });
+        // an explicit STOP is the one reply that closes a deal by itself
+        if (!["won", "lost"].includes(lead.crmStatus)) {
+          await this.prisma.lead.update({ where: { id: lead.id }, data: { crmStatus: "lost", lostReason: "Meminta berhenti (STOP)", needsReply: false, closedAt: new Date(), repliedAt: msg.at } });
+        }
+      }
       this.logger.log(`Opt-out recorded for ${workspaceId}`);
       return;
     }
@@ -58,6 +64,10 @@ export class InboundService implements OnModuleInit {
 
     const outcome = planReplyOutcome(lead.crmStatus, classifyReply(msg.text));
     await this.prisma.inboundMessage.updateMany({ where: { workspaceId, providerMessageId: msg.id }, data: { intent: outcome.intent } });
+    if (outcome.intent === "auto_reply") {
+      await this.prisma.leadActivity.create({ data: { leadId: lead.id, type: "auto_reply", note: msg.text.slice(0, 140) } });
+      return; // not a person: no stage change, follow-ups stay, no draft
+    }
     await this.prisma.lead.update({
       where: { id: lead.id },
       data: {

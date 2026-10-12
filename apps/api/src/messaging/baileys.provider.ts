@@ -153,9 +153,12 @@ export class BaileysProvider implements WhatsappProvider, OnModuleInit, OnModule
         if (m.key.fromMe || !m.key.id) continue;
         const phone = phoneFromKey(m.key as { remoteJid?: string | null; senderPn?: string | null; participantPn?: string | null });
         const text = m.message?.conversation ?? m.message?.extendedTextMessage?.text ?? "";
-        if (!phone || !text.trim() || !this.inbound) continue;
+        // A hidden-number (LID) sender whose phone WhatsApp did not reveal: keep the message under its LID so it is
+        // visible to the owner instead of vanishing. It can never be matched to a lead automatically.
+        const who = phone ?? ((m.key.remoteJid ?? "").endsWith("@lid") ? `lid:${(m.key.remoteJid ?? "").split("@")[0]}` : null);
+        if (!who || !text.trim() || !this.inbound) continue;
         const at = new Date(Number(m.messageTimestamp ?? 0) * 1000 || Date.now());
-        this.inbound(workspaceId, { phone, text: text.trim(), id: m.key.id, at }).catch((e) => this.logger.error(`Inbound handling failed: ${e}`));
+        this.inbound(workspaceId, { phone: who, text: text.trim(), id: m.key.id, at }).catch((e) => this.logger.error(`Inbound handling failed: ${e}`));
       }
     });
   }

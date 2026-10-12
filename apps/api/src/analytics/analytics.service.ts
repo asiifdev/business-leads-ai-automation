@@ -66,13 +66,15 @@ export class AnalyticsService {
   async getPipeline(workspaceId = DEFAULT_WORKSPACE_ID) {
     const staleBefore = new Date(Date.now() - 7 * 86_400_000);
     const lite = { id: true, name: true, phone: true, category: true, crmStatus: true, dealValue: true, lastIntent: true, repliedAt: true, contactedAt: true, followUpDate: true, campaignId: true } as const;
-    const [byStage, needsReply, stale, dueFollowUps, lost, byCampaign] = await Promise.all([
+    const [byStage, needsReply, stale, dueFollowUps, lost, byCampaign, unmatched] = await Promise.all([
       this.prisma.lead.groupBy({ by: ["crmStatus"], where: { workspaceId }, _count: { _all: true }, _sum: { dealValue: true } }),
       this.prisma.lead.findMany({ where: { workspaceId, needsReply: true, crmStatus: { notIn: ["won", "lost"] } }, orderBy: { repliedAt: "asc" }, take: 50, select: lite }),
       this.prisma.lead.findMany({ where: { workspaceId, crmStatus: "contacted", contactedAt: { lt: staleBefore } }, orderBy: { contactedAt: "asc" }, take: 50, select: lite }),
       this.prisma.lead.findMany({ where: { workspaceId, followUpDate: { lte: new Date() }, crmStatus: { notIn: ["won", "lost"] } }, orderBy: { followUpDate: "asc" }, take: 50, select: lite }),
       this.prisma.lead.groupBy({ by: ["lostReason"], where: { workspaceId, crmStatus: "lost" }, _count: { _all: true } }),
       this.prisma.lead.groupBy({ by: ["campaignId", "crmStatus"], where: { workspaceId }, _count: { _all: true } }),
+      // messages from senders that match no lead (typically hidden-number contacts): shown so a STOP or a real answer is never lost unseen
+      this.prisma.inboundMessage.findMany({ where: { workspaceId, leadId: null, receivedAt: { gte: new Date(Date.now() - 30 * 86_400_000) } }, orderBy: { receivedAt: "desc" }, take: 20, select: { id: true, fromPhone: true, body: true, receivedAt: true } }),
     ]);
     const stages = ["new", "contacted", "replied", "meeting", "proposal", "won", "lost"].map((stage) => {
       const row = byStage.find((r) => r.crmStatus === stage);
@@ -90,6 +92,7 @@ export class AnalyticsService {
       rates: { replyRate: rate(reachedReply, contactedOrMore), winRate: rate(n("won"), n("won") + n("lost")) },
       needsReply,
       stale,
+      unmatched: unmatched.map((m) => ({ ...m, body: m.body.slice(0, 200), hidden: m.fromPhone.startsWith("lid:") })),
       dueFollowUps,
       lostReasons: lost.map((r) => ({ reason: r.lostReason ?? "—", count: r._count._all })).sort((a, b) => b.count - a.count),
       campaigns: campaigns.map((c) => {
