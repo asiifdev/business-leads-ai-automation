@@ -16,7 +16,9 @@ async function bootstrap() {
   if (cloud.router) app.use("/api/billing", cloud.router);
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
   app.useGlobalFilters(new HttpExceptionFilter());
-  app.enableCors({ origin: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000" });
+  // Browser origins allowed to call the API: a comma-separated list in CORS_ORIGINS, otherwise the app URL, otherwise local dev.
+  const origins = (process.env.CORS_ORIGINS || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
+  app.enableCors({ origin: origins });
 
   const config = new DocumentBuilder()
     .setTitle("Prospex API")

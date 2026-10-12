@@ -39,6 +39,7 @@ import { EntitlementsModule } from "./entitlements/entitlements.module";
         EMAIL_DISABLED: Joi.string().valid("true", "false").optional(),
         EMAIL_ALLOW_PRIVATE_SMTP: Joi.string().valid("true", "false").optional(),
         NEXT_PUBLIC_APP_URL: Joi.string().default("http://localhost:3000"),
+        CORS_ORIGINS: Joi.string().allow("").optional(),
         THROTTLE_TTL_MS: Joi.number().default(60000),
         THROTTLE_LIMIT: Joi.number().default(60),
         AUTH_THROTTLE_LIMIT: Joi.number().default(10),
