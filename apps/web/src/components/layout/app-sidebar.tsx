@@ -4,7 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useRouter, usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Megaphone, Users, BarChart3, Settings, Zap, LogOut, Sparkles, Send, ClipboardList, CreditCard,
+  LayoutDashboard, Megaphone, Users, BarChart3, Settings, Zap, LogOut, Sparkles, Send, ClipboardList, CreditCard, KanbanSquare,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ const navItems = [
   { title: "nav.dashboard" as MessageKey, href: "/dashboard", icon: LayoutDashboard },
   { title: "nav.campaigns" as MessageKey, href: "/campaigns", icon: Megaphone },
   { title: "nav.leads" as MessageKey, href: "/leads", icon: Users },
+  { title: "nav.pipeline" as MessageKey, href: "/pipeline", icon: KanbanSquare },
   { title: "nav.analytics" as MessageKey, href: "/analytics", icon: BarChart3 },
   { title: "nav.brief" as MessageKey, href: "/brief", icon: ClipboardList },
   { title: "nav.style" as MessageKey, href: "/style", icon: Sparkles },

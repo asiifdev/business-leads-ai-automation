@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -29,6 +30,25 @@ export function LeadDetail({ id }: { id: string }) {
   const { lead, loading, refresh } = useLead(id);
   const [crmStatus, setCrmStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deal, setDeal] = useState<{ value: string; lost: string; follow: string } | null>(null);
+  const dealForm = deal ?? { value: lead?.dealValue != null ? String(lead.dealValue) : "", lost: lead?.lostReason ?? "", follow: lead?.followUpDate ? lead.followUpDate.slice(0, 10) : "" };
+  const saveDeal = async (extra: object = {}) => {
+    setSaving(true);
+    try {
+      await api.patch(`/leads/${id}/crm`, {
+        ...(dealForm.value.trim() !== "" && { dealValue: Math.max(0, Math.round(Number(dealForm.value.replace(/\D/g, "")) || 0)) }),
+        ...(dealForm.lost.trim() && { lostReason: dealForm.lost.trim() }),
+        ...(dealForm.follow && { followUpDate: dealForm.follow }),
+        ...extra,
+      });
+      setDeal(null);
+      await refresh();
+    } catch (e) {
+      console.error("Deal update failed:", e);
+    } finally {
+      setSaving(false);
+    }
+  };
   const [enriching, setEnriching] = useState(false);
   const enrich = async () => {
     setEnriching(true);
@@ -244,6 +264,26 @@ export function LeadDetail({ id }: { id: string }) {
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("leads.detail.updateStatus")}
               </Button>
+              {lead.needsReply && (
+                <div className="rounded-md border border-primary/40 bg-primary/5 p-2 text-xs">
+                  <p>{t("leads.deal.waiting")}</p>
+                  <button type="button" className="mt-1 underline" onClick={() => saveDeal({ needsReply: false })}>{t("leads.deal.markHandled")}</button>
+                </div>
+              )}
+              <div className="space-y-2 border-t pt-3 text-sm">
+                <label className="block text-xs text-muted-foreground">{t("leads.deal.value")}
+                  <Input inputMode="numeric" value={dealForm.value} onChange={(e) => setDeal({ ...dealForm, value: e.target.value })} className="mt-1 h-9" />
+                </label>
+                <label className="block text-xs text-muted-foreground">{t("leads.deal.followUp")}
+                  <Input type="date" value={dealForm.follow} onChange={(e) => setDeal({ ...dealForm, follow: e.target.value })} className="mt-1 h-9" />
+                </label>
+                {(crmStatus ?? lead.crmStatus) === "lost" && (
+                  <label className="block text-xs text-muted-foreground">{t("leads.deal.lostReason")}
+                    <Input value={dealForm.lost} onChange={(e) => setDeal({ ...dealForm, lost: e.target.value })} className="mt-1 h-9" />
+                  </label>
+                )}
+                <Button variant="outline" className="w-full text-sm h-9" onClick={() => saveDeal()} disabled={saving}>{t("leads.deal.save")}</Button>
+              </div>
             </CardContent>
           </Card>
 

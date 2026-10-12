@@ -16,6 +16,10 @@ export interface Lead {
   priority: "HIGH" | "MEDIUM" | "LOW";
   crmStatus: "new" | "contacted" | "replied" | "meeting" | "proposal" | "won" | "lost";
   crmNotes?: string;
+  dealValue?: number | null;
+  lostReason?: string | null;
+  needsReply?: boolean;
+  followUpDate?: string | null;
   email?: string | null;
   enrichedAt?: string | null;
   enrichment?: {

@@ -118,6 +118,8 @@ async function main() {
   await inbound.handle(ws, { phone: "629900000006", text: "boleh, berapa harganya?", id: "in-reply-1", at: new Date() });
   const l2 = await prisma.lead.findUniqueOrThrow({ where: { id: lead.id } });
   check("reply moves the lead to 'replied'", l2.crmStatus === "replied" && !!l2.repliedAt);
+  check("reply is understood (price) and flagged as waiting for the owner", l2.lastIntent === "price" && l2.needsReply === true);
+  check("the inbound message keeps its intent", (await prisma.inboundMessage.findFirstOrThrow({ where: { workspaceId: ws, providerMessageId: "in-reply-1" } })).intent === "price");
   check("pending follow-up is cancelled", (await prisma.outboundMessage.findFirstOrThrow({ where: { leadId: lead.id, source: "ai_followup" } })).status === "cancelled");
   const draft = await prisma.outboundMessage.findFirst({ where: { leadId: lead.id, source: "ai_reply", status: "draft" } });
   check("a reply DRAFT is prepared, nothing is sent", !!draft && wa.sent.length === before);

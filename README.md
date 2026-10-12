@@ -36,7 +36,8 @@ If Prospex is useful to you, a star helps other people find it.
 | **Draft** | The AI writes the first message from the lead's real data, your own style, the matching angle from your brief and your knowledge base. Standard spelling, one fact, one benefit, one easy question, an opt-out line. |
 | **Approve** | Read, edit, approve or reject each draft in the Outbox. Nothing is sent before this step. |
 | **Send** | Approved messages go out through WhatsApp one at a time: hourly and daily caps, quiet hours, random gaps, and a typing indicator before each one. Email works the same way through your own SMTP account, with an unsubscribe link in every message ([docs/email-channel.md](docs/email-channel.md)). |
-| **Reply and follow up** | A reply updates the lead, cancels pending follow-ups, and creates a reply draft for you. Leads that stay silent get up to two follow-up drafts, after 3 and 5 days. A recipient who writes STOP is never contacted again. |
+| **Track to closing** | The Pipeline page shows every stage with deal value, replies waiting for you, leads that went quiet, follow-ups due, results per campaign and why deals were lost. A deal is never closed automatically; you mark it won or lost. |
+| **Reply and follow up** | A reply is classified (interested, wants a meeting, asked the price, question, not now, not interested), moves the lead forward in the pipeline, cancels pending follow-ups, flags it as waiting for you, and creates a reply draft. Leads that stay silent get up to two follow-up drafts, after 3 and 5 days. A recipient who writes STOP is never contacted again. |
 
 Every feature, its purpose, its limits and how far it has been verified: [docs/features.md](docs/features.md), [editions](docs/editions.md).
 
@@ -222,7 +223,7 @@ Interactive docs at `/api/docs`. The main routes:
 | Area | Endpoints |
 |------|-----------|
 | **Campaigns and scraping** | `GET/POST /api/campaigns`, `POST /api/scraper/campaigns/:id/start` |
-| **Leads and CRM** | `GET /api/leads`, `PATCH /api/leads/:id/crm`, `GET /api/analytics` |
+| **Leads and CRM** | `GET /api/leads`, `PATCH /api/leads/:id/crm`, `GET /api/analytics`, `GET /api/analytics/pipeline` |
 | **Export** | `GET /api/export/leads/{csv,json,vcard}` |
 | **AI Style** | `POST /api/style/inspect`, `POST /api/style/train`, `GET/DELETE /api/style/profile`, `POST /api/style/draft` |
 | **Knowledge base** | `GET/POST /api/knowledge/sources`, `DELETE /api/knowledge/sources/:id`, `POST /api/knowledge/search` |
@@ -249,6 +250,7 @@ pnpm --filter @prospex/database db:studio       # Prisma Studio
 Done:
 
 - [x] Google Maps discovery with real categories, honest scoring, CRM pipeline, analytics, export
+- [x] Reply understanding and a pipeline view to follow leads until closing
 - [x] Marketing Brief from websites, PDF, DOCX, Markdown and text, with campaign autofill
 - [x] Knowledge base with retrieval (pgvector)
 - [x] AI Style: learn your voice from WhatsApp exports
