@@ -82,7 +82,13 @@ export class MarketingController {
   @Throttle({ default: { limit: 6, ttl: 60_000 } })
   @ApiOperation({ summary: "Write the Marketing Brief and suggested campaign settings from the sources. Facts come only from the sources; gaps are listed as [NEED: ...]" })
   generate(@WorkspaceId() ws: string, @Body() dto: GenerateDto) {
-    return this.brief.generate(ws, dto);
+    return this.brief.startGenerate(ws, dto);
+  }
+
+  @Get("brief/generate/status")
+  @ApiOperation({ summary: "Progress of the brief being written; the finished brief is included when status is done" })
+  generateStatus(@WorkspaceId() ws: string) {
+    return this.brief.generateStatus(ws);
   }
 
   @Put("brief")

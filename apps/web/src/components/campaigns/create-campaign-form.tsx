@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus, Sparkles, X } from "lucide-react";
+import { generateBrief } from "@/lib/generate-brief";
 
 export function CreateCampaignForm() {
   const { t } = useI18n();
@@ -55,7 +56,7 @@ export function CreateCampaignForm() {
   const analyze = async () => {
     setAnalyzing(true);
     try {
-      const b = await api.post<Brief>("/marketing/brief/generate", {
+      const b = await generateBrief<Brief>({
         sourceIds: selected.length ? selected : undefined,
         notes: [notes, !touched.has("yourService") ? "" : form.yourService].filter(Boolean).join("\n\n") || undefined,
         industry: touched.has("industry") ? form.industry || undefined : undefined,

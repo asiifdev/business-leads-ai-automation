@@ -11,6 +11,7 @@ import { useI18n } from "@/lib/i18n";
 import { BriefSections } from "./brief-sections";
 import { SourceMaterial } from "./source-material";
 import { hasBrief, type Brief, type BriefContent, type BriefResponse } from "./types";
+import { generateBrief } from "@/lib/generate-brief";
 
 /* Hallmark · component: page (Marketing Brief) · genre: modern-minimal · theme: existing Prospex tokens
  * layout: one reading column; sources and generate first, then the brief as plain sections
@@ -37,7 +38,7 @@ export function BriefPage() {
   const generate = async () => {
     setBusy(true);
     try {
-      const b = await api.post<Brief>("/marketing/brief/generate", { sourceIds: selected.length ? selected : undefined, notes: notes || undefined, language: lang === "id" ? "indonesian" : "english" });
+      const b = await generateBrief<Brief>({ sourceIds: selected.length ? selected : undefined, notes: notes || undefined, language: lang === "id" ? "indonesian" : "english" });
       setBrief(b);
       setSummary(b.summary);
     } catch (e) { toast.error(t("mkt.gen.failed", { err: (e as Error).message })); } finally { setBusy(false); }

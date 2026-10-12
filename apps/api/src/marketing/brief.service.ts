@@ -148,7 +148,30 @@ export class BriefService {
     };
   }
 
-  async generate(workspaceId: string, input: GenerateInput): Promise<BriefView> {
+  private readonly genJobs = new Map<string, { status: "running" | "done" | "failed"; pass: string; startedAt: number; error?: string; brief?: BriefView }>();
+
+  /**
+   * Starts writing the brief in the background and returns at once. A small local model needs minutes, longer than any
+   * browser or proxy waits on one request, so the page polls `generateStatus` instead.
+   */
+  startGenerate(workspaceId: string, input: GenerateInput) {
+    const running = this.genJobs.get(workspaceId);
+    if (running?.status === "running") return { status: "running" as const, pass: running.pass };
+    const job: { status: "running" | "done" | "failed"; pass: string; startedAt: number; error?: string; brief?: BriefView } = { status: "running", pass: "positioning", startedAt: Date.now() };
+    this.genJobs.set(workspaceId, job);
+    void this.generate(workspaceId, input, (p) => { job.pass = p; })
+      .then((brief) => { job.status = "done"; job.brief = brief; })
+      .catch((e) => { job.status = "failed"; job.error = ((e as { message?: string }).message ?? "failed").slice(0, 300); this.logger.warn(`Brief job failed: ${job.error}`); });
+    return { status: "running" as const, pass: job.pass };
+  }
+
+  generateStatus(workspaceId: string) {
+    const j = this.genJobs.get(workspaceId);
+    if (!j) return { status: "idle" as const };
+    return { status: j.status, pass: j.pass, elapsedMs: Date.now() - j.startedAt, ...(j.error ? { error: j.error } : {}), ...(j.status === "done" ? { brief: j.brief } : {}) };
+  }
+
+  async generate(workspaceId: string, input: GenerateInput, onPass?: (pass: string) => void): Promise<BriefView> {
     const ai = await this.ai.forWorkspace(workspaceId);
     if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
     const language = input.language === "english" ? "english" : "indonesian";
@@ -171,6 +194,7 @@ export class BriefService {
     let context = "";
     for (const pass of ["positioning", "evidence", "outreach"] as const) {
       let ok = false;
+      onPass?.(pass);
       for (let attempt = 0; attempt < 2 && !ok; attempt++) {
         try {
           const reply = await ai.chat(buildBriefMessages(base, pass, context), { json: true, temperature: 0.3 });
