@@ -11,14 +11,16 @@ async function bootstrap() {
 
   app.use(helmet());
   app.setGlobalPrefix("api");
-  // Routes from the commercial package (checkout, payment webhooks, billing admin), if one is installed.
-  const cloud = app.get<CloudHost>(CLOUD_HOST);
-  if (cloud.router) app.use("/api/billing", cloud.router);
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
   app.useGlobalFilters(new HttpExceptionFilter());
   // Browser origins allowed to call the API: a comma-separated list in CORS_ORIGINS, otherwise the app URL, otherwise local dev.
   const origins = (process.env.CORS_ORIGINS || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
   app.enableCors({ origin: origins });
+
+  // Routes from the commercial package (checkout, payment webhooks, billing admin), if one is installed.
+  // Mounted AFTER CORS: a route added earlier answers the browser's preflight itself, without the CORS headers.
+  const cloud = app.get<CloudHost>(CLOUD_HOST);
+  if (cloud.router) app.use("/api/billing", cloud.router);
 
   const config = new DocumentBuilder()
     .setTitle("Prospex API")
