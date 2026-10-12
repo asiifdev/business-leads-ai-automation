@@ -149,7 +149,7 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
   const email = input.channel === "email";
   const shots = (input.examples ?? []).map((e, i) => `Contoh ${i + 1}\nPelanggan: ${clip(e.incoming, 500)}\nBalasan saya: ${normalizeDraft(clip(e.reply, 500))}`).join("\n\n");
   const facts = input.knowledge?.length
-    ? `FAKTA BISNIS YANG BOLEH DIPAKAI:\n${input.knowledge.map((k) => `- ${k}`).join("\n")}`
+    ? `FAKTA BISNIS YANG BOLEH DIPAKAI (pilih hanya yang relevan dengan jenis bisnis penerima; sisanya abaikan sepenuhnya):\n${input.knowledge.map((k) => `- ${k}`).join("\n")}`
     : "Tidak ada fakta bisnis tambahan: jangan menyebut harga, paket, promo, jadwal, atau hasil yang dijanjikan.";
   const system = [
     `Kamu menulis ${fu ? `PESAN TINDAK LANJUT ke-${fu.number} (dari maksimal ${fu.of})` : "PESAN PERTAMA"} ${email ? "EMAIL (hanya isi, tanpa subjek)" : "WhatsApp"} atas nama pemilik bisnis ini: ${input.businessDescription}`,
@@ -202,6 +202,7 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
     "- Jangan memakai salam menurut waktu (selamat pagi/siang/sore/malam): waktu pesan dibaca tidak diketahui. Awali dengan \"Halo\".",
     "- Jangan mengarang fakta tentang penerima di luar data di atas. Dilarang menyebut bisnis mereka ramai, laris, diminati, populer, enak, terkenal, bagus, terbaik, atau sejenisnya kecuali tertulis di data; sebut angka (rating, jumlah ulasan) apa adanya. Jangan memuji secara umum.",
     "- Sebut tepat satu fakta spesifik dari data apa adanya (mis. rating dan jumlah ulasan, belum ada website, atau lokasi), lalu hubungkan dengan penawaran.",
+    "- Cocokkan dengan jenis bisnis penerima. Sebut hanya kemampuan penawaran yang berguna bagi bisnis seperti itu. Kemampuan yang khusus untuk jenis usaha lain (mis. dokumen kendaraan, STNK, servis kendaraan, untuk penyewaan alat acara, kamera, atau kebaya) JANGAN disebut, walaupun ada di brief atau fakta.",
     "- Jangan menjanjikan hasil atau angka. Jangan menulis seperti iklan atau broadcast.",
     "- Jangan menebak atau menyimpulkan keadaan penerima (\"pasti ramai\", \"permintaan tinggi\", \"masih mencatat di buku\"). Tanyakan, jangan menyatakan. Jangan memakai istilah campuran Inggris yang tidak perlu (real-time, tracking, dashboard); pakai kata sehari-hari.",
     "- Tulis dengan ejaan baku dan kalimat natural seperti pemilik usaha berbicara. Hindari kata kaku seperti \"Pernahkah\"; pakai \"Pernah\" atau \"Apakah pernah\". Baca ulang: setiap kata harus bermakna dan benar (tidak ada kata asing yang tidak nyambung).",
