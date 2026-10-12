@@ -103,7 +103,7 @@ export class InboundService implements OnModuleInit {
     ]);
     const lines = [
       ...out.map((m) => ({ at: m.sentAt!.getTime(), line: `Saya: ${m.body}` })),
-      ...inn.map((m) => ({ at: m.receivedAt.getTime(), line: `Pelanggan: ${m.body}` })),
+      ...inn.map((m) => ({ at: m.receivedAt.getTime(), line: `Mereka: ${m.body}` })),
     ].sort((a, b) => a.at - b.at);
     // the newest inbound is passed separately as "incoming"; drop it from the history
     return lines.slice(0, -1).slice(-6).map((l) => l.line).join("\n");

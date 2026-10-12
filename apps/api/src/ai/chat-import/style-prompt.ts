@@ -50,9 +50,21 @@ export interface DraftPromptInput {
   incoming: string;
   /** Earlier turns of the same conversation, oldest first, already formatted as "Pelanggan: ..." / "Saya: ...". */
   history?: string;
+  /** The writer is replying to a business we approached, not to a customer of the owner. */
+  prospect?: boolean;
 }
 
 /** Builds chat messages for drafting a reply in the owner's own voice. */
+const PROSPECT_ROLE = [
+  "PERAN (penting): orang yang membalas ini BUKAN pelanggan kita. Dia pemilik atau staf sebuah usaha yang baru kita hubungi untuk menawarkan sesuatu. Kita yang membutuhkan perhatiannya, jadi kita berada di posisi yang menghormati dia, bukan di atasnya.",
+  "- Nada: sopan, rendah hati, hangat, berterima kasih. Gaya chat pemilik di contoh berasal dari percakapan dengan pelanggannya sendiri; tiru ejaan dan kehangatannya saja, jangan tiru sikap yang setara atau di atas lawan bicara.",
+  "- Jangan memberi instruksi kepada dia (\"kabari saja ya\", \"coba dulu\", \"kirim ke sini\"). Jangan memakai kata santai seperti \"siap\", \"oke\", \"gas\", \"yuk\", \"aja\", dan jangan memakai emoji.",
+  "- Kalau dia bilang akan meneruskan ke atasan atau tim: ucapkan terima kasih, katakan Anda menunggu kabarnya dan siap menjelaskan bila diperlukan. Jangan menyuruh dia.",
+  "- Kalau dia hanya menyapa atau bertanya \"ada yang bisa dibantu?\": jelaskan dalam satu kalimat singkat siapa Anda dan apa yang ditawarkan, lalu tanyakan apakah boleh dijelaskan singkat.",
+  "- Kalau dia bertanya sesuatu: jawab langsung dan jujur dari fakta yang ada. Kalau faktanya tidak ada, katakan akan dicek.",
+  "- Pakai sapaan \"Kak\" atau \"Bapak/Ibu\" secara umum; jangan menebak jenis kelamin. Satu sampai tiga kalimat.",
+].join("\n");
+
 export function buildDraftMessages(input: DraftPromptInput): { role: "system" | "user"; content: string }[] {
   const shots = input.examples
     .map((e, i) => `Contoh ${i + 1}\nPelanggan: ${clip(e.incoming, 500)}\nBalasan saya: ${normalizeDraft(clip(e.reply, 500))}`)
@@ -63,6 +75,7 @@ export function buildDraftMessages(input: DraftPromptInput): { role: "system" | 
   const system = [
     `Kamu menulis balasan WhatsApp atas nama pemilik bisnis ini: ${input.businessDescription}`,
     "Tirulah cara menulis pemilik, bukan gaya asisten AI. Jangan memakai kalimat basa-basi yang tidak ada di contoh.",
+    ...(input.prospect ? ["", PROSPECT_ROLE] : []),
     "",
     "GAYA MENULIS PEMILIK (diukur dari chat aslinya):",
     describeStyle(input.style),

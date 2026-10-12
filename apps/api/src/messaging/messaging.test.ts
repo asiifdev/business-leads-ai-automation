@@ -150,3 +150,10 @@ test("more shop auto-replies are recognised", () => {
   ]) assert.equal(classifyReply(m), "auto_reply", m);
   assert.notEqual(classifyReply("Boleh, kirim contohnya ya"), "auto_reply");
 });
+
+import { removeEmoji, neutralHonorificChat } from "./plain-text";
+
+test("replies to prospects carry no emoji and no guessed honorific", () => {
+  assert.equal(removeEmoji("Siap, Kak. 😁🙏🏽 Terima kasih"), "Siap, Kak. Terima kasih");
+  assert.equal(neutralHonorificChat("Mana yang Mbak lihat simpel"), "Mana yang Kak lihat simpel");
+});

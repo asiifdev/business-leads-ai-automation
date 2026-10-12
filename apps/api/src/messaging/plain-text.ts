@@ -10,6 +10,10 @@ export function stripMarkdown(text: string): string {
 }
 
 /** The recipient's name and gender are unknown, so an honorific ("Bapak", "Ibu") is a guess: use "Anda" instead. */
+export function removeEmoji(text: string): string {
+  return text.replace(/[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}\u200D\uFE0F]/gu, "").replace(/[ \t]+\n/g, "\n").replace(/[ \t]{2,}/g, " ").trim();
+}
+
 export function neutralHonorificChat(text: string): string {
   return text.replace(/\b(Mbak|Mas|Bapak|Ibu|Pak|Bu)\b(?!\s+[A-Z])/g, "Kak");
 }
