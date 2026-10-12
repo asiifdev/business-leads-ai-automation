@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import type { WhatsappAccount } from "@prisma/client";
+import type { OutboundMessage, WhatsappAccount } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { decide, nextGapMs, startOfLocalDay, typingDelayMs } from "./send-policy";
 import { ProviderUnavailableError, WHATSAPP_PROVIDER, type RoutedWhatsappProvider } from "./whatsapp.provider";
@@ -61,10 +61,19 @@ export class SenderService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async process(a: WhatsappAccount) {
+    // Someone wrote to us and the owner approved the answer: it goes out now, outside the outreach pacing
+    // (it neither waits behind cold messages nor delays them).
+    const reply = await this.prisma.outboundMessage.findFirst({ where: { workspaceId: a.workspaceId, channel: "whatsapp", status: "approved", source: "ai_reply" }, orderBy: { approvedAt: "asc" } });
+    if (reply) {
+      const claimedReply = await this.prisma.outboundMessage.updateMany({ where: { id: reply.id, status: "approved" }, data: { status: "sending", attempts: { increment: 1 } } });
+      if (claimedReply.count === 1) await this.deliver(a, reply, false);
+      return;
+    }
+
     const now = new Date();
     const [sentLastHour, sentToday] = await Promise.all([
-      this.prisma.outboundMessage.count({ where: { workspaceId: a.workspaceId, channel: "whatsapp", status: "sent", sentAt: { gte: new Date(now.getTime() - 3_600_000) } } }),
-      this.prisma.outboundMessage.count({ where: { workspaceId: a.workspaceId, channel: "whatsapp", status: "sent", sentAt: { gte: startOfLocalDay(now, a.timezone) } } }),
+      this.prisma.outboundMessage.count({ where: { workspaceId: a.workspaceId, channel: "whatsapp", status: "sent", source: { not: "ai_reply" }, sentAt: { gte: new Date(now.getTime() - 3_600_000) } } }),
+      this.prisma.outboundMessage.count({ where: { workspaceId: a.workspaceId, channel: "whatsapp", status: "sent", source: { not: "ai_reply" }, sentAt: { gte: startOfLocalDay(now, a.timezone) } } }),
     ]);
     const d = decide({ now, timezone: a.timezone, hourlyLimit: a.hourlyLimit, dailyLimit: a.dailyLimit, quietStartHour: a.quietStartHour, quietEndHour: a.quietEndHour, sentLastHour, sentToday, nextSendAt: a.nextSendAt, paused: a.paused });
     if (!d.ok) return;
@@ -73,7 +82,11 @@ export class SenderService implements OnModuleInit, OnModuleDestroy {
     if (!next) return;
     const claimed = await this.prisma.outboundMessage.updateMany({ where: { id: next.id, status: "approved" }, data: { status: "sending", attempts: { increment: 1 } } });
     if (claimed.count !== 1) return;
+    await this.deliver(a, next, true);
+  }
 
+  /** Sends one claimed message. Only cold messages set the pause before the next one. */
+  private async deliver(a: WhatsappAccount, next: OutboundMessage, paced: boolean) {
     try {
       const optedOut = await this.prisma.messageOptOut.findUnique({ where: { workspaceId_phone: { workspaceId: a.workspaceId, phone: next.toPhone } } });
       if (optedOut) {
@@ -88,7 +101,7 @@ export class SenderService implements OnModuleInit, OnModuleDestroy {
       const providerId = await this.wa.send(a.workspaceId, jid, next.body, typingDelayMs(next.body.length));
       const at = new Date();
       await this.prisma.outboundMessage.update({ where: { id: next.id }, data: { status: "sent", sentAt: at, providerMessageId: providerId, error: null } });
-      await this.prisma.whatsappAccount.update({ where: { id: a.id }, data: { nextSendAt: new Date(at.getTime() + nextGapMs(a.hourlyLimit)) } });
+      if (paced) await this.prisma.whatsappAccount.update({ where: { id: a.id }, data: { nextSendAt: new Date(at.getTime() + nextGapMs(a.hourlyLimit)) } });
       this.consecutiveFailures.delete(a.workspaceId);
       if (next.leadId) {
         await this.prisma.lead.updateMany({ where: { id: next.leadId, crmStatus: "new" }, data: { crmStatus: "contacted" } });

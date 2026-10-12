@@ -102,3 +102,7 @@ The sender talks to WhatsApp through a single `WhatsappProvider` interface (`app
 ## Legal
 
 Messaging people is regulated: consent and opt-out rules (GDPR, Indonesia's UU PDP, anti-spam laws), and WhatsApp's own terms. Prospex gives you the tools (approval, opt-out, pacing) but compliance is your responsibility. This is not legal advice. See [DISCLAIMER.md](../DISCLAIMER.md).
+
+## Replies skip the queue
+
+An approved answer to someone who wrote to you (`ai_reply`) is sent on the next sender tick, ahead of the cold messages. It does not wait for the hourly or daily limit, the pause between messages or quiet hours, it does not count toward those limits, and it does not delay the cold messages behind it. A paused account, an opt-out and a disconnected number still stop it. Typing time is still simulated before it goes out.
