@@ -235,7 +235,7 @@ export function CreateCampaignForm() {
               <Select value={form.maxResults} onValueChange={(v) => setForm((p) => ({ ...p, maxResults: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {["10", "20", "50", "100"].map((n) => (
+                  {["10", "20", "50", "100", "250", "500", "1000", "1500"].map((n) => (
                     <SelectItem key={n} value={n}>{t("camp.form.leadsCount", { n })}</SelectItem>
                   ))}
                 </SelectContent>

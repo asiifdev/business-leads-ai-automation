@@ -25,7 +25,8 @@ export function isNationwide(location: string): boolean {
 }
 
 /** Searches an average rental query returns that carry a phone number: a deliberately cautious guess, used only to size the plan. */
-const USABLE_PER_SEARCH = 12;
+const USABLE_PER_SEARCH = 40; // a big city gives well over 40 per search; 12 was far too timid
+const MAX_PER_SEARCH = 100; // Google Maps itself stops listing at roughly 120
 const SAFETY = 1.6; // duplicates and listings without a number
 
 export interface AreaPlan {
@@ -49,7 +50,7 @@ export function planAreas(location: string, queryCount: number, maxResults: numb
   const wanted = Math.ceil((maxResults * SAFETY) / (q * USABLE_PER_SEARCH));
   const count = Math.min(INDONESIA_CITIES.length, Math.max(8, wanted));
   const areas = INDONESIA_CITIES.slice(0, count) as unknown as string[];
-  const perSearch = Math.min(40, Math.max(USABLE_PER_SEARCH, Math.ceil((maxResults * SAFETY) / (q * count))));
+  const perSearch = Math.min(MAX_PER_SEARCH, Math.max(USABLE_PER_SEARCH, Math.ceil((maxResults * SAFETY) / (q * count))));
   return { areas, perSearch, nationwide: true };
 }
 

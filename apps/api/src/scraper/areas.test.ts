@@ -18,10 +18,16 @@ test("a nationwide campaign becomes a list of cities big enough for the target, 
   const p = planAreas("Seluruh Indonesia", 10, 1500);
   assert.equal(p.nationwide, true);
   assert.equal(p.areas[0], "Jakarta");
-  assert.equal(p.areas.length, 20); // 1500 x 1.6 / (10 queries x 12 per search)
+  assert.equal(p.areas.length, 8); // 1500 x 1.6 / (10 queries x 40 per search) = 6, never fewer than 8
   assert.equal(new Set(p.areas).size, p.areas.length);
-  assert.ok(p.perSearch >= 12 && p.perSearch <= 40);
+  assert.ok(p.perSearch >= 40 && p.perSearch <= 100);
   assert.ok(p.areas.length * 10 * p.perSearch >= 1500 * 1.6 - 1, "enough raw results to survive duplicates");
+});
+
+test("1000 leads from two queries means 20 cities at 40 each", () => {
+  const p = planAreas("Seluruh Indonesia", 2, 1000);
+  assert.equal(p.areas.length, 20); // 1000 x 1.6 / (2 x 40)
+  assert.equal(p.perSearch, 40);
 });
 
 test("small and huge targets stay inside sensible bounds", () => {
