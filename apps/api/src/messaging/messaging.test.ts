@@ -141,3 +141,12 @@ test("neutralHonorific replaces a guessed honorific but keeps a named one", () =
   assert.equal(neutralHonorific("Halo Bu Rina"), "Halo Bu Rina");
   assert.deepEqual(draftRisks("Rating 5.0 menunjukkan kepercayaan pelanggan yang tinggi", []), ["assumption"]);
 });
+
+test("more shop auto-replies are recognised", () => {
+  for (const m of [
+    "Halo Sahabat shooter , Saat ini terhubung dengan Customer Service Officer (CSO) Pondok Lensa Jakarta, Mohon menunggu pesan akan kami balas sesuai antrian yang masuk Terimakasih",
+    "Hallo Kak Team Kami Akan Segera Membalas Pesan Kakak Kita Buka Dari Jam 08.00 s/d 22.00 WIB",
+    "Halo Kak, selamat datang di Zenon Rental! Pesan Kakak sudah kami terima. Tim sedang melayani pelanggan lain",
+  ]) assert.equal(classifyReply(m), "auto_reply", m);
+  assert.notEqual(classifyReply("Boleh, kirim contohnya ya"), "auto_reply");
+});

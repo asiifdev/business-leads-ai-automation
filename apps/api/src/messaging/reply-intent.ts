@@ -18,6 +18,13 @@ const RULES: { intent: ReplyIntent; patterns: RegExp[] }[] = [
       /\b(jam|waktu)\s+(operasional|layanan|buka)\b/i,
       /\bsilakan\s+(pilih|ketik|klik|isi)\b/i,
       /\bthank\s+you\s+for\s+(contacting|messaging|reaching)\b/i,
+      /\b(mohon|harap|silakan)\s+(menunggu|bersabar|sabar|tunggu)\b/i,
+      /\bakan\s+(segera\s+)?(kami\s+)?(balas|membalas|respon|merespon|tanggapi|menanggapi|hubungi|menghubungi)\b/i,
+      /\bsesuai\s+(antrian|antrean)\b|\bslow\s+respon\b/i,
+      /\bpesan\s+(kakak|kak|anda|bapak|ibu)\s+(sudah|telah)\s+(kami\s+)?(terima|diterima)\b/i,
+      /\b(terhubung|tersambung)\s+dengan\s+(customer|cs|admin|tim)\b|\bsedang\s+melayani\b/i,
+      /\bselamat\s+datang\s+di\b|\bsudah\s+(saya|kami)\s+teruskan\b|\bakan\s+menindaklanjuti\b/i,
+      /\b(kami|toko)\s+(buka|tutup)\s+(dari|jam|pukul)\b|\bjam\s+(buka|kerja)\b/i,
     ],
   },
   {
@@ -67,8 +74,11 @@ const RULES: { intent: ReplyIntent; patterns: RegExp[] }[] = [
 ];
 
 export function classifyReply(text: string): ReplyIntent {
-  const t = text.trim().slice(0, 600);
+  const full = text.trim();
+  const t = full.slice(0, 600);
   if (!t) return "other";
+  // a long, many-line message full of formatting is a shop's canned greeting, not a person typing back
+  if (full.length > 350 && full.split(/\n/).length >= 4 && !/\?\s*$/.test(full.slice(0, 120))) return "auto_reply";
   for (const r of RULES) if (r.patterns.some((p) => p.test(t))) return r.intent;
   return "other";
 }

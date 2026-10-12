@@ -10,6 +10,10 @@ export function stripMarkdown(text: string): string {
 }
 
 /** The recipient's name and gender are unknown, so an honorific ("Bapak", "Ibu") is a guess: use "Anda" instead. */
+export function neutralHonorificChat(text: string): string {
+  return text.replace(/\b(Mbak|Mas|Bapak|Ibu|Pak|Bu)\b(?!\s+[A-Z])/g, "Kak");
+}
+
 export function neutralHonorific(text: string): string {
   return text.replace(/\b(Bapak|Ibu|Pak|Bu)\b(?!\s+[A-Z])/g, "Anda");
 }
