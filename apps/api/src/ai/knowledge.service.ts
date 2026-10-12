@@ -87,7 +87,8 @@ export class KnowledgeService {
       // Provider errors can contain internal URLs, model names or response bodies:
       // log the detail server-side and keep only a generic message in the database and API.
       this.logger.error(`Indexing source ${source.id} failed`, err as Error);
-      await this.prisma.knowledgeSource.update({
+      // updateMany: the source may have been deleted while it was being indexed
+      await this.prisma.knowledgeSource.updateMany({
         where: { id: source.id },
         data: { status: "failed", error: "Indexing failed. Check the AI provider settings and try again." },
       });
