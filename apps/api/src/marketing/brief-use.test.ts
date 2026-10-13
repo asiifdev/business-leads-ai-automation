@@ -28,3 +28,16 @@ test("the draft prompt carries the brief: matched angle, allowed proof, words to
   assert.match(none, /Tidak ada bukti yang boleh disebut/);
   assert.doesNotMatch(buildOutreachMessages({ businessDescription: "X", offer: "o", language: "indonesian", lead: { name: "Y" } })[0].content, /BRIEF PEMASARAN/);
 });
+
+import { foreignVerticalWords } from "./brief-use";
+
+test("a draft that names another kind of business is caught", () => {
+  const angles = [
+    { segment: "Rental Kamera/Alat Fotografi", pain: "", hook: "", benefit: "" },
+    { segment: "Rental Kebaya/Busana", pain: "", hook: "", benefit: "" },
+    { segment: "Rental Mobil/Motor", pain: "", hook: "", benefit: "" },
+  ] as never;
+  assert.deepEqual(foreignVerticalWords("Kami bantu catat jadwal sewa kebaya Anda.", { name: "Kostum Anak Ceria", category: "Penyewaan kostum" }, angles), ["kebaya"]);
+  assert.deepEqual(foreignVerticalWords("Kami bantu jadwal sewa kamera dan lensa.", { name: "Zona Kamera", category: "Toko Elektronik" }, angles), []);
+  assert.deepEqual(foreignVerticalWords("Kami bantu jadwal sewa kamera, fotografi, dan mobil.", { name: "Rental Kamera Medan", category: "Penyewaan alat" }, angles), ["mobil"]);
+});

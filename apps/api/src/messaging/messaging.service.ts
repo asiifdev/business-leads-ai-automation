@@ -7,6 +7,7 @@ import { normalizePhone } from "./phone";
 import { inQuietHours, localHour, startOfLocalDay } from "./send-policy";
 import { WHATSAPP_PROVIDER, type RoutedWhatsappProvider } from "./whatsapp.provider";
 import { EntitlementsService } from "../entitlements/entitlements.service";
+import { fitAllowed, fitLevel } from "./fit-gate";
 import { isPublicUnsubscribeBase, unsubscribeBase } from "../email/email-utils";
 
 export const MAX_BODY = 1000;
@@ -22,7 +23,7 @@ export interface GenerationJob {
   done: number;
   created: number;
   failed: number;
-  skipped: { noValidPhone: number; optedOut: number; duplicateNumber: number };
+  skipped: { noValidPhone: number; optedOut: number; duplicateNumber: number; lowFit: number };
   firstError: string | null;
   startedAt: Date;
 }
@@ -157,7 +158,7 @@ export class MessagingService {
    * Picks leads that have a valid number and were never drafted, then writes their first-contact drafts in the background
    * (a local model needs ~40 s per draft). Returns immediately; poll generationStatus(). Sends nothing.
    */
-  async startGeneration(workspaceId: string, input: { campaignId?: string; leadIds?: string[]; limit?: number }): Promise<GenerationJob> {
+  async startGeneration(workspaceId: string, input: { campaignId?: string; leadIds?: string[]; limit?: number; includeMedium?: boolean }): Promise<GenerationJob> {
     const running = this.jobs.get(workspaceId);
     if (running?.running) return running;
     const account = await this.account(workspaceId);
@@ -177,11 +178,12 @@ export class MessagingService {
     });
     const optOuts = new Set((await this.prisma.messageOptOut.findMany({ where: { workspaceId }, select: { phone: true } })).map((o) => o.phone));
 
-    const job: GenerationJob = { running: true, total: 0, done: 0, created: 0, failed: 0, skipped: { noValidPhone: 0, optedOut: 0, duplicateNumber: 0 }, firstError: null, startedAt: new Date() };
+    const job: GenerationJob = { running: true, total: 0, done: 0, created: 0, failed: 0, skipped: { noValidPhone: 0, optedOut: 0, duplicateNumber: 0, lowFit: 0 }, firstError: null, startedAt: new Date() };
     const plan: { lead: (typeof candidates)[number]; phone: string }[] = [];
     const seen = new Set<string>();
     for (const lead of candidates) {
       if (plan.length >= limit) break;
+      if (!fitAllowed(fitLevel(lead.aiAnalysis), !!input.includeMedium)) { job.skipped.lowFit++; continue; }
       const phone = lead.phoneE164 || normalizePhone(lead.phone, account.defaultCountryCode);
       if (!phone) { job.skipped.noValidPhone++; continue; }
       if (optOuts.has(phone)) { job.skipped.optedOut++; continue; }

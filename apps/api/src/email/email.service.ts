@@ -7,6 +7,7 @@ import { MAX_BULK, MAX_EMAIL_BODY, isValidEmail } from "../messaging/messaging.s
 import { inQuietHours, localHour, startOfLocalDay } from "../messaging/send-policy";
 import { decryptSecret, encryptSecret } from "../settings/encryption.util";
 import { createTransport, friendlySmtpError } from "./email-transport";
+import { fitAllowed, fitLevel } from "../messaging/fit-gate";
 import { headerLine, isPublicUnsubscribeBase, unsubscribeBase } from "./email-utils";
 
 export const MAX_GENERATE = 200;
@@ -19,7 +20,7 @@ export interface EmailAccountInput {
 
 export interface EmailGenerationJob {
   running: boolean; total: number; done: number; created: number; failed: number;
-  skipped: { noEmail: number; optedOut: number; duplicateAddress: number };
+  skipped: { noEmail: number; optedOut: number; duplicateAddress: number; lowFit: number };
   firstError: string | null; startedAt: Date;
 }
 
@@ -120,7 +121,7 @@ export class EmailService {
   generationStatus(workspaceId: string) { return this.jobs.get(workspaceId) ?? null; }
 
   /** Drafts first emails for leads that have an address found on their website. Sends nothing. */
-  async startGeneration(workspaceId: string, input: { campaignId?: string; leadIds?: string[]; limit?: number }): Promise<EmailGenerationJob> {
+  async startGeneration(workspaceId: string, input: { campaignId?: string; leadIds?: string[]; limit?: number; includeMedium?: boolean }): Promise<EmailGenerationJob> {
     const running = this.jobs.get(workspaceId);
     if (running?.running) return running;
     const limit = Math.min(Math.max(input.limit ?? 20, 1), MAX_GENERATE);
@@ -135,11 +136,12 @@ export class EmailService {
       include: { campaign: { select: { yourService: true, language: true } } },
     });
     const optOuts = new Set((await this.prisma.emailOptOut.findMany({ where: { workspaceId }, select: { email: true } })).map((o) => o.email));
-    const job: EmailGenerationJob = { running: true, total: 0, done: 0, created: 0, failed: 0, skipped: { noEmail: 0, optedOut: 0, duplicateAddress: 0 }, firstError: null, startedAt: new Date() };
+    const job: EmailGenerationJob = { running: true, total: 0, done: 0, created: 0, failed: 0, skipped: { noEmail: 0, optedOut: 0, duplicateAddress: 0, lowFit: 0 }, firstError: null, startedAt: new Date() };
     const plan: { lead: LeadWithCampaign; to: string }[] = [];
     const seen = new Set<string>();
     for (const lead of candidates) {
       if (plan.length >= limit) break;
+      if (!fitAllowed(fitLevel(lead.aiAnalysis), !!input.includeMedium)) { job.skipped.lowFit++; continue; }
       const to = (lead.email ?? "").trim().toLowerCase();
       if (!isValidEmail(to)) { job.skipped.noEmail++; continue; }
       if (optOuts.has(to)) { job.skipped.optedOut++; continue; }

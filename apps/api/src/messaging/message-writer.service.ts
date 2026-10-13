@@ -6,12 +6,13 @@ import { AiClientService } from "../ai/ai-client.service";
 import { KnowledgeService } from "../ai/knowledge.service";
 import { StyleService } from "../ai/style.service";
 import { type OutreachVariant } from "../ai/chat-import/style-prompt";
+import { checkReply, fallbackReply, templateReply, type ReplyAction } from "./reply-plan";
 import { neutralHonorific, neutralHonorificChat, removeEmoji, stripMarkdown } from "./plain-text";
 import { buildDraftMessages, buildOutreachMessages, pickVariant } from "../ai/chat-import/style-prompt";
 import type { StyleStats } from "../ai/chat-import/style-stats";
 import { draftRisks } from "./draft-risk";
 import { neutralGreeting, normalizeDraft } from "../ai/orthography";
-import { briefForDraft } from "../marketing/brief-use";
+import { briefForDraft, foreignVerticalWords } from "../marketing/brief-use";
 import type { BriefContent } from "../marketing/brief-schema";
 import { OPT_OUT_HINT_EN, OPT_OUT_HINT_ID } from "./opt-out";
 
@@ -85,14 +86,18 @@ export class MessageWriterService {
         this.logger.warn(`Style examples skipped: ${(e as Error).message}`);
       }
     }
-    const facts = await this.knowledge.search(workspaceId, `${lead.campaign.yourService} ${lead.category ?? ""}`.trim());
+    // facts about THIS kind of business first; the offer's own long description would pull in facts about every other business
+    let facts = await this.knowledge.search(workspaceId, `${lead.category ?? ""} ${lead.name}`.trim());
+    if (facts.confidence === "none") facts = await this.knowledge.search(workspaceId, `${lead.campaign.yourService} ${lead.category ?? ""}`.trim());
     const analysis = lead.aiAnalysis as { recommendation?: string } | null;
     const briefRow = await this.prisma.marketingBrief.findUnique({ where: { workspaceId }, select: { summary: true, content: true } });
     const brief = briefRow ? briefForDraft(briefRow.summary, briefRow.content as unknown as BriefContent, lead) : undefined;
 
     const variant = followUp ? undefined : pickVariant(lead.id);
-    const messages = buildOutreachMessages({
-      businessDescription: await this.businessDescription(workspaceId),
+    const angles = (briefRow?.content as unknown as BriefContent | undefined)?.angles ?? [];
+    const business = await this.businessDescription(workspaceId);
+    const build = (avoid?: string[]) => buildOutreachMessages({
+      businessDescription: business,
       offer: lead.campaign.yourService,
       language,
       lead: {
@@ -106,10 +111,15 @@ export class MessageWriterService {
       followUp,
       channel,
       variant,
+      avoid,
     });
-
-    const business = await this.businessDescription(workspaceId);
-    const body = await this.generate(workspaceId, followUp ? "followup" : "outreach", `${lead.id}`, messages, facts.hits.map((h) => h.sourceId), facts.confidence, { language, names: [lead.name, business] });
+    let body = await this.generate(workspaceId, followUp ? "followup" : "outreach", `${lead.id}`, build(), facts.hits.map((h) => h.sourceId), facts.confidence, { language, names: [lead.name, business] });
+    // a draft that talks about another kind of business (a rental system for kebaya offered to a costume shop) gets one more try
+    let foreign = followUp ? [] : foreignVerticalWords(body.text, lead, angles);
+    if (foreign.length) {
+      body = await this.generate(workspaceId, "outreach", `${lead.id}`, build(foreign), facts.hits.map((h) => h.sourceId), facts.confidence, { language, names: [lead.name, business] });
+      foreign = foreignVerticalWords(body.text, lead, angles);
+    }
     const hint = language === "english" ? OPT_OUT_HINT_EN : OPT_OUT_HINT_ID;
     // Email carries an unsubscribe link in its footer instead of a "reply STOP" line.
     let emailText = channel === "email" ? neutralHonorific(body.text) : body.text;
@@ -119,7 +129,7 @@ export class MessageWriterService {
     }
     return {
       text: channel === "email" ? emailText : `${body.text}\n\n${hint}`,
-      risks: draftRisks(body.text, facts.hits.map((h) => h.content)),
+      risks: [...draftRisks(body.text, facts.hits.map((h) => h.content)), ...(foreign.length ? ["other-business"] : [])],
       trace: { variant, styled: !!stats, examples: examples.length, knowledge: facts.confidence, model: ai.chatModel, latencyMs: Date.now() - started },
     };
   }
@@ -178,17 +188,22 @@ export class MessageWriterService {
 
   /** Reply to something a known lead just wrote. `history` is the recent thread, oldest first. */
   /** Reply to a known lead. Same allowance rule as `outreach`. */
-  async reply(workspaceId: string, lead: LeadWithCampaign | null, incoming: string, history: string): Promise<WrittenMessage> {
+  async reply(workspaceId: string, lead: LeadWithCampaign | null, incoming: string, history: string, action: ReplyAction = "answer"): Promise<WrittenMessage | null> {
+    if (action === "none") return null;
+    const language = lead?.campaign.language === "english" ? "english" : "indonesian";
+    // fixed wording for thanks and goodbyes: no model, no allowance used, nothing to go wrong
+    const fixed = templateReply(action, language);
+    if (fixed) return { text: fixed, risks: [], trace: { styled: false, examples: 0, knowledge: "none", model: "template", latencyMs: 0 } };
     const release = await this.limits.reserveDraft(workspaceId);
     try {
-      return await this.writeReply(workspaceId, lead, incoming, history);
+      return await this.writeReply(workspaceId, lead, incoming, history, action === "next_step" ? "next_step" : "answer");
     } catch (e) {
       await release();
       throw e;
     }
   }
 
-  private async writeReply(workspaceId: string, lead: LeadWithCampaign | null, incoming: string, history: string): Promise<WrittenMessage> {
+  private async writeReply(workspaceId: string, lead: LeadWithCampaign | null, incoming: string, history: string, action: "answer" | "next_step"): Promise<WrittenMessage> {
     const ai = await this.ai.forWorkspace(workspaceId);
     if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
     const started = Date.now();
@@ -201,18 +216,34 @@ export class MessageWriterService {
       this.logger.warn(`Style examples skipped: ${(e as Error).message}`);
     }
     const facts = await this.knowledge.search(workspaceId, incoming);
-    const messages = buildDraftMessages({
-      businessDescription: `${await this.businessDescription(workspaceId)}${lead ? `, menawarkan ${lead.campaign.yourService} kepada ${lead.name}` : ""}`,
+    const language = lead?.campaign.language === "english" ? "english" : "indonesian";
+    const knownFacts = facts.confidence === "none" ? [] : facts.hits.map((h) => h.content);
+    const alreadyIntroduced = /\b(saya|kami)\s+dari\b/i.test(history);
+    const names = [...(lead ? [lead.name] : []), await this.businessDescription(workspaceId)];
+    const build = (retryNote?: string) => buildDraftMessages({
+      businessDescription: `${names[names.length - 1]}${lead ? `, menawarkan ${lead.campaign.yourService} kepada ${lead.name}` : ""}`,
       style: profile.stats as unknown as StyleStats,
       examples: examples.map((e) => ({ incoming: e.incoming, reply: e.reply, at: new Date() })),
-      knowledge: facts.confidence === "none" ? [] : facts.hits.map((h) => h.content),
+      knowledge: knownFacts,
       incoming,
       history,
       prospect: !!lead,
+      action,
+      alreadyIntroduced,
+      retryNote,
     });
-    const body = await this.generate(workspaceId, "reply", incoming, messages, facts.hits.map((h) => h.sourceId), facts.confidence, { language: lead?.campaign.language === "english" ? "english" : "auto", names: [...(lead ? [lead.name] : []), await this.businessDescription(workspaceId)] });
-    body.text = neutralHonorificChat(lead ? removeEmoji(body.text) : body.text);
-    return { text: body.text, risks: draftRisks(body.text, facts.hits.map((h) => h.content)), trace: { styled: true, examples: examples.length, knowledge: facts.confidence, model: ai.chatModel, latencyMs: Date.now() - started } };
+    let text = "";
+    let problems: string[] = [];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const body = await this.generate(workspaceId, "reply", incoming, build(attempt ? problems.join(", ") : undefined), facts.hits.map((h) => h.sourceId), facts.confidence, { language: language === "english" ? "english" : "auto", names });
+      text = neutralHonorificChat(lead ? removeEmoji(body.text) : body.text);
+      problems = checkReply(text, { alreadyIntroduced, knownText: [history, ...knownFacts].join("\n") });
+      if (problems.length === 0) break;
+    }
+    const risks = draftRisks(text, knownFacts);
+    // two failed attempts: show safe wording instead of a reply that makes no sense, and say so
+    if (problems.length > 0) { text = fallbackReply(action, language); risks.push("fallback"); }
+    return { text, risks, trace: { styled: true, examples: examples.length, knowledge: facts.confidence, model: ai.chatModel, latencyMs: Date.now() - started } };
   }
 
   private async generate(workspaceId: string, kind: string, input: string, messages: { role: "system" | "user"; content: string }[], sourceIds: string[], confidence: string, norm: { language: "indonesian" | "english" | "auto"; names: string[] }) {

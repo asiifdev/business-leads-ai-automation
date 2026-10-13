@@ -30,3 +30,20 @@ export function briefForDraft(summary: string, content: BriefContent, lead: { na
     wordsToAvoid: content.voice?.wordsToAvoid ?? [],
   };
 }
+
+const GENERIC_WORDS = new Set(["rental", "sewa", "penyewaan", "persewaan", "usaha", "bisnis", "alat", "peralatan", "layanan", "toko", "jasa", "agen", "service", "shop", "store", "perlengkapan", "barang"]);
+
+/**
+ * Words that belong to ANOTHER kind of business in the brief (say "kebaya" for a costume shop) but appear in a draft.
+ * A word counts as another business's when it is in exactly one brief segment and not in this lead's own name or category.
+ */
+export function foreignVerticalWords(draft: string, lead: { name: string; category?: string | null }, angles: BriefContent["angles"]): string[] {
+  const own = new Set(tokens(`${lead.name} ${lead.category ?? ""}`));
+  const mine = pickAngle(angles ?? [], lead.name, lead.category);
+  const count = new Map<string, number>();
+  for (const a of angles ?? []) for (const w of new Set(tokens(a.segment))) count.set(w, (count.get(w) ?? 0) + 1);
+  const mineWords = new Set(mine ? tokens(mine.segment) : []);
+  const wanted = new Set([...count].filter(([w, n]) => n === 1 && !GENERIC_WORDS.has(w) && !mineWords.has(w) && !own.has(w) && ![...own].some((o) => o.startsWith(w) || w.startsWith(o))).map(([w]) => w));
+  const said = new Set(tokens(draft));
+  return [...wanted].filter((w) => said.has(w));
+}

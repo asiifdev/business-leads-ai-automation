@@ -157,3 +157,26 @@ test("replies to prospects carry no emoji and no guessed honorific", () => {
   assert.equal(removeEmoji("Siap, Kak. 😁🙏🏽 Terima kasih"), "Siap, Kak. Terima kasih");
   assert.equal(neutralHonorificChat("Mana yang Mbak lihat simpel"), "Mana yang Kak lihat simpel");
 });
+
+import { looksAutomaticByTiming } from "./reply-intent";
+
+test("greetings and quick answers are recognised as automatic", () => {
+  assert.equal(classifyReply("Terimakasih telah menghubungi ZonaKameraSemarang, Ada yang dapat kami bantu? Operational Hour : 07.00-22.00 WIB"), "auto_reply");
+  assert.equal(classifyReply("SILAHKAN BERI TAU APA YANG BISA UCUP KAMERA BANTU? KATALOG KAMERA https://www.instagram.com/x"), "auto_reply");
+  assert.equal(looksAutomaticByTiming("Halo kak", 8_000), true);
+  assert.equal(looksAutomaticByTiming("Halo kak, berapa harganya?", 8_000), false);
+  assert.equal(looksAutomaticByTiming("Halo kak", 5 * 60_000), false);
+  assert.equal(looksAutomaticByTiming("Halo kak", null), false);
+});
+
+import { fitAllowed, fitLevel } from "./fit-gate";
+
+test("only well-fitting businesses get a draft by default", () => {
+  assert.equal(fitLevel({ fit: { fit: "medium", reason: "x" } }), "medium");
+  assert.equal(fitLevel(null), null);
+  assert.equal(fitAllowed("high", false), true);
+  assert.equal(fitAllowed(null, false), true);
+  assert.equal(fitAllowed("medium", false), false);
+  assert.equal(fitAllowed("medium", true), true);
+  assert.equal(fitAllowed("low", true), false);
+});

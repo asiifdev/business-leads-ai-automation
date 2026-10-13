@@ -52,6 +52,12 @@ export interface DraftPromptInput {
   history?: string;
   /** The writer is replying to a business we approached, not to a customer of the owner. */
   prospect?: boolean;
+  /** What this reply must do (decided in code). */
+  action?: "answer" | "next_step";
+  /** We already said who we are in the first message. */
+  alreadyIntroduced?: boolean;
+  /** Why the previous attempt was rejected, so the model can fix it. */
+  retryNote?: string;
 }
 
 /** Builds chat messages for drafting a reply in the owner's own voice. */
@@ -76,6 +82,10 @@ export function buildDraftMessages(input: DraftPromptInput): { role: "system" | 
     `Kamu menulis balasan WhatsApp atas nama pemilik bisnis ini: ${input.businessDescription}`,
     "Tirulah cara menulis pemilik, bukan gaya asisten AI. Jangan memakai kalimat basa-basi yang tidak ada di contoh.",
     ...(input.prospect ? ["", PROSPECT_ROLE] : []),
+    ...(input.alreadyIntroduced ? ["- Anda SUDAH memperkenalkan diri di pesan pertama (lihat percakapan). Jangan memperkenalkan diri lagi dan jangan mengulang isi pesan pertama."] : []),
+    ...(input.action === "answer" ? ["TUGAS: jawab apa yang mereka tanyakan atau minta, langsung dan singkat, hanya dari fakta di bawah. Kalau faktanya tidak ada, katakan Anda akan mengirim rinciannya dan tanyakan bagian mana yang ingin diketahui lebih dulu. Jangan menambah penawaran baru."] : []),
+    ...(input.action === "next_step" ? ["TUGAS: mereka tertarik atau ingin bertemu. Ajukan SATU langkah berikutnya yang kecil (contoh tampilan atau demo singkat, hanya bila ada di fakta) dan tanyakan apakah boleh. Jangan menjelaskan semuanya lagi."] : []),
+    ...(input.retryNote ? [`Balasan sebelumnya ditolak: ${input.retryNote}. Perbaiki.`] : []),
     "",
     "GAYA MENULIS PEMILIK (diukur dari chat aslinya):",
     describeStyle(input.style),
@@ -127,6 +137,8 @@ export interface OutreachPromptInput {
   variant?: OutreachVariant;
   /** One template for many businesses of the same kind: no facts about any single business. */
   generic?: boolean;
+  /** Words that belong to other kinds of business and must not appear. */
+  avoid?: string[];
 }
 
 export const OUTREACH_VARIANTS = ["pain", "observation", "outcome"] as const;
@@ -219,6 +231,7 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
     "- Jangan mengarang fakta tentang penerima di luar data di atas. Dilarang menyebut bisnis mereka ramai, laris, diminati, populer, enak, terkenal, bagus, terbaik, atau sejenisnya kecuali tertulis di data; sebut angka (rating, jumlah ulasan) apa adanya. Jangan memuji secara umum.",
     "- Sebut tepat satu fakta spesifik dari data apa adanya (mis. rating dan jumlah ulasan, belum ada website, atau lokasi), lalu hubungkan dengan penawaran.",
     "- Cocokkan dengan jenis bisnis penerima. Sebut hanya kemampuan penawaran yang berguna bagi bisnis seperti itu. Kemampuan yang khusus untuk jenis usaha lain (mis. dokumen kendaraan, STNK, servis kendaraan, untuk penyewaan alat acara, kamera, atau kebaya) JANGAN disebut, walaupun ada di brief atau fakta.",
+    ...(input.avoid?.length ? [`- JANGAN menyebut kata ini, karena itu jenis usaha lain dan tidak relevan bagi penerima: ${input.avoid.join(", ")}.`] : []),
     ...(input.generic ? ["- Ini SATU templat yang akan dikirim ke banyak bisnis sejenis. Jangan menyebut fakta khusus satu bisnis (rating, ulasan, alamat, website, nama). Tulis untuk jenis bisnisnya saja, dan jangan memakai placeholder."] : []),
     "- Jangan menjanjikan hasil atau angka. Jangan menulis seperti iklan atau broadcast.",
     "- Jangan menebak atau menyimpulkan keadaan penerima (\"pasti ramai\", \"permintaan tinggi\", \"pengelolaan sudah cukup baik\", \"masih mencatat di buku\"). Rating dan ulasan boleh disebut sebagai angka saja, tanpa menafsirkannya. Tanyakan, jangan menyatakan. Jangan memakai istilah campuran Inggris yang tidak perlu (real-time, tracking, dashboard); pakai kata sehari-hari.",

@@ -29,6 +29,7 @@ class GenerateDto {
   @IsOptional() @IsString() campaignId?: string;
   @IsOptional() @IsArray() @ArrayMaxSize(MAX_BULK) @IsString({ each: true }) leadIds?: string[];
   @IsOptional() @IsInt() @Min(1) @Max(MAX_GENERATE) limit?: number;
+  @IsOptional() @IsBoolean() includeMedium?: boolean;
 }
 class ManualDto {
   @IsEmail() @MaxLength(254) to!: string;

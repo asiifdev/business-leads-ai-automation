@@ -23,6 +23,7 @@ class GenerateDto {
   @IsOptional() @IsString() campaignId?: string;
   @IsOptional() @IsArray() @ArrayMaxSize(MAX_BULK) @IsString({ each: true }) leadIds?: string[];
   @IsOptional() @IsInt() @Min(1) @Max(MAX_GENERATE) limit?: number;
+  @IsOptional() @IsBoolean() includeMedium?: boolean;
 }
 class SettingsDto {
   @IsOptional() @IsIn(["baileys", "cloud_api"]) provider?: "baileys" | "cloud_api";

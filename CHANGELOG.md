@@ -11,6 +11,7 @@
 - Campaigns accept up to 2,000 leads; per-city searches return 40 or more instead of 12.
 
 ### Changed
+- Replies: the action is chosen in code (none, fixed thanks wording, answer, next step), drafts are checked and retried, and quick or greeting-like answers are ignored. First messages: poor-fit businesses get no draft, words from other kinds of business trigger a retry, and facts are searched by the lead's own business type.
 - First WhatsApp message: says who you are and what you offer in the first sentence, plain words, three rotating openings stored in the draft trace. First email: greeting, offer, "Salam,".
 - Reply drafts are written for a business we approached: polite, no commands, no emoji, no guessed honorific.
 - Website reading reads up to 40 pages (was 10), 150 seconds, 400,000 characters per source.

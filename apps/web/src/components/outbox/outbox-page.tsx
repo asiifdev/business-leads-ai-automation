@@ -40,6 +40,7 @@ export function OutboxPage() {
   const preselected = params.get("campaign") ?? "";
   const [campaignId, setCampaignId] = useState(preselected);
   const [howMany, setHowMany] = useState(20);
+  const [includeMedium, setIncludeMedium] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmAll, setConfirmAll] = useState(false);
   const wasRunning = useRef(false);
@@ -84,7 +85,7 @@ export function OutboxPage() {
   };
 
   const generate = () => run(async () => {
-    const j = await api.post<GenerationJob>(channel === "email" ? "/email/outbox/generate" : "/messaging/outbox/generate", { ...(campaignId ? { campaignId } : {}), limit: howMany });
+    const j = await api.post<GenerationJob>(channel === "email" ? "/email/outbox/generate" : "/messaging/outbox/generate", { ...(campaignId ? { campaignId } : {}), limit: howMany, ...(includeMedium ? { includeMedium: true } : {}) });
     setJob(j);
     if (j.total === 0) toast.info(t(channel === "email" ? "email.gen.none" : "outbox.gen.none"));
   });
@@ -149,6 +150,10 @@ export function OutboxPage() {
               {t("outbox.gen.count")}
               <Input type="number" min={1} max={200} value={howMany} onChange={(e) => setHowMany(Math.min(200, Math.max(1, Number(e.target.value) || 1)))} className="mt-1 h-9 w-24" />
             </label>
+            <label className="flex items-center gap-2 self-center text-xs text-muted-foreground">
+              <input type="checkbox" checked={includeMedium} onChange={(e) => setIncludeMedium(e.target.checked)} className="h-4 w-4 accent-[hsl(var(--primary))]" />
+              {t("outbox.gen.includeMedium")}
+            </label>
             <Button size="sm" disabled={busy || !!job?.running} onClick={generate}>
               {job?.running && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{t("outbox.gen.write")}
             </Button>
@@ -164,6 +169,7 @@ export function OutboxPage() {
           {channel === "whatsapp" && job && !job.running && job.total > 0 && (job.skipped.noValidPhone + job.skipped.duplicateNumber + job.skipped.optedOut) > 0 && (
             <p className="text-xs text-muted-foreground">{t("outbox.gen.skipped", { noPhone: job.skipped.noValidPhone, dup: job.skipped.duplicateNumber, opt: job.skipped.optedOut })}</p>
           )}
+          {job && !job.running && (job.skipped.lowFit ?? 0) > 0 && <p className="text-xs text-muted-foreground">{t("outbox.gen.lowFit", { n: job.skipped.lowFit })}</p>}
           {channel === "email" && <p className="text-xs text-muted-foreground">{t("email.gen.eligible", { n: emailOverview?.usage.leadsWithEmail ?? 0 })}</p>}
         </div>
       )}

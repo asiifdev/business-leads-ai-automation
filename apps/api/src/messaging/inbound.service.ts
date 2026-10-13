@@ -3,7 +3,8 @@ import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { MessageWriterService } from "./message-writer.service";
 import { isOptOut, looksLikeInjection } from "./opt-out";
-import { classifyReply, planReplyOutcome } from "./reply-intent";
+import { planReplyAction } from "./reply-plan";
+import { classifyReply, looksAutomaticByTiming, planReplyOutcome } from "./reply-intent";
 import { normalizePhone } from "./phone";
 import { WHATSAPP_PROVIDER, type InboundWhatsappMessage, type WhatsappProvider } from "./whatsapp.provider";
 
@@ -62,7 +63,12 @@ export class InboundService implements OnModuleInit {
     }
     if (!lead) return; // unknown sender: stored, never auto-answered
 
-    const outcome = planReplyOutcome(lead.crmStatus, classifyReply(msg.text));
+    // seconds after our message and no clear question: a shop's greeting bot, not a person
+    const lastSent = await this.prisma.outboundMessage.findFirst({ where: { workspaceId, toPhone: msg.phone, channel: "whatsapp", status: "sent" }, orderBy: { sentAt: "desc" }, select: { sentAt: true } });
+    const quick = lastSent?.sentAt ? msg.at.getTime() - lastSent.sentAt.getTime() : null;
+    const priorInbound = await this.prisma.inboundMessage.count({ where: { workspaceId, fromPhone: msg.phone, providerMessageId: { not: msg.id } } });
+    const intent = classifyReply(msg.text);
+    const outcome = planReplyOutcome(lead.crmStatus, priorInbound === 0 && intent !== "auto_reply" && looksAutomaticByTiming(msg.text, quick) ? "auto_reply" : intent);
     await this.prisma.inboundMessage.updateMany({ where: { workspaceId, providerMessageId: msg.id }, data: { intent: outcome.intent } });
     if (outcome.intent === "auto_reply") {
       await this.prisma.leadActivity.create({ data: { leadId: lead.id, type: "auto_reply", note: msg.text.slice(0, 140) } });
@@ -87,9 +93,11 @@ export class InboundService implements OnModuleInit {
     try {
       const history = await this.history(workspaceId, lead.id, msg.phone);
       const incoming = msg.text.slice(0, 1000); // bound what reaches the model
-      const w = await this.writer.reply(workspaceId, lead, incoming, history);
+      const action = planReplyAction(outcome.intent, msg.text);
+      const w = await this.writer.reply(workspaceId, lead, incoming, history, action);
+      if (!w) return; // nothing to answer
       await this.prisma.outboundMessage.create({
-        data: { workspaceId, leadId: lead.id, toPhone: msg.phone, body: w.text, aiBody: w.text, source: "ai_reply", status: "draft", context: { incoming: msg.text.slice(0, 500), flagged: looksLikeInjection(msg.text) || w.risks.length > 0, risks: w.risks, trace: w.trace } },
+        data: { workspaceId, leadId: lead.id, toPhone: msg.phone, body: w.text, aiBody: w.text, source: "ai_reply", status: "draft", context: { action: planReplyAction(outcome.intent, msg.text), incoming: msg.text.slice(0, 500), flagged: looksLikeInjection(msg.text) || w.risks.length > 0, risks: w.risks, trace: w.trace } },
       });
     } catch (e) {
       this.logger.warn(`Reply draft skipped for lead ${lead.id}: ${(e as Error).message}`);

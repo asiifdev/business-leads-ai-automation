@@ -123,6 +123,8 @@ export const en = {
   "outbox.gen.progress": "Writing draft {done} of {total}",
   "outbox.gen.slow": "A local model takes about 40 seconds per draft. You can leave this page.",
   "outbox.gen.done": "{created} drafts written",
+  "outbox.gen.includeMedium": "Include businesses with a medium fit",
+  "outbox.gen.lowFit": "{n} left out because they fit your offer poorly (a business that sells rather than rents, for example). Tick the box to include medium fits.",
   "outbox.gen.skipped": "Skipped: {noPhone} without a valid number, {dup} already contacted or duplicate, {opt} opted out.",
   "outbox.gen.failed": "{n} could not be written. First error: {err}",
   "outbox.gen.none": "No leads to draft: none left with a valid number and no earlier message.",

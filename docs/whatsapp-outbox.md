@@ -60,7 +60,9 @@ Incoming text messages are stored and matched to a lead by phone number. Then:
 
 - **STOP, berhenti, unsubscribe and similar**: the number is added to the opt-out list, its pending drafts and approved messages are cancelled, and it is never messaged again, even if you approve something later.
 - **STOP** also closes the lead as lost ("Meminta berhenti (STOP)"), the one reply that closes a deal by itself.
+- **Quick first answers** (within 45 seconds of our message, no clear question such as price or interest) are treated as automatic too: a person rarely replies that fast.
 - **A shop's automatic greeting** ("Terima kasih telah menghubungi…", "mohon menunggu", opening hours, long canned menus) is recognised by rules and only recorded: no stage change, follow-ups stay, no reply draft.
+- **What the reply does is planned in code**, not left to the model: thanks and goodbye, "I will pass it to my superior" and "later" get fixed polite wording; price questions and interest get a model-written one or two sentences limited to your facts, checked afterwards (no second introduction, no emoji, no commands, no invented links) and replaced by safe wording if it fails twice.
 - **Any other reply from a known lead**: its meaning is classified by rules (interested, wants a meeting, asked the price, question, not now, not interested), the lead moves forward (never backward), is flagged as waiting for you, pending follow-ups are cancelled, and a **reply draft** appears in your Review tab with the customer's message quoted above it. If they asked for time, a follow-up date is set 30 days out.
 - **A message from an unknown number**: stored, never answered. If WhatsApp hid the sender's number (an `@lid` address without `senderPn`), the message is kept under `lid:<id>` and listed on the Pipeline page under "Messages from unknown senders"; it cannot be matched to a lead, so a STOP from one has to be handled by hand.
 

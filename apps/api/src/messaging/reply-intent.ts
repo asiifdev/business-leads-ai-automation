@@ -13,7 +13,11 @@ const RULES: { intent: ReplyIntent; patterns: RegExp[] }[] = [
     // a shop's automatic greeting is not a person answering: it must not move the deal or call for an answer
     intent: "auto_reply",
     patterns: [
-      /\bterima\s+kasih\s+(telah|sudah)\s+(menghubungi|mengirim\s+pesan|menghubungkan)/i,
+      /\bterima\s*kasih\s+(telah|sudah|atas)\s+(menghubungi|mengirim|pesan|kontak)/i,
+      /\bada\s+yang\s+(dapat|bisa)\s+(kami\s+|saya\s+)?(bantu|dibantu)\b/i,
+      /\b(silah?kan|silakan)\s+(beri\s*tahu|kasih\s*tahu|beri\s*tau|sampaikan)\b/i,
+      /\b(operational|operasional|opening)\s+(hour|hours|time)\b|\bjam\s+(operasional|buka|kerja)\b/i,
+      /\bkatalog\b[\s\S]{0,80}(https?:|wa\.me|instagram)/i,
       /\b(pesan|balasan)\s+otomatis\b|\bauto[\s-]?repl(y|ies)\b|\bautomated\s+(message|reply)\b/i,
       /\b(jam|waktu)\s+(operasional|layanan|buka)\b/i,
       /\bsilakan\s+(pilih|ketik|klik|isi)\b/i,
@@ -115,4 +119,13 @@ export function planReplyOutcome(currentStage: string, intent: ReplyIntent): Rep
     default:
       return { intent, stage: forward("replied"), needsReply: true, followUpInDays: null };
   }
+}
+
+/** A shop's automatic greeting answers within seconds; a person almost never does. Only a clear intent keeps it from counting as automatic. */
+export const AUTO_REPLY_WINDOW_MS = 45_000;
+const CLEAR_INTENT = /\b(harga|berapa|biaya|tarif|tertarik|berminat|boleh|mau|demo|jelaskan|kirim(kan)?|info|coba)\b/i;
+
+export function looksAutomaticByTiming(text: string, msSinceOurMessage: number | null): boolean {
+  if (msSinceOurMessage === null || msSinceOurMessage < 0 || msSinceOurMessage > AUTO_REPLY_WINDOW_MS) return false;
+  return !CLEAR_INTENT.test(text);
 }
