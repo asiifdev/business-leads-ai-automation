@@ -1,7 +1,7 @@
 <div align="center">
   <h1>Prospex</h1>
   <p><strong>Open-source outreach for selling to local businesses.</strong></p>
-  <p>Find businesses on Google Maps, let AI draft the first message in your own voice, approve it, and send it on WhatsApp one message at a time.</p>
+  <p>Find businesses on Google Maps, let AI draft the first message in your own voice (or write one message for a whole kind of business), approve it, send it on WhatsApp or email at a safe pace, and follow every lead until it closes.</p>
   <p><a href="https://alatpintar.id">Hosted version</a> · <a href="#quickstart">Self-host</a> · <a href="docs/whatsapp-outbox.md">How sending works</a> · <a href="#roadmap">Roadmap</a> · <a href="COMMERCIAL-LICENSE.md">Commercial license</a></p>
 
   [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
@@ -31,13 +31,14 @@ If Prospex is useful to you, a star helps other people find it.
 | Step | What happens |
 |------|--------------|
 | **Understand your offer** | Give Prospex a website, a document (PDF, DOCX, Markdown, text) or pasted text. It reads the whole site (sitemap, `llms.txt`, linked pages), writes a Marketing Brief from what it finds, and fills in your campaign form for you to correct. What the sources do not say is listed as missing, not invented. |
-| **Find** | Scrape Google Maps by business type and city with a headless browser. Each lead carries the real Maps category, rating, review count, phone, website and coordinates. If scraping fails the campaign fails honestly: Prospex never makes up businesses. |
+| **Find** | Scrape Google Maps by business type and city with a headless browser, up to 2,000 leads per campaign. A typed city is searched where you asked (anchored on its coordinates, results outside about 50 km are dropped); "Seluruh Indonesia" becomes one search per city, biggest markets first, 40 or more results per search. Each lead carries the real Maps category, rating, review count, phone, website and coordinates. If scraping fails the campaign fails honestly: Prospex never makes up businesses. |
 | **Score** | A 0 to 100 ranking from signals in the listing (reachable by phone, rating weighted by review count, review volume) plus an AI judgement of how well the business fits your offer, with the reason shown. No hard-coded industry or city weights. |
-| **Draft** | The AI writes the first message from the lead's real data, your own style, the matching angle from your brief and your knowledge base. Standard spelling, one fact, one benefit, one easy question, an opt-out line. |
+| **Draft** | The AI writes the first message from the lead's real data, your own style, the matching angle from your brief and your knowledge base. WhatsApp messages say who you are and what you offer in the first sentence, in plain words, then one relevant point and one easy question. Emails open with a greeting, end with "Salam," and can carry one link you set yourself. Three openings rotate across a campaign so you can compare reply rates. |
+| **One message for many leads** | Prefer to write it once? In the Outbox, pick a kind of business (for example every kebaya rental), choose the leads, write the message or let the AI write one for that kind of business, and Prospex makes one draft per lead in the review list. `{nama}` and `{kategori}` fill in each lead's own name and category. No AI call per lead, so hundreds of drafts take a second. |
 | **Approve** | Read, edit, approve or reject each draft in the Outbox. Nothing is sent before this step. |
-| **Send** | Approved messages go out through WhatsApp one at a time: hourly and daily caps, quiet hours, random gaps, and a typing indicator before each one. Email works the same way through your own SMTP account, with an unsubscribe link in every message ([docs/email-channel.md](docs/email-channel.md)). |
+| **Send** | Approved messages go out through WhatsApp one at a time: hourly and daily caps, quiet hours, random gaps, and a typing indicator before each one. Email works the same way through your own SMTP account, with an unsubscribe link in every message, and refuses to send at all while that link would point to your own computer ([docs/email-channel.md](docs/email-channel.md)). |
 | **Track to closing** | The Pipeline page shows every stage with deal value, replies waiting for you, leads that went quiet, follow-ups due, results per campaign and why deals were lost. A deal is never closed automatically; you mark it won or lost. |
-| **Reply and follow up** | A reply is classified (interested, wants a meeting, asked the price, question, not now, not interested), moves the lead forward in the pipeline, cancels pending follow-ups, flags it as waiting for you, and creates a reply draft. Leads that stay silent get up to two follow-up drafts, after 3 and 5 days. A recipient who writes STOP is never contacted again. |
+| **Reply and follow up** | A reply is classified (interested, wants a meeting, asked the price, question, not now, not interested), moves the lead forward in the pipeline, cancels pending follow-ups, flags it as waiting for you, and creates a polite reply draft written as a seller approaching a business, not as a boss. A shop's automatic greeting is recognised and ignored. An approved reply goes out right away, ahead of the cold messages. Leads that stay silent get up to two follow-up drafts, after 3 and 5 days. A recipient who writes STOP is never contacted again and the lead is closed as lost. |
 
 Every feature, its purpose, its limits and how far it has been verified: [docs/features.md](docs/features.md), [editions](docs/editions.md).
 
@@ -65,9 +66,10 @@ Every feature, its purpose, its limits and how far it has been verified: [docs/f
 Most outreach tools ask you to type a one-line description and hope. Prospex asks for the real material instead, then shows its work:
 
 - **Sources**: a website (the main address is enough), pasted text, or files (`.pdf`, `.docx`, `.md`, `.txt`).
-- **Whole-site reading**: besides the page you give, it follows `llms.txt`, the sitemap and the home page's links, up to 10 pages, and opens JavaScript-only pages in a real browser.
+- **Whole-site reading**: besides the page you give, it follows `llms.txt`, the sitemap and the home page's links, up to 40 pages, and opens JavaScript-only pages in a real browser.
 - **A brief with evidence rules**: numbers, customer names, testimonials and prices must appear in your sources or they are dropped and listed as missing.
 - **You stay in charge**: the brief and the campaign form are editable, fields filled by the AI are marked, and anything you typed yourself is never overwritten.
+- **Write once, reuse**: the analysis runs in the background (a small local model needs minutes; the page shows the step and you may leave it). A new campaign can then be filled instantly from the saved brief, with no new AI run. Analyse again only when your sources change.
 
 [How it works, limits, and tips for local models](docs/marketing-brief.md).
 
@@ -89,13 +91,15 @@ WhatsApp bans numbers that behave like bulk senders. Prospex is built around not
 |-----------|---------|
 | Human approval before every message | Always on |
 | Messages per hour | 10 (configurable 1 to 30) |
-| Messages per day | 80 (configurable) |
+| Messages per day | 80 (configurable 1 to 200) |
 | Quiet hours | 21:00 to 07:00 in your timezone |
 | Gap between messages | Random, 0.6x to 1.4x of the hourly average |
 | Typing indicator | Shown before each message, scaled to its length |
 | Number check | Skips numbers that are not on WhatsApp, without counting them as failures |
 | STOP handling | Cancels pending messages and blocks the number permanently |
 | Opt-out line | Added to every first message and follow-up |
+| Replies to people who wrote to you | Not paced: an approved reply is sent on the next tick, ahead of the cold queue, and does not count toward the limits |
+| Automatic greetings from shops | Recognised and ignored: no stage change, no reply draft |
 | Circuit breaker | Pauses sending after 3 failures in a row |
 | Crash safety | A message interrupted mid-send is marked failed, never resent automatically |
 
@@ -173,7 +177,7 @@ OPENAI_MODEL=gemma4
 EMBEDDING_MODEL=qwen3-embedding
 ```
 
-With `OPENAI_API_KEY` empty, scraping and rule-based scoring still work, and the AI features (drafts, AI Style, knowledge base) are off. Prospex does not fill the gap with canned text. A local model can take around 40 seconds per draft, so drafting runs in the background and the Outbox shows progress.
+With `OPENAI_API_KEY` empty, scraping and rule-based scoring still work, and the AI features (drafts, AI Style, knowledge base) are off. Prospex does not fill the gap with canned text. A local model can take around 40 seconds per draft, so drafting runs in the background and the Outbox shows progress. Writing the Marketing Brief with a local model takes several minutes. For Ollama, a context length of 16,384 is enough (our biggest prompt is about 7,000 tokens) and uses far less memory than the 131,072 some installs default to; if it is sometimes slow or answers with a 500 error, check that nothing else is using the model at the same time, because Ollama serves one request at a time by default.
 
 ### Other settings
 
@@ -184,7 +188,9 @@ With `OPENAI_API_KEY` empty, scraping and rule-based scoring still work, and the
 | `SCRAPER_MODE` | `live` | `fixture` returns clearly labelled test leads without phone numbers. For tests and demos only. |
 | `PLAYWRIGHT_NO_SANDBOX` | unset | Set to `true` only where Chromium cannot create its sandbox (most containers; the Docker image sets it). Outside containers keep the sandbox on: the browser opens pages chosen by users. |
 | `WA_AUTH_DIR` | `./.wa-auth` | Where linked-device sessions are stored. Mount it as a volume in production and treat it like a password. |
-| `PUBLIC_API_URL` | (localhost) | Public base URL of the API. Unsubscribe links in emails point here. |
+| `PUBLIC_API_URL` | (localhost) | Public https base URL of the API (for example `https://api.example.com/api`). Unsubscribe links in emails point here. **Email sending is blocked, and approving email drafts is refused, while this is not a public https address**, because recipients could not use the link. |
+| `ALLOW_LOCAL_UNSUBSCRIBE` | unset | Set to `true` only for local tests with your own mailbox, never to message real people. |
+| `CORS_ORIGINS` | (app URL) | Comma-separated origins allowed to call the API, when the dashboard runs on another host. |
 | `EMAIL_DISABLED` | `false` | Set to `true` to turn off the email sender (used in CI). |
 | `EDITION` | `community` | `community` or `hosted`. See [docs/editions.md](docs/editions.md). |
 | `WHATSAPP_DISABLED` | `false` | Set to `true` to turn off the sender, WhatsApp connections and follow-up scheduling (used in CI). |
@@ -227,9 +233,11 @@ Interactive docs at `/api/docs`. The main routes:
 | **Export** | `GET /api/export/leads/{csv,json,vcard}` |
 | **AI Style** | `POST /api/style/inspect`, `POST /api/style/train`, `GET/DELETE /api/style/profile`, `POST /api/style/draft` |
 | **Knowledge base** | `GET/POST /api/knowledge/sources`, `DELETE /api/knowledge/sources/:id`, `POST /api/knowledge/search` |
-| **Marketing brief** | `GET /api/marketing/sources`, `POST .../sources/url`, `.../sources/text`, `.../sources/file`, `DELETE .../sources/:id`, `GET/PUT /api/marketing/brief`, `POST /api/marketing/brief/generate` |
+| **Marketing brief** | `GET /api/marketing/sources`, `POST .../sources/url`, `.../sources/text`, `.../sources/file`, `DELETE .../sources/:id`, `GET/PUT /api/marketing/brief`, `POST /api/marketing/brief/generate` (starts a background job), `GET /api/marketing/brief/generate/status` (progress, and the brief when done) |
 | **Outbox** | `GET /api/messaging/outbox`, `POST /api/messaging/outbox/generate`, `POST .../approve`, `.../reject`, `.../cancel`, `PATCH .../:id`, `POST .../:id/retry` |
+| **One message for many leads** | `GET /api/messaging/templates/categories`, `GET .../templates/leads`, `POST .../templates/generate` (AI writes one message for a kind of business), `POST .../templates/apply` (one draft per selected lead) |
 | **WhatsApp** | `GET /api/messaging/whatsapp`, `POST .../connect`, `POST .../disconnect`, `PATCH .../settings` |
+| **Email** | `GET /api/email`, `PUT/DELETE /api/email/account`, `POST /api/email/account/test`, `POST /api/email/outbox/generate` |
 | **Settings** | `GET/POST/DELETE /api/settings/api-keys`, `GET/POST /api/settings/integrations` |
 
 ## Development
@@ -251,6 +259,8 @@ Done:
 
 - [x] Google Maps discovery with real categories, honest scoring, CRM pipeline, analytics, export
 - [x] Reply understanding and a pipeline view to follow leads until closing
+- [x] One message for many leads: a template per kind of business, drafts for every selected lead
+- [x] Email channel through your own SMTP account (sending only; replies are not read yet)
 - [x] Marketing Brief from websites, PDF, DOCX, Markdown and text, with campaign autofill
 - [x] Knowledge base with retrieval (pgvector)
 - [x] AI Style: learn your voice from WhatsApp exports
@@ -264,7 +274,9 @@ Next:
 - [ ] Test sending at volume on a dedicated number (one real message and one real reply are verified; the pacing logic is tested with a stand-in WhatsApp)
 - [ ] Official WhatsApp Business Cloud API provider
 - [ ] Knowledge base screen (sources are managed from the Marketing brief page today)
-- [ ] Edit-rate and reply-rate dashboard, to see whether drafts are improving
+- [ ] Edit-rate and reply-rate dashboard, to see whether drafts are improving (the opening used is already stored with every draft)
+- [ ] Read email replies
+- [ ] Senders whose number WhatsApp hides (LID): today their messages are listed on the Pipeline page but cannot be matched to a lead, so a STOP from one must be handled by hand. Baileys 7 would fix this
 - [ ] More of marketing than outreach: email and other channels, content, social, ads
 - [ ] Function-calling agent and MCP server, so AI agents can work your pipeline
 - [ ] Proposals and invoices

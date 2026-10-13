@@ -25,10 +25,10 @@ Everything is scoped to a `Workspace`. Every table that holds customer data has 
 | `campaigns`, `scraper`, `leads` | Campaigns, Google Maps scraping (BullMQ worker, headless Chromium), leads and CRM state |
 | `ai` | OpenAI-compatible client, lead scoring and per-business fit judgement, knowledge base (chunks and vectors), AI Style (chat-export parser, statistics, retrieval), spelling clean-up |
 | `marketing` | Marketing Brief: sources (websites, text, PDF, DOCX, Markdown), safe fetching and site crawling, guarded page renderer, brief generation and grounding |
-| `messaging` | Outbox, WhatsApp provider, sender, inbound handling, follow-ups, draft writer |
+| `messaging` | Outbox, WhatsApp provider, sender, inbound handling and reply understanding, follow-ups, draft writer, one-message-for-many-leads templates |
 | `email` | Email channel: SMTP account (encrypted password), draft generation with subjects, sender with the same pacing rules, public unsubscribe page |
 | `entitlements` | Edition and plan checks (community or hosted), see [editions.md](editions.md) |
-| `analytics`, `export` | Reporting and CSV/JSON/vCard export |
+| `analytics`, `export` | Reporting (including `GET /analytics/pipeline`: stage counts and value, replies waiting, quiet leads, due follow-ups, per campaign, lost reasons) and CSV/JSON/vCard export |
 
 ## Marketing brief in detail
 
@@ -71,9 +71,12 @@ HIGH from 70, MEDIUM from 50
 |------|------|
 | `message-writer.service.ts` | Writes first messages, follow-ups and replies. Combines lead data, style, retrieved examples and knowledge. Rejects output with template placeholders. Returns risk flags. |
 | `messaging.service.ts` | Outbox operations (generate in the background, edit, approve, reject, cancel, retry), account settings, overview |
-| `sender.service.ts` | 15-second loop: applies the send policy, claims a message atomically, sends, handles failures, trips the circuit breaker |
+| `sender.service.ts` | 15-second loop: first sends an approved reply (`ai_reply`) outside the pacing, then applies the send policy to cold messages, claims a message atomically, sends, handles failures, trips the circuit breaker |
 | `send-policy.ts` | Pure functions: `decide`, `nextGapMs`, `typingDelayMs`, quiet hours, local-day boundaries. Unit tested. |
-| `inbound.service.ts` | Stores replies, honours STOP, updates leads, cancels follow-ups, creates reply drafts |
+| `inbound.service.ts` | Stores replies, honours STOP (and closes the lead as lost), ignores shop auto-replies, classifies the reply, moves the lead forward, cancels follow-ups, creates reply drafts |
+| `reply-intent.ts` | Pure rules: `classifyReply` (auto_reply, interested, meeting, price, question, not_now, not_interested, other) and `planReplyOutcome` (stage only forward, never closes a deal). Unit tested. |
+| `template.service.ts`, `template.controller.ts` | One message for many leads: categories, lead picker, one AI call to write a generic message, bulk draft creation with `{nama}` and `{kategori}`, skips contacts that cannot or should not be messaged |
+| `plain-text.ts` | Strips markdown symbols, emoji and guessed honorifics from drafts |
 | `followup.service.ts` | Hourly: drafts follow-ups after 3 and 5 days of silence, at most two |
 | `whatsapp.provider.ts` | The interface the rest of the code depends on |
 | `baileys.provider.ts` | Linked-device implementation: pairing QR, reconnect with backoff, session files, inbound events |
@@ -85,7 +88,7 @@ HIGH from 70, MEDIUM from 50
 |-------|---------|
 | `whatsapp_accounts` | One per workspace: status, limits, quiet hours, timezone, pause flag, next allowed send time |
 | `outbound_messages` | The queue and the history: body, the original AI text (`aiBody`, to measure edits), source, status, context (trace, flags), provider id |
-| `inbound_messages` | Replies, unique per workspace and provider message id (so redelivery is ignored) |
+| `inbound_messages` | Replies, unique per workspace and provider message id (so redelivery is ignored), with the classified `intent` |
 | `message_opt_outs` | Numbers that must never be contacted, unique per workspace and number |
 
 `leads.phoneE164` stores the normalized number so replies can be matched to leads. Leads created before this column existed are backfilled at startup.

@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased (2026-10-12 to 13)
+
+### Added
+- **Pipeline to closing.** Replies are classified by rules (interested, meeting, price, question, not now, not interested, auto-reply); the lead moves forward only, is flagged as waiting for you, and gets a follow-up date when it asks for time. New lead fields `dealValue`, `lostReason`, `needsReply`, `lastIntent` and `inbound_messages.intent`; `GET /analytics/pipeline`; a Pipeline page; deal fields on the lead. STOP closes the lead as lost.
+- **One message for many leads.** `GET /messaging/templates/categories|leads`, `POST .../generate|apply`; the Outbox Review tab can create one draft per selected lead from one message, with `{nama}` and `{kategori}`.
+- **Replies skip the queue.** An approved `ai_reply` is sent ahead of cold messages, outside the pacing and limits.
+- **Email link.** Optional per-account link (`email_accounts.ctaUrl`) added by the system before "Salam,".
+- **Brief in the background** with progress and resume; campaign form can be filled instantly from the saved brief.
+- Campaigns accept up to 2,000 leads; per-city searches return 40 or more instead of 12.
+
+### Changed
+- First WhatsApp message: says who you are and what you offer in the first sentence, plain words, three rotating openings stored in the draft trace. First email: greeting, offer, "Salam,".
+- Reply drafts are written for a business we approached: polite, no commands, no emoji, no guessed honorific.
+- Website reading reads up to 40 pages (was 10), 150 seconds, 400,000 characters per source.
+- Email sending is blocked, and approving email drafts is refused, while `PUBLIC_API_URL` is not a public https address (`ALLOW_LOCAL_UNSUBSCRIBE=true` for local tests).
+
+### Fixed
+- Scraper searched near the searcher instead of the requested city, and returned only about 6 per search.
+- A shop's automatic greeting counted as a reply and got a reply draft; drafts mentioned capabilities that did not fit the lead's business; markdown symbols (`_booking_`) showed in messages; a source deleted during indexing caused a second error; slightly broken JSON from small models failed a whole brief pass.
+- Messages from senders whose number WhatsApp hides are now kept and listed instead of being dropped (they still cannot be matched to a lead).
+
 ## Unreleased (edition work)
 
 - **Several businesses per login.** A workspace menu in the sidebar lists the businesses you belong to, switches between them and creates new ones (`GET /workspace/mine`, `POST /workspace`, `POST /workspace/switch`). The token follows the active workspace and `GET /auth/me` now returns it.

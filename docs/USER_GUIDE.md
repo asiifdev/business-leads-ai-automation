@@ -140,11 +140,11 @@ Halaman **Kampanye baru** dibuka dengan bagian **Materi sumber** di sisi kiri. D
 
 | Sumber | Cara | Catatan |
 |--------|------|---------|
-| **Situs web** | Isi alamat utama, mis. `https://perusahaananda.com`, lalu **Baca situs** | Cukup alamat utama. Prospex membaca `llms.txt`, sitemap, dan tautan di beranda, sampai 10 halaman, dan membuka halaman yang butuh JavaScript dengan browser sungguhan. Prosesnya berjalan di latar belakang; status tampil di daftar sumber. |
+| **Situs web** | Isi alamat utama, mis. `https://perusahaananda.com`, lalu **Baca situs** | Cukup alamat utama. Prospex membaca `llms.txt`, sitemap, dan tautan di beranda, sampai 40 halaman, dan membuka halaman yang butuh JavaScript dengan browser sungguhan. Prosesnya berjalan di latar belakang; status tampil di daftar sumber. |
 | **Teks** | Tab *Teks*, beri judul, tempel isi (daftar harga, FAQ, deskripsi) | Minimal 30 karakter |
 | **Berkas** | Tab *Berkas*, pilih `.pdf`, `.docx`, `.md`, atau `.txt` | PDF dan DOCX maksimal 10 MB (PDF sampai 60 halaman); berkas teks 1 MB. PDF hasil scan (tanpa teks) ditolak: tempel teksnya. |
 
-Lalu centang sumber yang ingin dipakai (sumber yang baru ditambahkan otomatis tercentang), tambahkan catatan bila perlu (tautan *Hal lain yang perlu diketahui AI*), dan tekan **Analisis dengan AI dan isi form**. Prosesnya memakan waktu sekitar satu sampai dua menit dengan model lokal.
+Lalu centang sumber yang ingin dipakai (sumber yang baru ditambahkan otomatis tercentang), tambahkan catatan bila perlu (tautan *Hal lain yang perlu diketahui AI*), dan tekan **Analisis dengan AI dan isi form**. Prosesnya berjalan di latar belakang dan memakan waktu beberapa menit dengan model lokal (sekitar 3 sampai 7 menit untuk gemma4): tombol menampilkan "tahap 1 dari 3", dan Anda boleh meninggalkan halaman lalu kembali. Kalau brief sudah pernah dibuat, tombol **Isi dari brief tersimpan (instan)** mengisi form saat itu juga tanpa menjalankan AI lagi; jalankan analisis ulang hanya kalau sumber Anda berubah.
 
 Hasilnya:
 
@@ -163,10 +163,10 @@ Anda tetap bisa mengisi form tanpa sumber:
 |-------|--------|------------|
 | Nama kampanye | "Rental kamera Solo Q4 2026" | Nama untuk identifikasi |
 | Jenis bisnis target | rental kamera | **Jenis bisnis yang ingin Anda temukan**, bukan bidang usaha Anda sendiri. Teks bebas; tidak ada daftar tetap karena kategori Google Maps sangat beragam. |
-| Lokasi | Solo | Kota/area target. Beberapa area dipisah koma. |
+| Lokasi | Solo | Kota/area target. Beberapa area dipisah koma, titik koma, `/`, `&`, `+`, "dan", atau baris baru. Kota yang Anda ketik dicari di kota itu sendiri (hasil lebih dari sekitar 50 km dari pusat kota dibuang). Ketik **Seluruh Indonesia** untuk satu pencarian per kota, dimulai dari kota terbesar. |
 | Kata kunci pencarian | "sewa kamera" | Seperti yang Anda ketik di Google Maps. Boleh lebih dari satu. |
 | Layanan / produk Anda | "Sistem manajemen sewa untuk rental kamera" | Apa yang Anda tawarkan kepada lead ini |
-| Hasil maksimum | 20 | Jumlah lead target (10–100) |
+| Hasil maksimum | 20 | Jumlah lead target (10 sampai 1.500 di form; API menerima sampai 2.000). Untuk target besar pakai "Seluruh Indonesia" dan beberapa kata kunci. Kampanye berhenti begitu target tercapai. |
 | Gaya konten | Seimbang | Profesional / Ramah / Seimbang / Santai |
 | Bahasa | Indonesia | Bahasa draf pesan |
 
@@ -341,6 +341,19 @@ Gunakan **nomor khusus bisnis**. Koneksi perangkat tertaut tidak resmi, dan What
 
 Lead yang nomornya tidak valid, sudah pernah dihubungi, atau sudah berhenti dilewati otomatis. Setiap pesan pertama dan tindak lanjut diakhiri baris "balas STOP".
 
+Pesan WhatsApp pertama dibuat singkat (3 sampai 4 kalimat): kalimat pertama menyebut siapa Anda dan apa yang ditawarkan dengan kata sehari-hari, lalu satu hal yang relevan, satu hal konkret dari brief, dan satu pertanyaan ringan. Dalam uji nyata, pesan yang langsung membuka dengan pertanyaan tanpa perkenalan dikira pelanggan yang mau menyewa. Baca setiap draf; model kecil kadang menafsirkan rating atau memakai kalimat kaku (draf seperti itu ditandai kuning).
+
+### Satu pesan untuk banyak lead
+
+Kalau hasil draf per lead mengecewakan dan Anda ingin satu pesan yang Anda atur sendiri untuk satu jenis bisnis (misalnya semua rental kebaya):
+
+1. Di tab **Tinjau**, buka kartu **Satu pesan untuk banyak lead**.
+2. **Pilih lead**: pilih *Jenis bisnis* (kategori Google Maps; angka di sampingnya = bisa dihubungi/total), atau cari nama (mis. "kebaya"). Lead yang tanpa kontak atau sudah dikirimi ditandai dan tidak bisa dipilih. Pakai **Pilih semua yang bisa dihubungi**.
+3. **Tulis pesannya** sendiri, atau tekan **Tulis dengan AI untuk jenis bisnis ini** (satu kali panggilan AI untuk satu templat, bukan per lead), lalu sunting sesuka Anda. `{nama}` diganti nama bisnis tiap lead dan `{kategori}` jenisnya. Untuk email, isi juga subjek.
+4. Tekan **Buat N draf**. Setiap lead mendapat drafnya sendiri di daftar Tinjau (WhatsApp otomatis diberi kalimat "balas STOP", email diberi footer). Anda tetap menyetujui seperti biasa; tidak ada yang terkirim sebelum itu.
+
+Karena semua penerima mendapat teks yang sama, pakai `{nama}`, kirim per kelompok kecil, dan sebar beberapa hari supaya nomor tetap aman.
+
 ### Kecepatan pengiriman
 
 Klik **Batas** untuk mengatur:
@@ -348,21 +361,22 @@ Klik **Batas** untuk mengatur:
 | Pengaturan | Bawaan | Catatan |
 |-----------|--------|---------|
 | Pesan per jam | 10 | 1 sampai 30. Makin rendah makin aman. |
-| Pesan per hari | 80 | Sampai 200 |
+| Pesan per hari | 80 | 1 sampai 200 |
 | Jam tenang | 21:00 sampai 07:00 | Pesan menunggu sampai jam tenang selesai |
 | Zona waktu | Asia/Jakarta | |
 | Kode negara bawaan | 62 | Dipakai untuk nomor yang ditulis tanpa kode negara |
 
-Jeda antar pesan diacak (0,6 sampai 1,4 kali rata-rata), dan "mengetik…" ditampilkan dulu sebelum tiap pesan terkirim. Dengan pengaturan bawaan, daftar 1.500 lead selesai sekitar **19 hari**. Menaikkan batas harian ke 140 mempercepatnya menjadi sekitar 11 hari. Mulailah dengan 30 sampai 50 lead, lihat berapa yang membalas dan apakah nomor tetap sehat, baru naikkan.
+Jeda antar pesan diacak (0,6 sampai 1,4 kali rata-rata), dan "mengetik…" ditampilkan dulu sebelum tiap pesan terkirim. Dengan pengaturan bawaan, daftar 1.500 lead selesai sekitar **19 hari**. Menaikkan batas harian ke 140 mempercepatnya menjadi sekitar 11 hari. Pada 20 per jam dan 200 per hari, 1.000 lead selesai sekitar 5 hari. Pada 20 per jam satu pesan keluar kira-kira setiap tiga menit; antrean yang panjang memang lambat dengan sengaja. Mulailah dengan 30 sampai 50 lead, lihat berapa yang membalas dan apakah nomor tetap sehat, baru naikkan.
 
 Prospex otomatis menjeda pengiriman setelah 3 kegagalan berturut-turut. Tombol **Jeda pengiriman** juga ada kalau Anda ingin berhenti sendiri.
 
 ### Balasan dan tindak lanjut
 
-- **Lead membalas**: statusnya menjadi "Replied", tindak lanjut yang tertunda dibatalkan, dan **draf balasan** muncul di tab Tinjau dengan pesan pelanggan dikutip di atasnya. Anda tetap yang menyetujui.
-- **Pelanggan menulis STOP** (atau "berhenti", "unsubscribe", dan sejenisnya): nomornya diblokir permanen dan semua pesan yang menunggu dibatalkan.
+- **Lead membalas**: Prospex memahami maksudnya (tertarik, minta bertemu, tanya harga, pertanyaan, belum sekarang, tidak tertarik), memajukan statusnya (tidak pernah memundurkan), menandainya "menunggu jawaban Anda", membatalkan tindak lanjut yang tertunda, dan membuat **draf balasan** di tab Tinjau dengan pesan pelanggan dikutip di atasnya. Draf balasan ditulis sopan dan rendah hati (Anda pihak yang menawarkan): tanpa emoji, tanpa perintah, tanpa menebak sapaan. Anda tetap yang menyetujui, dan balasan yang disetujui **langsung dikirim, mendahului antrean pesan pertama** dan tidak terkena batas per jam.
+- **Sapaan otomatis toko** ("Terima kasih telah menghubungi…", "mohon menunggu", jam buka, menu panjang) dikenali dan hanya dicatat: status tidak berubah dan tidak dibuatkan draf.
+- **Pelanggan menulis STOP** (atau "berhenti", "unsubscribe", dan sejenisnya): nomornya diblokir permanen, semua pesan yang menunggu dibatalkan, dan lead ditutup sebagai Gagal dengan alasan "Meminta berhenti (STOP)".
 - **Lead diam**: Prospex membuat draf tindak lanjut setelah 3 hari, dan satu lagi 5 hari kemudian. Maksimal dua. Tombol **Cek tindak lanjut** menjalankannya sekarang.
-- Pesan dari nomor yang tidak dikenal disimpan tapi tidak dijawab.
+- Pesan dari nomor yang tidak dikenal disimpan tapi tidak dijawab. WhatsApp kadang menyembunyikan nomor pengirim; pesan itu tampil di halaman **Pipeline** di kartu "Pesan dari pengirim tak dikenal" dan tidak bisa dicocokkan dengan lead, jadi kalau isinya STOP, keluarkan bisnis itu dari daftar Anda secara manual.
 
 ### Tab "Perlu perhatian"
 
@@ -381,9 +395,21 @@ Di Kotak Keluar, pilih **Email** di atas daftar pesan. Alurnya sama dengan Whats
 3. Tekan **Tulis draf**. Lead yang dapat diemail adalah yang alamatnya ditemukan di website mereka (lihat "Cari kontak" di halaman campaign dan lead).
 4. Tinjau, setujui, dan email keluar satu per satu dengan jeda dan jam tenang.
 
-Setiap email memuat tautan berhenti berlangganan. Orang yang berhenti tidak akan dikirimi lagi. Agar tautan itu bisa dibuka penerima, isi `PUBLIC_API_URL` di server. Balasan masuk ke kotak masuk email Anda sendiri; Prospex belum membacanya. Atur SPF, DKIM dan DMARC pada domain pengirim, dan mulai dengan jumlah kecil. Rincian dan batasan: [email-channel.md](email-channel.md).
+Setiap email memuat tautan berhenti berlangganan. Orang yang berhenti tidak akan dikirimi lagi. Agar tautan itu bisa dibuka penerima, isi `PUBLIC_API_URL` di server dengan alamat https publik (mis. `https://api.contoh.com/api`). **Selama belum diisi, pengiriman email dihentikan dan persetujuan draf email ditolak**, dengan peringatan merah di panel Email. Email berformat: "Halo,", paragraf pendek, ajakan, "Salam,". Di panel Email Anda bisa mengisi **Tautan di email pertama** (opsional); sistem menambahkannya sebagai satu baris "Selengkapnya: …" sebelum "Salam,". Balasan masuk ke kotak masuk email Anda sendiri; Prospex belum membacanya. Atur SPF, DKIM dan DMARC pada domain pengirim, dan mulai dengan jumlah kecil. Rincian dan batasan: [email-channel.md](email-channel.md).
 
 ## 9. CRM Pipeline
+
+### Halaman Pipeline: pantau sampai closing
+
+Menu **Pipeline** menunjukkan seluruh perjalanan lead:
+
+- **Empat angka**: tingkat balasan, tingkat menang, nilai deal berjalan, nilai deal menang. Tingkat balasan hanya menghitung balasan manusia, bukan sapaan otomatis toko.
+- **Tahap** dari Baru sampai Berhasil atau Gagal, dengan jumlah dan nilai deal.
+- **Menunggu jawaban Anda**: lead yang membalas dan belum Anda tangani, dengan maksudnya (mis. "Menanyakan harga"). **Waktunya follow-up**: tanggal yang Anda atau sistem tetapkan sudah lewat. **Sepi**: dihubungi lebih dari 7 hari tanpa balasan.
+- **Per kampanye**: jumlah lead, dihubungi, membalas, menang. **Alasan deal gagal**: dihitung dari kolom alasan.
+- **Pesan dari pengirim tak dikenal** (bila ada).
+
+Di halaman detail lead, selain status ada **Nilai deal**, **Follow-up pada**, **Kenapa gagal?** (muncul saat status Gagal), dan tombol **Tandai balasan sudah ditangani**. Deal tidak pernah ditutup otomatis, kecuali permintaan berhenti (STOP) yang ditutup sebagai Gagal.
 
 ### Update status lead
 
@@ -522,6 +548,16 @@ Refresh halaman — kalau masih running padahal sudah lama, restart API:
 # Ctrl+C di terminal API, lalu:
 pnpm --filter @prospex/api dev
 ```
+
+### "Failed to fetch" saat analisis AI atau ada error 500 dari Ollama
+
+- Analisis kini berjalan di latar belakang; kalau muncul "Failed to fetch", biasanya API sempat restart (mode `--watch` me-restart API tiap ada perubahan kode). Tunggu beberapa detik dan jalankan lagi. Halaman yang dibuka ulang melanjutkan analisis yang masih berjalan.
+- Ollama hanya melayani satu permintaan sekaligus. Jangan menjalankan analisis, pengindeksan, dan pembuatan draf bersamaan. Ukuran konteks 16.384 token cukup (prompt terbesar sekitar 7.000) dan jauh lebih ringan daripada 131.072; di aplikasi Ollama atur *Context length*.
+- Untuk kampanye berikutnya jangan analisis ulang: pakai **Isi dari brief tersimpan**.
+
+### Email tidak terkirim padahal sudah disetujui
+
+Panel Email menampilkan peringatan merah bila `PUBLIC_API_URL` belum berupa alamat https publik. Isi dengan alamat publik API lalu restart API. (`ALLOW_LOCAL_UNSUBSCRIBE=true` hanya untuk uji lokal ke kotak masuk Anda sendiri.)
 
 ### Prisma error setelah update schema
 

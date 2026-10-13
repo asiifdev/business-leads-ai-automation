@@ -14,7 +14,7 @@ Two things go wrong when an AI writes outreach for a business it does not unders
 
 | Source | How it is read | Limits |
 |--------|----------------|--------|
-| **Website** | The page you enter, plus the pages the site points to itself: `llms.txt` and `llms-full.txt`, `sitemap.xml` (and the sitemaps listed in `robots.txt`), and, when the site has no usable sitemap, the links on its home page. Pages are ranked (home, about, services, pricing, FAQ, portfolio and clients first, at most two blog posts) and up to **10 pages** are read. | Same site only (`www` and bare domain count as one). Ports 80 and 443. 2 MB per page, 12 seconds per request, about 75 seconds in total. |
+| **Website** | The page you enter, plus the pages the site points to itself: `llms.txt` and `llms-full.txt`, `sitemap.xml` (and the sitemaps listed in `robots.txt`), and, when the site has no usable sitemap, the links on its home page. Pages are ranked (home, about, services, pricing, FAQ, portfolio and clients first, at most four blog posts) and up to **40 pages** are read. | Same site only (`www` and bare domain count as one). Ports 80 and 443. 2 MB per page, 12 seconds per request, about 150 seconds in total. Up to 400,000 characters of text are kept per source. |
 | **JavaScript-only pages** | If a page's HTML has almost no text (the site builds its content in the browser), it is opened in the same headless Chromium that scrapes Google Maps and read after it has loaded. Images, video and fonts are not downloaded. | Needs Chromium installed (`playwright install chromium`). |
 | **Text** | Pasted as is. | 30 to 200,000 characters. |
 | **Files** | `.pdf`, `.docx`, `.md`, `.txt`. | PDF and DOCX up to 10 MB (PDF up to 60 pages, DOCX text only). Text files up to 1 MB. A scanned PDF with no text layer is refused: paste the text instead. |
@@ -74,3 +74,15 @@ The brief page and form always show which pages the AI read, so you can judge wh
 - Fit judgements and angles are the model's reasoning, shown with their reasons. They are aids for choosing whom to contact first, not predictions.
 - **Check the brief.** A modest model can put a fact in the wrong section (a price under "what it costs them", for example). Every section is editable on the brief page (**Edit sections**, one list item per line), and each save becomes a new version. Review the proof and offer sections first.
 - PDFs that are scans, password protected, or longer than 60 pages are not read.
+
+
+## Writing the brief in the background
+
+The brief is written in three passes (positioning, evidence, outreach), each a long JSON answer. With a small local model that takes several minutes, longer than a browser or proxy waits on one request, so it is a background job:
+
+- `POST /api/marketing/brief/generate` starts it and returns at once; `GET /api/marketing/brief/generate/status` reports `running` (with the current pass), `done` (with the brief), `failed` (with a short reason) or `idle`.
+- The page asks every few seconds and shows "step 1 of 3". You can leave it: opening the new-campaign page again while the job runs picks it up instead of starting another.
+- One job per workspace at a time. The job lives in the API's memory, so restarting the API loses a job that was still running; start it again.
+- A reply with a small JSON slip (an unescaped quote, a missing or extra comma, a cut-off ending) is repaired before it is given up on.
+
+Because the result is saved, **you rarely need to run it again**: a new campaign can be filled instantly from the saved brief ("Fill from my saved brief"). Analyse again when your sources change.

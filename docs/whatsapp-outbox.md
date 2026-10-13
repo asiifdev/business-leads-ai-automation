@@ -17,8 +17,8 @@ Every message begins as a **draft**. Three things create drafts, and all three n
 
 | Source | Created when |
 |--------|--------------|
-| `ai_outreach` | You click **Write drafts** for a campaign. |
-| `ai_reply` | A known lead writes back. |
+| `ai_outreach` | You click **Write drafts** for a campaign, or create drafts from **One message for many leads** (the draft's context says `template: true`). |
+| `ai_reply` | A known lead writes back (not an automatic greeting). |
 | `ai_followup` | A contacted lead has stayed silent for 3 days (first follow-up) or 5 more days (second). At most two follow-ups per lead. |
 
 Nothing is sent from a draft. **Approve** moves it to the queue, and the sender takes it from there.
@@ -59,10 +59,12 @@ WhatsApp increasingly addresses chats with an opaque `@lid` identifier instead o
 Incoming text messages are stored and matched to a lead by phone number. Then:
 
 - **STOP, berhenti, unsubscribe and similar**: the number is added to the opt-out list, its pending drafts and approved messages are cancelled, and it is never messaged again, even if you approve something later.
-- **Any other reply from a known lead**: the lead becomes `replied`, pending follow-ups are cancelled, and a **reply draft** appears in your Review tab with the customer's message quoted above it.
-- **A message from an unknown number**: stored, never answered.
+- **STOP** also closes the lead as lost ("Meminta berhenti (STOP)"), the one reply that closes a deal by itself.
+- **A shop's automatic greeting** ("Terima kasih telah menghubungi…", "mohon menunggu", opening hours, long canned menus) is recognised by rules and only recorded: no stage change, follow-ups stay, no reply draft.
+- **Any other reply from a known lead**: its meaning is classified by rules (interested, wants a meeting, asked the price, question, not now, not interested), the lead moves forward (never backward), is flagged as waiting for you, pending follow-ups are cancelled, and a **reply draft** appears in your Review tab with the customer's message quoted above it. If they asked for time, a follow-up date is set 30 days out.
+- **A message from an unknown number**: stored, never answered. If WhatsApp hid the sender's number (an `@lid` address without `senderPn`), the message is kept under `lid:<id>` and listed on the Pipeline page under "Messages from unknown senders"; it cannot be matched to a lead, so a STOP from one has to be handled by hand.
 
-Replies are drafted in your voice with the same knowledge base and style as first messages. Because a customer's text is untrusted input, it is wrapped in delimiters and the model is told to treat it as data. A draft that contains links, prices, discounts or bank details that your knowledge base does not support, or a customer message that looks like instructions to the AI, is flagged in the Outbox so you read it twice before approving.
+Replies are drafted in your voice's spelling and warmth with the same knowledge base and style as first messages, but with the right role: the sender is a business you approached, so the draft is polite and humble, gives no commands ("kabari saja ya"), has no emoji and no guessed honorific (Mbak, Mas, Bapak, Ibu become "Kak"). Your chats are with your own customers, where you are the one serving, so copying their attitude would sound like a boss to a stranger. Because a customer's text is untrusted input, it is wrapped in delimiters and the model is told to treat it as data. A draft that contains links, prices, discounts or bank details that your knowledge base does not support, or a customer message that looks like instructions to the AI, is flagged in the Outbox so you read it twice before approving.
 
 ## Connecting a number
 
@@ -77,13 +79,17 @@ Sessions are stored in `WA_AUTH_DIR` (default `./.wa-auth`). Keep that directory
 | 80 (default) | 10 | about 19 days |
 | 140 | 10 | about 11 days |
 | 80 | 6 | about 19 days (the daily cap decides) |
+| 200 (the maximum) | 20 | about 5 days for 1,000 leads (14 hours a day x 20 = 280, so the daily cap decides) |
+
+The API accepts 1 to 30 per hour and 1 to 200 per day. At 20 per hour a message leaves about every three minutes, so a long queue is slow by design.
 
 Guidance that applies to any WhatsApp automation:
 
 - **Use a dedicated business number.** Never the number you cannot afford to lose.
 - **Warm up.** Start at 5 to 10 per hour for the first days and raise the limits only while replies keep coming.
 - **Start small.** Send 30 to 50 and look at the reply rate before the full list.
-- **Do not send identical text.** Drafts are written per lead for this reason. Edit the ones that read generic.
+- **Do not send identical text.** Drafts are written per lead for this reason. Edit the ones that read generic. **One message for many leads** sends the same text to everyone you pick, so use `{nama}`, keep each batch small, and spread batches over days.
+- **Say who you are in the first sentence.** In a real test, messages that opened with a clever question and no introduction were taken for customers asking to rent, and a few got STOP.
 - **Watch for signals.** Few replies, many "not on WhatsApp" results, or being logged out all mean slow down.
 - **Honour STOP.** Prospex does this for you. The opt-out line is added to every first message and follow-up.
 
