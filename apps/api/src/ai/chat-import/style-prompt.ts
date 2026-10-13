@@ -125,6 +125,8 @@ export interface OutreachPromptInput {
   channel?: "whatsapp" | "email";
   /** Which opening to use for a first message, so the owner can see which one gets answers. */
   variant?: OutreachVariant;
+  /** One template for many businesses of the same kind: no facts about any single business. */
+  generic?: boolean;
 }
 
 export const OUTREACH_VARIANTS = ["pain", "observation", "outcome"] as const;
@@ -203,7 +205,7 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
         ].filter((l) => l !== "").join("\n")
       : "",
     "DATA BISNIS PENERIMA (satu-satunya sumber fakta tentang mereka; berasal dari listing publik):",
-    `<data_bisnis>\n${leadLines(input.lead)}\n</data_bisnis>`,
+    `<data_bisnis>\n${input.generic ? `- Jenis bisnis penerima: ${clip(input.lead.category ?? input.lead.name, 80)}` : leadLines(input.lead)}\n</data_bisnis>`,
     "",
     facts,
     "",
@@ -217,6 +219,7 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
     "- Jangan mengarang fakta tentang penerima di luar data di atas. Dilarang menyebut bisnis mereka ramai, laris, diminati, populer, enak, terkenal, bagus, terbaik, atau sejenisnya kecuali tertulis di data; sebut angka (rating, jumlah ulasan) apa adanya. Jangan memuji secara umum.",
     "- Sebut tepat satu fakta spesifik dari data apa adanya (mis. rating dan jumlah ulasan, belum ada website, atau lokasi), lalu hubungkan dengan penawaran.",
     "- Cocokkan dengan jenis bisnis penerima. Sebut hanya kemampuan penawaran yang berguna bagi bisnis seperti itu. Kemampuan yang khusus untuk jenis usaha lain (mis. dokumen kendaraan, STNK, servis kendaraan, untuk penyewaan alat acara, kamera, atau kebaya) JANGAN disebut, walaupun ada di brief atau fakta.",
+    ...(input.generic ? ["- Ini SATU templat yang akan dikirim ke banyak bisnis sejenis. Jangan menyebut fakta khusus satu bisnis (rating, ulasan, alamat, website, nama). Tulis untuk jenis bisnisnya saja, dan jangan memakai placeholder."] : []),
     "- Jangan menjanjikan hasil atau angka. Jangan menulis seperti iklan atau broadcast.",
     "- Jangan menebak atau menyimpulkan keadaan penerima (\"pasti ramai\", \"permintaan tinggi\", \"pengelolaan sudah cukup baik\", \"masih mencatat di buku\"). Rating dan ulasan boleh disebut sebagai angka saja, tanpa menafsirkannya. Tanyakan, jangan menyatakan. Jangan memakai istilah campuran Inggris yang tidak perlu (real-time, tracking, dashboard); pakai kata sehari-hari.",
     "- Tulis dengan ejaan baku dan kalimat natural seperti pemilik usaha berbicara. Hindari kata kaku seperti \"Pernahkah\"; pakai \"Pernah\" atau \"Apakah pernah\". Baca ulang: setiap kata harus bermakna dan benar (tidak ada kata asing yang tidak nyambung).",

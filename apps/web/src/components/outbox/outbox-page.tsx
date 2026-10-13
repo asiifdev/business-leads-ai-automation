@@ -12,6 +12,7 @@ import { useI18n } from "@/lib/i18n";
 import { MessageCard } from "./message-card";
 import { WhatsappPanel } from "./whatsapp-panel";
 import { EmailPanel } from "./email-panel";
+import { TemplatePanel } from "./template-panel";
 import type { Counts, EmailOverview, GenerationJob, Overview, OutboxMessage } from "./types";
 
 /* Hallmark · component: page (Outbox) · genre: modern-minimal · theme: existing Prospex tokens
@@ -166,6 +167,8 @@ export function OutboxPage() {
           {channel === "email" && <p className="text-xs text-muted-foreground">{t("email.gen.eligible", { n: emailOverview?.usage.leadsWithEmail ?? 0 })}</p>}
         </div>
       )}
+
+      {tab === "review" && <TemplatePanel channel={channel} onCreated={() => void load()} />}
 
       {tab === "review" && drafts.length > 1 && (
         <div className="flex justify-end">

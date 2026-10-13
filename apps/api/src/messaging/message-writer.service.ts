@@ -5,6 +5,7 @@ import { LimitsService } from "../entitlements/limits.service";
 import { AiClientService } from "../ai/ai-client.service";
 import { KnowledgeService } from "../ai/knowledge.service";
 import { StyleService } from "../ai/style.service";
+import { type OutreachVariant } from "../ai/chat-import/style-prompt";
 import { neutralHonorific, neutralHonorificChat, removeEmoji, stripMarkdown } from "./plain-text";
 import { buildDraftMessages, buildOutreachMessages, pickVariant } from "../ai/chat-import/style-prompt";
 import type { StyleStats } from "../ai/chat-import/style-stats";
@@ -121,6 +122,39 @@ export class MessageWriterService {
       risks: draftRisks(body.text, facts.hits.map((h) => h.content)),
       trace: { variant, styled: !!stats, examples: examples.length, knowledge: facts.confidence, model: ai.chatModel, latencyMs: Date.now() - started },
     };
+  }
+
+  /** One reusable message for a kind of business (not one lead). Takes one draft from the plan allowance. */
+  async generic(workspaceId: string, o: { segment: string; language: "indonesian" | "english"; channel: "whatsapp" | "email"; variant?: OutreachVariant; offer?: string }): Promise<{ text: string; risks: string[] }> {
+    const release = await this.limits.reserveDraft(workspaceId);
+    try {
+      const ai = await this.ai.forWorkspace(workspaceId);
+      if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
+      const profile = await this.prisma.styleProfile.findUnique({ where: { workspaceId } });
+      const stats = profile ? (profile.stats as unknown as StyleStats) : undefined;
+      const facts = await this.knowledge.search(workspaceId, `${o.offer ?? ""} ${o.segment}`.trim());
+      const briefRow = await this.prisma.marketingBrief.findUnique({ where: { workspaceId }, select: { summary: true, content: true } });
+      const brief = briefRow ? briefForDraft(briefRow.summary, briefRow.content as unknown as BriefContent, { name: o.segment, category: o.segment }) : undefined;
+      const business = await this.businessDescription(workspaceId);
+      const messages = buildOutreachMessages({
+        businessDescription: business,
+        offer: o.offer?.trim() || briefRow?.summary || business,
+        language: o.language,
+        lead: { name: o.segment, category: o.segment },
+        style: stats,
+        knowledge: facts.confidence === "none" ? [] : facts.hits.map((h) => h.content),
+        brief,
+        channel: o.channel,
+        variant: o.variant === "observation" ? "pain" : (o.variant ?? "pain"),
+        generic: true,
+      });
+      const body = await this.generate(workspaceId, "outreach", `template:${o.segment}`, messages, facts.hits.map((h) => h.sourceId), facts.confidence, { language: o.language, names: [business] });
+      const text = o.channel === "email" ? neutralHonorific(body.text) : body.text;
+      return { text, risks: draftRisks(text, facts.hits.map((h) => h.content)) };
+    } catch (e) {
+      await release();
+      throw e;
+    }
   }
 
   /** Subject line for an email body: specific, plain, no clickbait. Throws when the model cannot produce a usable one. */
