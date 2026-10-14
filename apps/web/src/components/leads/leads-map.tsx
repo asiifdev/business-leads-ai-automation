@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Phone, Star, ChevronRight } from "lucide-react";
-import type { Lead } from "@/hooks/use-leads";
+import type { Lead, MapLead } from "@/hooks/use-leads";
 import { useI18n } from "@/lib/i18n";
 
 // Jakarta city center — used as the default view when no leads have coordinates yet.
@@ -51,13 +51,13 @@ function FitBounds({ points }: { points: [number, number][] }) {
 }
 
 interface Props {
-  leads: Lead[];
+  leads: MapLead[];
 }
 
 export function LeadsMap({ leads }: Props) {
   const { t } = useI18n();
   const pinned = leads.filter(
-    (l): l is Lead & { lat: number; lng: number } =>
+    (l): l is MapLead & { lat: number; lng: number } =>
       typeof l.lat === "number" && typeof l.lng === "number",
   );
   const points = useMemo<[number, number][]>(

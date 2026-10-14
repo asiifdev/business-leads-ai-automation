@@ -1,11 +1,16 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors, BadRequestException } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { ArrayMaxSize, ArrayNotEmpty, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from "class-validator";
 import { JwtGuard } from "../auth/jwt.guard";
 import { WorkspaceId } from "../auth/current-workspace.decorator";
+import { AttachmentService } from "./attachment.service";
+import { MAX_ATTACHMENT_BYTES } from "./attachment-file";
+import { buildLinkPreview } from "./link-preview";
 import { FollowUpService } from "./followup.service";
-import { MAX_BODY, MAX_BULK, MAX_GENERATE, MessagingService } from "./messaging.service";
+import { ReclassifyService } from "./reclassify.service";
+import { MAX_BODY, MAX_BULK, MAX_EMAIL_BODY, MAX_GENERATE, MessagingService } from "./messaging.service";
 
 class IdsDto {
   @IsArray() @ArrayNotEmpty() @ArrayMaxSize(MAX_BULK) @IsString({ each: true }) ids!: string[];
@@ -14,10 +19,23 @@ class ManualDto {
   @IsString() @MinLength(6) @MaxLength(32) phone!: string;
   @IsString() @MinLength(1) @MaxLength(MAX_BODY) body!: string;
   @IsOptional() @IsString() leadId?: string;
+  @IsOptional() @IsString() @MaxLength(64) attachmentId?: string;
+  @IsOptional() @IsBoolean() linkPreview?: boolean;
 }
 class EditDto {
-  @IsString() @MinLength(1) @MaxLength(4000) body!: string;
+  @IsString() @MinLength(1) @MaxLength(MAX_EMAIL_BODY) body!: string;
   @IsOptional() @IsString() @MaxLength(200) subject?: string;
+  /** A file id to attach, or null to take the file off. */
+  @IsOptional() @IsString() @MaxLength(64) attachmentId?: string | null;
+  @IsOptional() @IsBoolean() linkPreview?: boolean;
+}
+class ReclassifyDto {
+  /** false (default) only shows what would change; true applies it. */
+  @IsOptional() @IsBoolean() apply?: boolean;
+  @IsOptional() @IsBoolean() useAi?: boolean;
+}
+class LinkPreviewDto {
+  @IsString() @MinLength(8) @MaxLength(500) url!: string;
 }
 class GenerateDto {
   @IsOptional() @IsString() campaignId?: string;
@@ -44,7 +62,7 @@ class DisconnectDto {
 @UseGuards(JwtGuard)
 @Controller("messaging")
 export class MessagingController {
-  constructor(private readonly messaging: MessagingService, private readonly followUps: FollowUpService) {}
+  constructor(private readonly messaging: MessagingService, private readonly followUps: FollowUpService, private readonly attachments: AttachmentService, private readonly reclassify: ReclassifyService) {}
 
   @Get("whatsapp")
   @ApiOperation({ summary: "Connection state, pairing QR, limits and usage" })
@@ -104,6 +122,45 @@ export class MessagingController {
     return this.messaging.createManual(ws, dto);
   }
 
+  @Post("attachments")
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_ATTACHMENT_BYTES, files: 1 } }))
+  @ApiOperation({ summary: "Upload a file (PDF, image, MP4, DOCX, XLSX, PPTX, up to 16 MB) to send with WhatsApp messages" })
+  upload(@WorkspaceId() ws: string, @UploadedFile() file?: { originalname: string; buffer: Buffer }) {
+    if (!file) throw new BadRequestException("Choose a file to upload");
+    return this.attachments.save(ws, file);
+  }
+
+  @Get("attachments")
+  @ApiOperation({ summary: "Files you have uploaded" })
+  listAttachments(@WorkspaceId() ws: string) {
+    return this.attachments.list(ws);
+  }
+
+  @Delete("attachments/:id")
+  @ApiOperation({ summary: "Delete an uploaded file (refused while a waiting message still uses it)" })
+  deleteAttachment(@WorkspaceId() ws: string, @Param("id") id: string) {
+    return this.attachments.remove(ws, id);
+  }
+
+  @Post("link-preview")
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @ApiOperation({ summary: "The card WhatsApp will show under a link: title, description and picture" })
+  async linkPreview(@Body() dto: LinkPreviewDto) {
+    try {
+      return await buildLinkPreview(dto.url);
+    } catch (e) {
+      throw e instanceof BadRequestException ? e : new BadRequestException((e as Error).message);
+    }
+  }
+
+  @Post("reclassify")
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
+  @ApiOperation({ summary: "Read every conversation again as a whole (your own phone messages included). Preview by default; send apply=true to apply" })
+  reclassifyConversations(@WorkspaceId() ws: string, @Body() dto: ReclassifyDto) {
+    return this.reclassify.run(ws, { apply: dto.apply === true, useAi: dto.useAi });
+  }
+
   @Post("outbox/approve")
   approve(@WorkspaceId() ws: string, @Body() dto: IdsDto) {
     return this.messaging.approve(ws, dto.ids);
@@ -121,7 +178,7 @@ export class MessagingController {
 
   @Patch("outbox/:id")
   edit(@WorkspaceId() ws: string, @Param("id") id: string, @Body() dto: EditDto) {
-    return this.messaging.edit(ws, id, dto.body, dto.subject);
+    return this.messaging.edit(ws, id, dto.body, dto.subject, { attachmentId: dto.attachmentId, linkPreview: dto.linkPreview });
   }
 
   @Post("outbox/:id/retry")

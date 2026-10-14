@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { AttachmentPicker } from "./attachment-picker";
+import { LinkPreviewControl, firstUrl } from "./link-preview-card";
+import { WhatsappBubble } from "./whatsapp-bubble";
 import { useI18n } from "@/lib/i18n";
 import type { OutboxMessage } from "./types";
 
@@ -18,7 +21,7 @@ interface Props {
   onReject: (id: string) => void;
   onCancel: (id: string) => void;
   onRetry: (id: string) => void;
-  onSave: (id: string, body: string, subject?: string) => Promise<void>;
+  onSave: (id: string, body: string, subject?: string, extras?: { attachmentId?: string | null; linkPreview?: boolean }) => Promise<void>;
 }
 
 export function MessageCard({ m, position, busy, onApprove, onReject, onCancel, onRetry, onSave }: Props) {
@@ -27,15 +30,20 @@ export function MessageCard({ m, position, busy, onApprove, onReject, onCancel, 
   const [text, setText] = useState(m.body);
   const [subject, setSubject] = useState(m.subject ?? "");
   const isEmail = m.channel === "email";
-  const max = isEmail ? 4000 : 1000;
+  const max = isEmail ? 20000 : 8000;
   const [saving, setSaving] = useState(false);
+  const [attachmentId, setAttachmentId] = useState<string | null>(m.attachment?.id ?? null);
+  const [cardChoice, setCardChoice] = useState<boolean | null>(m.linkPreview ? true : null);
   const trace = m.context?.trace;
   const sourceKey = `outbox.src.${m.source}` as const;
   const followUp = m.source === "ai_followup" && m.context?.followUp ? ` #${m.context.followUp}` : "";
 
   const save = async () => {
     setSaving(true);
-    try { await onSave(m.id, text, isEmail ? subject : undefined); setEditing(false); } finally { setSaving(false); }
+    try {
+      await onSave(m.id, text, isEmail ? subject : undefined, isEmail ? undefined : { attachmentId, ...(cardChoice !== null ? { linkPreview: cardChoice } : {}) });
+      setEditing(false);
+    } finally { setSaving(false); }
   };
 
   return (
@@ -67,10 +75,16 @@ export function MessageCard({ m, position, busy, onApprove, onReject, onCancel, 
         <div className="mt-3 space-y-2">
           {isEmail && <Input value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={200} aria-label={t("email.subject")} placeholder={t("email.subject")} />}
           <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={isEmail ? 9 : 5} maxLength={max} aria-label={t("outbox.edit")} />
+          {!isEmail && (
+            <>
+              <AttachmentPicker value={attachmentId} onChange={setAttachmentId} />
+              <LinkPreviewControl body={text} enabled={(cardChoice ?? !!firstUrl(text)) && !(attachmentId && text.length <= 1024)} onEnabled={setCardChoice} disabledReason={attachmentId && text.length <= 1024 ? t("wa.preview.withFile") : undefined} />
+            </>
+          )}
           <div className="flex items-center justify-between">
             <span className="font-mono text-xs tabular-nums text-muted-foreground">{text.length}/{max}</span>
             <div className="flex gap-2">
-              <Button size="sm" variant="ghost" onClick={() => { setText(m.body); setSubject(m.subject ?? ""); setEditing(false); }}>{t("outbox.cancel")}</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setText(m.body); setSubject(m.subject ?? ""); setAttachmentId(m.attachment?.id ?? null); setCardChoice(m.linkPreview ? true : null); setEditing(false); }}>{t("outbox.cancel")}</Button>
               <Button size="sm" disabled={saving || !text.trim() || (isEmail && !subject.trim())} onClick={save}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{t("outbox.save")}</Button>
             </div>
           </div>
@@ -78,7 +92,9 @@ export function MessageCard({ m, position, busy, onApprove, onReject, onCancel, 
       ) : (
         <>
           {isEmail && m.subject && <p className="mt-3 text-sm font-medium">{m.subject}</p>}
-          <p className={cn("whitespace-pre-wrap text-[15px] leading-relaxed", isEmail ? "mt-1.5" : "mt-3")}>{m.body}</p>
+          {isEmail
+            ? <p className="mt-1.5 whitespace-pre-wrap text-[15px] leading-relaxed">{m.body}</p>
+            : <WhatsappBubble body={m.body} attachment={m.attachment} card={m.linkPreview} className="mt-3" />}
         </>
       )}
 

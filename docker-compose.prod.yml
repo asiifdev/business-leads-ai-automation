@@ -46,10 +46,12 @@ services:
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
       WA_AUTH_DIR: /data/wa-auth
+      ATTACHMENTS_DIR: /data/attachments
       PORT: 3001
       NEXT_PUBLIC_APP_URL: ${APP_URL:-http://localhost:3000}
     volumes:
       - wa_auth:/data/wa-auth   # linked WhatsApp sessions: lose this and every number must be re-linked
+      - attachments:/data/attachments   # files uploaded to send on WhatsApp
     depends_on:
       postgres:
         condition: service_healthy
@@ -91,3 +93,4 @@ volumes:
   postgres_data:
   redis_data:
   wa_auth:
+  attachments:

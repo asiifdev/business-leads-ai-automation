@@ -1,6 +1,9 @@
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { AttachmentService } from "./attachment.service";
+import { CAPTION_LIMIT } from "./attachment-file";
+import { maybePreview, previewForText } from "./link-preview";
 import { MessageWriterService } from "./message-writer.service";
 import { isValidEmail } from "./email-address";
 import { normalizePhone } from "./phone";
@@ -10,8 +13,8 @@ import { EntitlementsService } from "../entitlements/entitlements.service";
 import { fitAllowed, fitLevel } from "./fit-gate";
 import { isPublicUnsubscribeBase, unsubscribeBase } from "../email/email-utils";
 
-export const MAX_BODY = 1000;
-export const MAX_EMAIL_BODY = 4000;
+export const MAX_BODY = 8000; // a sanity ceiling, not a style rule: WhatsApp itself allows far more
+export const MAX_EMAIL_BODY = 20000;
 
 export { isValidEmail };
 export const MAX_GENERATE = 200;
@@ -48,6 +51,7 @@ export class MessagingService {
     private readonly writer: MessageWriterService,
     @Inject(WHATSAPP_PROVIDER) private readonly wa: RoutedWhatsappProvider,
     private readonly entitlements: EntitlementsService,
+    private readonly attachments: AttachmentService,
   ) {}
 
   // ---------- account ----------
@@ -62,8 +66,8 @@ export class MessagingService {
     const live = this.wa.state(workspaceId);
     const now = new Date();
     const [sentLastHour, sentToday, drafts, approved] = await Promise.all([
-      this.prisma.outboundMessage.count({ where: { workspaceId, channel: "whatsapp", status: "sent", sentAt: { gte: new Date(now.getTime() - 3_600_000) } } }),
-      this.prisma.outboundMessage.count({ where: { workspaceId, channel: "whatsapp", status: "sent", sentAt: { gte: startOfLocalDay(now, account.timezone) } } }),
+      this.prisma.outboundMessage.count({ where: { workspaceId, channel: "whatsapp", status: "sent", source: { not: "external" }, sentAt: { gte: new Date(now.getTime() - 3_600_000) } } }),
+      this.prisma.outboundMessage.count({ where: { workspaceId, channel: "whatsapp", status: "sent", source: { not: "external" }, sentAt: { gte: startOfLocalDay(now, account.timezone) } } }),
       this.prisma.outboundMessage.count({ where: { workspaceId, channel: "whatsapp", status: "draft" } }),
       this.prisma.outboundMessage.count({ where: { workspaceId, channel: "whatsapp", status: "approved" } }),
     ]);
@@ -138,7 +142,10 @@ export class MessagingService {
       where,
       orderBy: approvedFirst ? { approvedAt: "asc" } : { createdAt: "desc" },
       take: Math.min(Math.max(limit, 1), 200),
-      include: { lead: { select: { id: true, name: true, category: true, address: true, score: true, crmStatus: true } } },
+      include: {
+        lead: { select: { id: true, name: true, category: true, address: true, score: true, crmStatus: true } },
+        attachment: { select: { id: true, fileName: true, mimeType: true, sizeBytes: true } },
+      },
     });
   }
 
@@ -227,7 +234,7 @@ export class MessagingService {
   }
 
   /** A one-off message written by a person (a test, a quick note). It is a draft like any other and still needs approval. */
-  async createManual(workspaceId: string, input: { phone: string; body: string; leadId?: string }) {
+  async createManual(workspaceId: string, input: { phone: string; body: string; leadId?: string; attachmentId?: string; linkPreview?: boolean }) {
     const account = await this.account(workspaceId);
     const phone = normalizePhone(input.phone, account.defaultCountryCode);
     if (!phone) throw new BadRequestException("That phone number is not valid");
@@ -238,12 +245,15 @@ export class MessagingService {
       throw new BadRequestException("This number has opted out and cannot be messaged");
     }
     if (input.leadId && !(await this.prisma.lead.findFirst({ where: { id: input.leadId, workspaceId }, select: { id: true } }))) throw new NotFoundException("Lead not found");
+    if (input.attachmentId) await this.attachments.owned(workspaceId, input.attachmentId);
+    // a file is sent with the text as its caption, and WhatsApp shows no link card on a caption
+    const card = await maybePreview(body, input.linkPreview, !!input.attachmentId && body.length <= CAPTION_LIMIT);
     return this.prisma.outboundMessage.create({
-      data: { workspaceId, leadId: input.leadId ?? null, toPhone: phone, body, aiBody: null, source: "manual", status: "draft", context: { manual: true } },
+      data: { workspaceId, leadId: input.leadId ?? null, toPhone: phone, body, aiBody: null, source: "manual", status: "draft", context: { manual: true }, attachmentId: input.attachmentId ?? null, ...(card ? { linkPreview: card as unknown as Prisma.InputJsonValue } : {}) },
     });
   }
 
-  async edit(workspaceId: string, id: string, body: string, subject?: string) {
+  async edit(workspaceId: string, id: string, body: string, subject?: string, extras: { attachmentId?: string | null; linkPreview?: boolean } = {}) {
     const text = body.trim();
     if (!text) throw new BadRequestException("Message is empty");
     const m = await this.owned(workspaceId, id);
@@ -252,7 +262,21 @@ export class MessagingService {
     if (m.status !== "draft") throw new BadRequestException("Only drafts can be edited");
     const sub = m.channel === "email" && subject !== undefined ? subject.trim().replace(/[\r\n]+/g, " ").slice(0, 200) : undefined;
     if (sub === "") throw new BadRequestException("Subject is empty");
-    return this.prisma.outboundMessage.update({ where: { id }, data: { body: text, ...(sub ? { subject: sub } : {}), editedByUser: text !== (m.aiBody ?? "") || (!!sub && sub !== m.subject) } });
+    if (m.channel === "email" && (extras.attachmentId || extras.linkPreview)) throw new BadRequestException("Attachments and link previews are only for WhatsApp messages");
+    const attachmentId = extras.attachmentId === undefined ? m.attachmentId : extras.attachmentId;
+    if (attachmentId && attachmentId !== m.attachmentId) await this.attachments.owned(workspaceId, attachmentId);
+    let linkPreview: Prisma.InputJsonValue | typeof Prisma.DbNull | undefined;
+    if ((attachmentId && text.length <= CAPTION_LIMIT) || extras.linkPreview === false) linkPreview = Prisma.DbNull; // a caption shows no card; "off" removes it
+    else if (extras.linkPreview) linkPreview = (await previewForText(text)) as unknown as Prisma.InputJsonValue;
+    else if (!m.linkPreview && text !== m.body) {
+      // automatic: a link that was just written gets its card
+      const auto = await maybePreview(text, undefined, !!attachmentId && text.length <= CAPTION_LIMIT);
+      if (auto) linkPreview = auto as unknown as Prisma.InputJsonValue;
+    }
+    return this.prisma.outboundMessage.update({
+      where: { id },
+      data: { body: text, ...(sub ? { subject: sub } : {}), ...(extras.attachmentId !== undefined ? { attachmentId: extras.attachmentId } : {}), ...(linkPreview !== undefined ? { linkPreview } : {}), editedByUser: text !== (m.aiBody ?? "") || (!!sub && sub !== m.subject) },
+    });
   }
 
   async approve(workspaceId: string, ids: string[]) {

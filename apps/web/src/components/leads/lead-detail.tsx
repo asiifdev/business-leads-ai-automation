@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Phone, Search, Globe, MapPin, Star, Mail, Loader2, Copy } from "lucide-react";
+import { toast } from "sonner";
 import { useLead } from "@/hooks/use-leads";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -250,6 +251,7 @@ export function LeadDetail({ id }: { id: string }) {
                   <SelectItem value="new">🔵 {t("leads.crm.new")}</SelectItem>
                   <SelectItem value="contacted">📤 {t("leads.crm.contacted")}</SelectItem>
                   <SelectItem value="replied">💬 {t("leads.crm.replied")}</SelectItem>
+                  <SelectItem value="interested">🙋 {t("leads.crm.interested")}</SelectItem>
                   <SelectItem value="meeting">📅 {t("leads.crm.meeting")}</SelectItem>
                   <SelectItem value="proposal">📄 {t("leads.crm.proposal")}</SelectItem>
                   <SelectItem value="won">✅ {t("leads.crm.won")}</SelectItem>
@@ -301,6 +303,14 @@ export function LeadDetail({ id }: { id: string }) {
                         ? t("leads.activity.statusChanged", { status: crmLabel(a.metadata.crmStatus) })
                         : a.note}
                     </p>
+                    {a.type === "referral" && (a.metadata?.contacts ?? []).map((c) => (
+                      <Button key={c.phone} size="sm" variant="outline" className="mt-1.5 mr-2 h-7 text-xs" onClick={async () => {
+                        try {
+                          const r = await api.post<{ created: boolean; leadId: string }>(`/leads/${lead.id}/referral`, { phone: c.phone, ...(c.name ? { name: c.name } : {}) });
+                          toast.success(t(r.created ? "leads.referral.added" : "leads.referral.exists"));
+                        } catch (e) { toast.error((e as Error).message); }
+                      }}>{t("leads.referral.add", { who: c.name ?? c.phone })}</Button>
+                    ))}
                   </div>
                 ))}
                 {(!lead.activities || lead.activities.length === 0) && (

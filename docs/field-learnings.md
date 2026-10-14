@@ -1,0 +1,29 @@
+# Field learnings: what real replies taught us
+
+Engineering lessons from real conversations between Prospex users and their prospects, kept so the next feature is chosen from evidence. This is an open-source repository: **no names, numbers, prices, products or quotes from real conversations belong here**, only what the system did wrong or could do better. One conversation is a hypothesis, not a pattern; mark an item "confirmed" only after it shows up again.
+
+## Round 1 (October 2026): a reply thread from first message to the prospect's real need
+
+The thread went: a sample offer, a short "yes", the prospect's shop answered with its own automatic greetings and a booking form, the owner sent a brochure and a link, the prospect asked the price, objected and compared with other tools, redirected us to another contact, and finally named the need that was not what the owner had offered.
+
+| # | What happened | What the system did | Status |
+|---|---|---|---|
+| 1 | A real "yes" arrived long after two automatic greetings. | The reply writer got the greetings and the "yes" as one message and answered something unrelated. | **Fixed.** Bubbles count as one answer only when written within 3 minutes of each other; a shop's automatic messages are kept out of what the person "just said" (`messaging/thread.ts`, with tests). |
+| 2 | The role instruction leaked into a draft ("I am not a customer"). | Shown to the owner as a draft. | **Fixed.** The instruction was reworded and `checkReply` rejects replies that talk about roles. |
+| 3 | Price objections ("too expensive", "can you negotiate", an amount quoted from another tool) were not recognised as price talk. | Labelled "other". | **Fixed** in `reply-intent.ts`, with tests. |
+| 4 | The prospect used WhatsApp's "reply to this message". | The quoted message is ignored, so a short answer is read without what it refers to. | **Open.** Baileys exposes the quoted message; pass it to the writer and the classifier. |
+| 5 | A message was edited after it was sent. | Not handled; the edit may be read as a new message or dropped. | **Open.** Check how Baileys reports edits and update the stored text instead of adding a message. |
+| 6 | A photo with a caption was sent. | Only text was read, so the caption was lost. | **Fixed** for captions (`messaging/wa-text.ts`). A photo or file with no words is still not a reply; the owner's own is stored as a marker such as "[Dokumen: name.pdf]". |
+| 7 | The prospect's need moved outside what the owner offers. | A draft would keep selling the original offer. | **Open, most valuable.** Detect "a need outside the offer" and hand the thread to a person instead of drafting. First step: when the reply names things that appear nowhere in the brief or knowledge, flag it for a person and skip the draft. |
+| 8 | One owner runs more than one business, and the need belonged to the other one. | Each workspace answers only for itself. | **Open.** Offer "continue as the other workspace" when a thread matches another workspace's brief. |
+| 9 | A long PDF was sent and WhatsApp showed its cover and page count. | Through Baileys a PDF goes out as a plain document without a cover. | **Open.** Render page 1 to a JPEG and pass it as `jpegThumbnail`; needs a PDF renderer on the server. |
+| 10 | The same price objection will recur. | The writer answers from facts only; if the price is not in the knowledge base it says it will check. | **Open.** Add an objection playbook to the reply prompt (acknowledge, do not defend, show the number in a new light without inventing a discount, point to a trial if one exists, ask one question about the need) and make sure prices are in the knowledge base. |
+| 11 | The owner answered most of the thread **from their phone**, not from the Outbox. | Messages with `fromMe` were skipped, so Prospex never saw them: the next draft was written without what had been promised, and the lead stayed "needs reply". | **Fixed.** The owner's phone messages are recorded **only for numbers that belong to a lead**, deduplicated against what Prospex sent itself, the lead stops waiting, outdated drafts are withdrawn, and they do not count against sending limits. |
+| 12 | The facts a good reply needs (price, what is included, who pays for third-party services) lived only in the owner's own messages. | Not in the knowledge base, so a draft says "I will check". | **Open.** Offer "add this to the knowledge base" on the owner's own answers. |
+| 13 | A new reply from the prospect did not produce a new draft while an old draft was still waiting. | `if (pending > 0) return` kept the old draft for an old message. | **Fixed.** A draft is written a few seconds after the last bubble and replaces any older waiting draft. |
+| 14 | The prospect handed us a **contact card** and wrote "contact our management". | Contact cards were dropped and the text was labelled "other", so a sales reply would be drafted. | **Fixed.** Cards are read (`[Kontak: name +number]`), "pointed to another contact" is its own kind of reply with a fixed thank-you chosen in code, the number is kept on the lead, and "Add as a lead" creates it once. |
+| 15 | Labels and "waiting" status drifted from what the conversation actually said. | Nothing re-read old conversations. | **Fixed.** Pipeline → "Re-read conversations" previews, then applies corrections (`POST /messaging/reclassify`). |
+
+**What these conversations did not tell us:** how common each objection is, and whether a different price or offer would have changed the outcome. Measure with `lostReason` in the pipeline before changing prices.
+
+**A caution learned the hard way:** a check that runs the sender with a fake WhatsApp provider must be limited to its own temporary workspace (`sender.tick(workspaceId)`). Without that limit it marks other workspaces' queued messages as sent without sending them.

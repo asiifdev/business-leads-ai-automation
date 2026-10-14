@@ -4,7 +4,7 @@ import { EntitlementsService } from "../entitlements/entitlements.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { BaileysProvider } from "./baileys.provider";
 import { loadCloudProvider } from "./cloud-plugin";
-import { ProviderUnavailableError, type InboundWhatsappMessage, type RoutedWhatsappProvider, type WhatsappProvider, type WhatsappProviderName } from "./whatsapp.provider";
+import { ProviderUnavailableError, type InboundWhatsappMessage, type OwnWhatsappMessage, type SendExtras, type RoutedWhatsappProvider, type WhatsappProvider, type WhatsappProviderName } from "./whatsapp.provider";
 
 /**
  * Routes each workspace to the connection type it chose: a linked device (Baileys, always available) or the official
@@ -58,6 +58,11 @@ export class WhatsappGateway implements RoutedWhatsappProvider, OnModuleInit {
     this.cloud?.onInbound(handler);
   }
 
+  onOwnMessage(handler: (workspaceId: string, msg: OwnWhatsappMessage) => Promise<void>) {
+    this.baileys.onOwnMessage(handler);
+    this.cloud?.onOwnMessage?.(handler);
+  }
+
   state(workspaceId: string) {
     try {
       return this.pick(workspaceId).state(workspaceId);
@@ -68,5 +73,9 @@ export class WhatsappGateway implements RoutedWhatsappProvider, OnModuleInit {
   async connect(workspaceId: string) { return this.pick(workspaceId).connect(workspaceId); }
   async disconnect(workspaceId: string, opts?: { logout?: boolean }) { return this.pick(workspaceId).disconnect(workspaceId, opts); }
   async resolve(workspaceId: string, phone: string) { return this.pick(workspaceId).resolve(workspaceId, phone); }
-  async send(workspaceId: string, to: string, text: string, typingMs: number) { return this.pick(workspaceId).send(workspaceId, to, text, typingMs); }
+  async send(workspaceId: string, to: string, text: string, typingMs: number, extras?: SendExtras) {
+    // the official connector has not been taught to send files or link cards: refuse rather than send the text alone
+    if ((extras?.attachment || extras?.linkPreview) && this.names.get(workspaceId) === "cloud_api") throw new Error("Attachments and link previews are only supported on a linked-device connection");
+    return this.pick(workspaceId).send(workspaceId, to, text, typingMs, extras);
+  }
 }

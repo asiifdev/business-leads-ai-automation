@@ -15,11 +15,13 @@ export interface Overview {
 }
 
 export interface OutboxMessage {
-  id: string; channel: "whatsapp" | "email"; toPhone: string; toEmail: string | null; subject: string | null; body: string; aiBody: string | null; source: "ai_outreach" | "ai_reply" | "ai_followup" | "manual";
+  id: string; channel: "whatsapp" | "email"; toPhone: string; toEmail: string | null; subject: string | null; body: string; aiBody: string | null; source: "ai_outreach" | "ai_reply" | "ai_followup" | "manual" | "external";
   status: "draft" | "approved" | "sending" | "sent" | "failed" | "rejected" | "cancelled";
   editedByUser: boolean; error: string | null; sentAt: string | null; createdAt: string;
   context: { incoming?: string; flagged?: boolean; risks?: string[]; followUp?: number; trace?: { styled: boolean; examples: number; knowledge: string } } | null;
   lead: { id: string; name: string; category: string | null; address: string | null; score: number; crmStatus: string } | null;
+  attachment?: { id: string; fileName: string; mimeType: string; sizeBytes: number } | null;
+  linkPreview?: { url: string; title: string; description: string; thumbnail?: string } | null;
 }
 
 export interface GenerationJob {

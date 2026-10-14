@@ -81,6 +81,9 @@ Read `docs/architecture.md` and `docs/whatsapp-outbox.md` first. Invariants to k
 - **Claim, then send.** `SenderService` claims a message with `updateMany(status: approved → sending)`. A message found in `sending` after a restart is marked failed, never resent.
 - **Send policy is pure** (`send-policy.ts`) and unit tested. Change limits there, not inline.
 - **WhatsApp is behind `WhatsappProvider`**, routed per workspace by `WhatsappGateway`. The official Cloud API is a hosted-only feature (`whatsapp.cloud_api`) delivered by a separate private package, never committed here. See `docs/editions.md`.
+- **The conversation is whole.** The owner's own phone messages (`fromMe`) are recorded by `InboundService.handleOwnMessage`, **only for numbers that belong to a lead**; never store another chat. Classification and drafts read both sides through `conversation-loader.ts`; bubbles count as one answer only when written within 3 minutes of each other; a draft is skipped when the owner already answered and replaces any older waiting draft.
+- **Files and link previews.** Files go through `AttachmentService` (type from the bytes, never the name; one folder per workspace). A link card is built through `marketing/url-fetch.ts`, never by Baileys' own builder. The official-API connection must refuse files, never send the text alone.
+- **Checks with a fake provider stay in their own workspace**: use `sender.tick(workspaceId)`.
 - **Opt-out is absolute.** `message_opt_outs` is checked at approve time and again at send time.
 - Inbound text from customers is untrusted: keep it delimited in prompts, and keep `draftRisks`/`looksLikeInjection` flagging.
 
@@ -106,6 +109,8 @@ Integration secrets (e.g. a workspace's own OpenAI key under `Settings → Integ
 `apps/web` uses shadcn/ui primitives (`src/components/ui`) + Tailwind, feature components grouped by domain under `src/components/{leads,campaigns,analytics,settings,integrations,dashboard,auth,layout,style,outbox}` mirroring the API's module boundaries. UI text goes through `useI18n().t(key)`: add every new string to `src/lib/i18n/en.ts` and `id.ts` (Indonesian must define every key). Server components may import only from `src/lib/i18n/lang.ts` (the rest is a client module). Talks to the API via `NEXT_PUBLIC_API_URL` (must include the `/api` path).
 
 ## Conventions
+- **This is open source: never commit real data.** No real prospect names, numbers, chats, prices or offers of the owner's businesses, no workspace or lead IDs, no private repository names, in code, tests, fixtures, docs or the changelog. Use invented examples (example.com, "Contoh Digital Agency"). Words specific to one business (a client's name, a case study) come from the user's own brief at run time, never from the source.
+- **Docs follow the code.** Any feature, improvement or fix updates `README.md`, `docs/` and `CHANGELOG.md` in the same change, and every claim is checked against the code (endpoints, environment variables, scripts, behaviour), not written from memory. Mark what was only tested with a stand-in as "Simulated" in `docs/features.md`.
 - Conventional Commits (`feat(leads): ...`, `fix(auth): ...`) — see `CONTRIBUTING.md`.
 - TypeScript everywhere; avoid `any`.
 - CI (`ci.yml`) runs on self-hosted runners and gates on: typecheck (API+web) → build (API+web) → e2e (Playwright against a real Postgres+Redis+built servers). Any PR should pass `tsc --noEmit` on both `api` and `web` locally first.

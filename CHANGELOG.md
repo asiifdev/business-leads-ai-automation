@@ -1,5 +1,42 @@
 # Changelog
 
+## Unreleased (2026-10-14)
+
+### Added
+- **Leads: every lead is reachable.** The Leads page and a campaign's lead list are paged ("Page 1 of 17"), the title shows the real total, and the map loads every lead with coordinates (`GET /leads/map`, up to 5,000) instead of the first 50. The campaign "Filter" button that did nothing is now a search box.
+- **Search by address, phone, website, email, category and area.** Typing "0812" also matches numbers stored as 62812.
+- **Province, city/regency and district.** Worked out from each lead's coordinates (OpenStreetMap Nominatim, 1 request a second, nearby leads share one lookup) in the background after a scrape or from the "Classify area of N leads" button (`POST /leads/geo/backfill`, `GET /leads/regions`); filters on the Leads page. Set `GEOCODER_URL` to your own Nominatim to go faster, `GEOCODER_DISABLED=true` to turn it off.
+- **WhatsApp attachments and link previews.** Upload a file (PDF, JPG, PNG, WebP, MP4, DOCX, XLSX, PPTX, up to 16 MB; type read from the file's own bytes) and send it with the message text as its caption, in single messages and in "One message for many leads". A link in the message gets a preview card (title, description, picture) built through the safe fetcher, shown before you approve and on by default when a link is present. A text longer than a caption (1,024 characters) goes out right after the file. Email is unchanged. Deleting a file is refused while a waiting message uses it, and a missing file fails the message instead of sending the text alone.
+- **WhatsApp formatting.** Drafts keep `*bold*`, `_italic_`, `~strike~`, `- ` lists and paragraph spacing (they used to be stripped), and the Outbox shows each message as a WhatsApp bubble: file or link card on top, text under it, the opt-out line as a footnote.
+- **Pipeline lists show the real count** ("Showing the oldest 50 of 312") and the one-message-for-many-leads picker says when it is cut.
+- **Your own phone messages are recorded.** What you type to a lead from your phone or WhatsApp Web is stored (only for numbers that belong to a lead; any other chat is ignored), the lead stops "waiting for an answer", drafts written for something you already answered are withdrawn, later drafts know what you said, and these messages count toward neither the sending limits nor the follow-up clock. Shown as "From your phone" in the Outbox and in the lead's activity log.
+- **"Interested" is a stage** (between Replied and Meeting), so it shows in the pipeline chart and the lead filters, and **"Waiting on them"** lists warm leads you answered last who have been silent for 3 days (a reminder, no automatic draft).
+- **Re-read conversations** on the Pipeline page (`POST /messaging/reclassify`): a preview of what would change, then apply. Corrects labels and who is waiting, moves stages only forward, withdraws outdated drafts and writes a fresh one where an answer is still owed.
+- **Pointed to another contact** is its own kind of reply: a fixed thank-you chosen in code (or a request for the number), the contact kept on the lead, and an "Add as a lead" button (`POST /leads/:id/referral`) that never adds the same number twice. Shared contact cards and photo or document captions are now read instead of dropped.
+- `scripts/reclassify-replies.ts` (dry run by default) fixes replies that were labelled wrongly; `scripts/attachment-check.ts` proves attachments end to end against a real database; `scripts/pipeline-check.ts` now also covers your own phone messages, outdated drafts, re-reading the pipeline and referrals.
+- `ATTACHMENTS_DIR` (with a volume in `docker-compose.prod.yml`), `GEOCODER_URL`, `GEOCODER_USER_AGENT`, `GEOCODER_DISABLED`, `REPLY_DRAFT_DELAY_MS`.
+
+### Changed
+- **First messages for a service (an agency selling custom work).** The offer is read as a product or a service. A service intro introduces the company, names its whole range of work in plain words, and invites a conversation; it never offers a demo or says "we have an app". No character limit: length is the writer's call, and a first WhatsApp message always greets "Halo, Kak." and never "Bapak/Ibu" or "Anda". Checks in code reject questions without a question word, slang, jargon, a missing introduction and case studies from the brief; a failing draft is written again with the reasons.
+- **Replies read the whole conversation.** Fact and example search uses our last message together with theirs; bubbles written together are answered together; a second reading checks that the draft is complete, answers them and invents nothing. A yes to an offered demo or call is a meeting (only what we last asked counts, not words earlier in the message such as a pitch about "schedules"); a shop's bot connecting us to its team is an automatic message, and the model is told that closing courtesies are "other" and that "pointed to another contact" means they asked us to contact someone; "boleh", "bisa dishare", "kirim contohnya" and similar are interest; "mahal", "nego" and an amount quoted from another tool are price talk.
+- **A draft is written a few seconds after the prospect's last bubble** (20 seconds by default) and **replaces any older waiting draft**. Before, a new message produced no draft while an old one was still waiting, so an old draft for an old message could sit next to a newer conversation. A draft is skipped when you have already answered.
+- Drafts no longer name another kind of business (the brief's list of examples, such as "kebaya", counts as foreign to a costume-hire shop).
+
+### Fixed
+- **A stage the classifier gave by mistake could never be corrected.** An old reading took "jadwal" or "CALL" for a meeting, and because stages only move forward the lead stayed in "Meeting". Re-reading the pipeline now works out the highest stage a conversation honestly reached (each of their bubbles read against what we had just asked) and lowers a stage that was given automatically; a stage the owner set by hand is never lowered.
+- **Polite closings were counted as "waiting for your answer"** ("Ok kk", "makasih ka", "baik, sama-sama kak"). They are now their own kind of reply ("ack"): the lead has replied, nobody has to answer, nothing is drafted.
+- **A conversation that went on with answers Prospex never saw** (typed on the phone before they were recorded) is left exactly as it is and reported as "incomplete", instead of being guessed at from half of it. Each row in "Waiting for your answer" has an "I answered" button for those.
+- **A STOP typed inside a sentence never blocked the number.** Opt-out only recognised STOP at the start of a message, so "Maaf kak belum ya STOP" (the natural answer to our own "balas STOP" line) was ignored. A short message (up to 80 characters) containing STOP, "berhenti", "unsubscribe" or "jangan ganggu" is now an opt-out, and re-reading the pipeline blocks numbers that asked earlier.
+- **Shop greeting bots were counted as replies** ("Thank you for your message… chat nanti dibalas", "apa yang bisa saya bantu?", catalogues, booking forms), which inflated the "Replied" stage. More of them are recognised, and re-reading the pipeline sends a lead whose only replies were automatic messages back to "contacted".
+- Re-reading the pipeline never overwrites a specific label with "other".
+- "Coba ka seperti apa" (show me) is read as interest.
+- Re-reading the pipeline gave a lead the owner had already answered the label "other", because "what they just said" was empty once the owner had written after them. It now reads their last words whoever spoke after them.
+- Checks that use a fake WhatsApp provider could hand it other workspaces' queued messages and mark them sent without sending them. `SenderService.tick(workspaceId)` now limits a pass to one workspace, and the check scripts use it.
+- The words of one business (a client's name, a case study) were written into the source of the first-message checks; client names now come from each user's own brief.
+- Replies mixed a shop's canned greeting from half an hour earlier into what the person had just said, and the role instruction leaked into the draft ("I am not a customer").
+- A greeting corrected halfway ("Halo Kakak,").
+- Lists, quotes and bold text in drafts were stripped to plain text.
+
 ## Unreleased (2026-10-12 to 13)
 
 ### Added

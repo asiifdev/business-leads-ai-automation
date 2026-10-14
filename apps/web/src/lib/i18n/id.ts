@@ -145,6 +145,7 @@ export const id: Record<keyof typeof en, string> = {
   "outbox.src.ai_reply": "Balasan",
   "outbox.src.ai_followup": "Tindak lanjut",
   "outbox.src.manual": "Manual",
+  "outbox.src.external": "Dari ponsel Anda",
   "outbox.theyWrote": "Mereka menulis",
   "outbox.trace": "Suara Anda · {n} contoh · fakta: {facts}",
   "outbox.trace.plain": "Suara netral (gaya belum dipelajari) · fakta: {facts}",

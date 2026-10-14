@@ -145,6 +145,7 @@ export const en = {
   "outbox.src.ai_reply": "Reply",
   "outbox.src.ai_followup": "Follow-up",
   "outbox.src.manual": "Manual",
+  "outbox.src.external": "From your phone",
   "outbox.theyWrote": "They wrote",
   "outbox.trace": "Your voice · {n} examples · facts: {facts}",
   "outbox.trace.plain": "Neutral voice (no style learned) · facts: {facts}",

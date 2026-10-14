@@ -1,10 +1,21 @@
 export type WaStatus = "disconnected" | "connecting" | "qr" | "connected" | "logged_out";
 
+/** A message the owner typed on their own phone or WhatsApp Web (not sent by Prospex). */
+export type OwnWhatsappMessage = InboundWhatsappMessage;
+
 export interface InboundWhatsappMessage {
   phone: string;
   text: string;
   id: string;
   at: Date;
+}
+
+/** What can go with a message besides its text. A provider that cannot send these must refuse, never drop them silently. */
+export interface SendExtras {
+  /** A file sent with the text as its caption. */
+  attachment?: { data: Buffer; mimeType: string; fileName: string; kind: "image" | "video" | "document" };
+  /** The card shown under a link in the text (ignored when a file is attached: WhatsApp shows no card on a caption). */
+  linkPreview?: { url: string; title: string; description: string; thumbnail?: Buffer };
 }
 
 /** Thrown when the account is not connected right now. The sender puts the message back in the queue instead of failing it. */
@@ -21,8 +32,10 @@ export interface WhatsappProvider {
   /** Returns the address to send to, or null when the number is not on WhatsApp. */
   resolve(workspaceId: string, phone: string): Promise<string | null>;
   /** Shows "typing…" for `typingMs`, then sends one text message. Returns the provider message id. */
-  send(workspaceId: string, to: string, text: string, typingMs: number): Promise<string>;
+  send(workspaceId: string, to: string, text: string, typingMs: number, extras?: SendExtras): Promise<string>;
   onInbound(handler: (workspaceId: string, msg: InboundWhatsappMessage) => Promise<void>): void;
+  /** Optional: told about messages the owner sends from their phone, so the conversation is complete. */
+  onOwnMessage?(handler: (workspaceId: string, msg: OwnWhatsappMessage) => Promise<void>): void;
 }
 
 export type WhatsappProviderName = "baileys" | "cloud_api";

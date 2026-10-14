@@ -30,7 +30,7 @@ export function I18nProvider({ initial, children }: { initial: Lang; children: R
 
   const t = useCallback<I18n["t"]>(
     (key, vars) => {
-      let s = dictionaries[lang][key] ?? enAll[key];
+      let s = dictionaries[lang][key] ?? enAll[key] ?? key; // a missing key shows its name instead of crashing the page
       if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
       return s;
     },

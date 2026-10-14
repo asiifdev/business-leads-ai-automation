@@ -11,7 +11,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ArrowLeft, Download, Users, Star, TrendingUp, MapPin, Loader2, Search, List, Map as MapIcon } from "lucide-react";
 import { useCampaign } from "@/hooks/use-campaigns";
-import { useLeads } from "@/hooks/use-leads";
+import { useLeads, useLeadMap } from "@/hooks/use-leads";
+import { Input } from "@/components/ui/input";
+import { Pager, LEADS_PAGE_SIZE } from "@/components/leads/pager";
 import { CampaignConfig } from "@/components/campaigns/campaign-config";
 import { LeadsTable } from "@/components/leads/leads-table";
 import { api } from "@/lib/api";
@@ -43,7 +45,13 @@ export function CampaignDetail({ id }: { id: string }) {
       setEnrichNote(r.processed === 0 ? t("leads.enrich.campaignNone") : t("leads.enrich.campaignDone", { n: r.processed, email: r.withEmail, wa: r.withWhatsapp }));
     } catch (e) { setEnrichNote((e as Error).message); } finally { setEnriching(false); }
   };
-  const { leads, loading: leadsLoading, refresh: refreshLeads } = useLeads({ campaignId: id });
+  const [page, setPage] = useState(1);
+  const [tab, setTab] = useState("list");
+  const [search, setSearch] = useState("");
+  const [q, setQ] = useState("");
+  useEffect(() => { const h = setTimeout(() => { setQ(search.trim()); setPage(1); }, 350); return () => clearTimeout(h); }, [search]);
+  const { leads, total: leadsTotal, loading: leadsLoading, refresh: refreshLeads } = useLeads({ campaignId: id, q: q || undefined, page, limit: LEADS_PAGE_SIZE });
+  const leadMap = useLeadMap({ campaignId: id, q: q || undefined }, tab === "map");
 
   // Poll while campaign is running
   useEffect(() => {
@@ -162,10 +170,10 @@ export function CampaignDetail({ id }: { id: string }) {
 
       <motion.div variants={item}>
         <Card>
-          <Tabs defaultValue="list">
+          <Tabs value={tab} onValueChange={setTab}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base">{t("camp.detail.leadsTitle", { n: leads.length })}</CardTitle>
+                <CardTitle className="text-base">{t("camp.detail.leadsTitle", { n: leadsTotal })}</CardTitle>
                 <div className="flex items-center gap-2">
                   <TabsList>
                     <TabsTrigger value="list" className="text-xs">
@@ -175,23 +183,25 @@ export function CampaignDetail({ id }: { id: string }) {
                       <MapIcon className="mr-1 w-3 h-3" />{t("camp.detail.tabMap")}
                     </TabsTrigger>
                   </TabsList>
-                  <Button variant="outline" size="sm" className="text-xs">
-                    <Search className="mr-1 w-3 h-3" />{t("camp.detail.filter")}
-                  </Button>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("leads.list.search")} className="h-8 w-64 pl-7 text-xs" />
+                  </div>
                 </div>
               </div>
             </CardHeader>
             <TabsContent value="list" className="mt-0">
               <CardContent className="p-0">
                 <LeadsTable leads={leads} loading={leadsLoading} />
+                <Pager page={page} total={leadsTotal} loading={leadsLoading} onPage={setPage} />
               </CardContent>
             </TabsContent>
             <TabsContent value="map" className="mt-0">
               <CardContent className="p-0">
-                {leadsLoading ? (
+                {leadMap.loading ? (
                   <div className="h-[520px] w-full animate-pulse bg-muted" />
                 ) : (
-                  <LeadsMap leads={leads} />
+                  <LeadsMap leads={leadMap.points} />
                 )}
               </CardContent>
             </TabsContent>

@@ -45,3 +45,6 @@ _legacy/
 
 # Playwright MCP scratch output
 .playwright-mcp/
+
+# uploaded WhatsApp attachments
+.attachments/

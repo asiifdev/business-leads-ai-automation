@@ -89,7 +89,8 @@ export function normalizeDraft(raw: string, opts: NormalizeOptions = {}): string
   let out = raw.replace(/[ \t]+/g, " ").replace(/ +([,.!?;:])/g, "$1").replace(/[ \t]+\n/g, "\n").trim();
   const lang = opts.language && opts.language !== "auto" ? opts.language : looksIndonesian(out) ? "indonesian" : "english";
   if (lang === "indonesian") out = indonesianRules(out);
-  out = out.split("\n").map((l) => ensureTerminalPunctuation(l, lang === "english")).join("\n");
+  // list items and quotes are fragments, not sentences: no full stop is added to them
+  out = out.split("\n").map((l) => (/^(- |\d{1,2}\. |> )/.test(l.trimStart()) ? l : ensureTerminalPunctuation(l, lang === "english"))).join("\n");
   out = capitalizeSentences(out);
   for (const name of (opts.names ?? []).filter((n) => n && n.trim().length >= 3)) {
     const escaped = name.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

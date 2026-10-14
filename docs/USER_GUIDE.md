@@ -216,9 +216,11 @@ Progress diupdate otomatis setiap 2 detik:
 Masuk ke **Leads** di sidebar untuk melihat semua leads dari semua campaign.
 
 **Filter tersedia:**
-- Search by name/address
+- Kolom cari: nama, alamat, nomor telepon (mengetik "0812" juga menemukan nomor yang tersimpan sebagai 62812), website, email, kategori, dan wilayah
 - Priority: HIGH / MEDIUM / LOW
-- CRM Status: New / Contacted / Replied / Meeting / Won / Lost
+- CRM Status: New / Contacted / Replied / Interested / Meeting / Won / Lost
+- **Provinsi, Kabupaten/Kota, dan Kecamatan**: dihitung dari koordinat tiap lead (alamat Google Maps jarang menyebut kota). Tombol **Klasifikasi wilayah N lead** menjalankannya di latar belakang; lead dari scrape baru diproses otomatis. Layanan gratis yang dipakai membatasi satu permintaan per detik, jadi ratusan lead butuh beberapa menit. Atur `GEOCODER_URL` ke Nominatim sendiri agar lebih cepat.
+- Tab **Daftar / Peta**: daftar dibagi per halaman ("Halaman 1 dari 17") dan peta menampilkan **semua** lead yang punya koordinat, bukan hanya halaman pertama.
 
 ### Prioritas leads
 
@@ -341,7 +343,13 @@ Gunakan **nomor khusus bisnis**. Koneksi perangkat tertaut tidak resmi, dan What
 
 Lead yang nomornya tidak valid, sudah pernah dihubungi, atau sudah berhenti dilewati otomatis. Setiap pesan pertama dan tindak lanjut diakhiri baris "balas STOP".
 
-Pesan WhatsApp pertama dibuat singkat (3 sampai 4 kalimat): kalimat pertama menyebut siapa Anda dan apa yang ditawarkan dengan kata sehari-hari, lalu satu hal yang relevan, satu hal konkret dari brief, dan satu pertanyaan ringan. Dalam uji nyata, pesan yang langsung membuka dengan pertanyaan tanpa perkenalan dikira pelanggan yang mau menyewa. Baca setiap draf; model kecil kadang menafsirkan rating atau memakai kalimat kaku (draf seperti itu ditandai kuning).
+Pesan WhatsApp pertama tidak dibatasi jumlah karakternya; yang penting setiap kalimat berguna. Kalimat pertama menyebut siapa Anda dan apa yang ditawarkan dengan kata sehari-hari. Kalau yang Anda tawarkan **jasa** (misalnya agensi yang membuat sistem sesuai pesanan), pesan memperkenalkan perusahaan, menyebut cakupan layanannya dengan nama yang awam, lalu mengajak berdiskusi; tidak menawarkan "contoh tampilan" atau demo yang belum ada. Kalau yang Anda tawarkan **produk jadi**, pesan boleh menawarkan contoh atau demo. Dalam uji nyata, pesan yang langsung membuka dengan pertanyaan tanpa perkenalan dikira pelanggan yang mau menyewa. Baca setiap draf; model kecil kadang menafsirkan rating atau memakai kalimat kaku (draf seperti itu ditandai kuning).
+
+### Format, lampiran, dan preview tautan
+
+- **Format WhatsApp** dipertahankan: `*tebal*`, `_miring_`, `~coret~`, daftar dengan `- `, dan baris kosong antarparagraf. Outbox menampilkan setiap pesan sebagai gelembung WhatsApp: file atau kartu tautan di atas, teks di bawahnya, dan baris "balas STOP" sebagai catatan kecil.
+- **Lampiran**: saat menyunting draf (atau di panel "Satu pesan untuk banyak lead") pilih **Unggah file**: PDF, JPG, PNG, WebP, MP4, DOCX, XLSX, atau PPTX, maksimal 16 MB. Jenis file dibaca dari isinya, bukan dari namanya. Teks pesan menjadi keterangan file; bila lebih dari 1.024 karakter (batas WhatsApp), teks dikirim sebagai pesan terpisah tepat setelah file. File yang masih dipakai pesan yang menunggu tidak bisa dihapus. Email belum mendukung lampiran.
+- **Preview tautan**: tautan di dalam pesan otomatis mendapat kartu (judul, deskripsi, gambar) yang Anda lihat sebelum menyetujui. Matikan dengan kotak centang bila tidak mau. Halaman yang tidak bisa dibaca dikirim tanpa kartu.
 
 ### Satu pesan untuk banyak lead
 
@@ -373,8 +381,11 @@ Prospex otomatis menjeda pengiriman setelah 3 kegagalan berturut-turut. Tombol *
 ### Balasan dan tindak lanjut
 
 - **Lead membalas**: Prospex memahami maksudnya (tertarik, minta bertemu, tanya harga, pertanyaan, belum sekarang, tidak tertarik), memajukan statusnya (tidak pernah memundurkan), menandainya "menunggu jawaban Anda", membatalkan tindak lanjut yang tertunda, dan membuat **draf balasan** di tab Tinjau dengan pesan pelanggan dikutip di atasnya. Draf balasan ditulis sopan dan rendah hati (Anda pihak yang menawarkan): tanpa emoji, tanpa perintah, tanpa menebak sapaan. Anda tetap yang menyetujui, dan balasan yang disetujui **langsung dikirim, mendahului antrean pesan pertama** dan tidak terkena batas per jam.
+- **Prospex membaca seluruh percakapan**: gelembung yang ditulis berdekatan (selisih paling lama 3 menit) dijawab sebagai satu pesan, sapaan otomatis toko dan chat lama hanya menjadi riwayat, keterangan foto dan kartu kontak ikut terbaca. Draf ditulis sekitar 20 detik setelah gelembung terakhir, **menggantikan draf lama** yang masih menunggu, dan tidak dibuat kalau Anda sudah menjawab.
+- **Anda membalas dari ponsel sendiri**: pesan itu dicatat (hanya untuk nomor yang ada di daftar lead; chat pribadi lain diabaikan dan tidak disimpan), lead tidak lagi "menunggu jawaban Anda", draf yang basi ditarik, dan draf berikutnya tahu apa yang sudah Anda katakan. Pesan ini tidak dihitung ke batas kirim per jam dan per hari.
+- **Dialihkan ke kontak lain** ("silakan hubungi management kami", atau mereka membagikan kartu kontak): balasannya ucapan terima kasih yang tetap (atau permintaan nomor), nomornya disimpan di riwayat aktivitas lead, dan tombol **Tambahkan sebagai lead** membuatnya sebagai lead sendiri, satu kali saja untuk nomor yang sama.
 - **Sapaan otomatis toko** ("Terima kasih telah menghubungi…", "mohon menunggu", jam buka, menu panjang) dikenali dan hanya dicatat: status tidak berubah dan tidak dibuatkan draf.
-- **Pelanggan menulis STOP** (atau "berhenti", "unsubscribe", dan sejenisnya): nomornya diblokir permanen, semua pesan yang menunggu dibatalkan, dan lead ditutup sebagai Gagal dengan alasan "Meminta berhenti (STOP)".
+- **Pelanggan menulis STOP** (atau "berhenti", "unsubscribe", dan sejenisnya, termasuk di dalam kalimat pendek seperti "Maaf kak belum ya STOP"): nomornya diblokir permanen, semua pesan yang menunggu dibatalkan, dan lead ditutup sebagai Gagal dengan alasan "Meminta berhenti (STOP)".
 - **Lead diam**: Prospex membuat draf tindak lanjut setelah 3 hari, dan satu lagi 5 hari kemudian. Maksimal dua. Tombol **Cek tindak lanjut** menjalankannya sekarang.
 - Pesan dari nomor yang tidak dikenal disimpan tapi tidak dijawab. WhatsApp kadang menyembunyikan nomor pengirim; pesan itu tampil di halaman **Pipeline** di kartu "Pesan dari pengirim tak dikenal" dan tidak bisa dicocokkan dengan lead, jadi kalau isinya STOP, keluarkan bisnis itu dari daftar Anda secara manual.
 
@@ -408,6 +419,8 @@ Menu **Pipeline** menunjukkan seluruh perjalanan lead:
 - **Menunggu jawaban Anda**: lead yang membalas dan belum Anda tangani, dengan maksudnya (mis. "Menanyakan harga"). **Waktunya follow-up**: tanggal yang Anda atau sistem tetapkan sudah lewat. **Sepi**: dihubungi lebih dari 7 hari tanpa balasan.
 - **Per kampanye**: jumlah lead, dihubungi, membalas, menang. **Alasan deal gagal**: dihitung dari kolom alasan.
 - **Pesan dari pengirim tak dikenal** (bila ada).
+- **Menunggu mereka**: lead yang sudah membalas (tahap Membalas sampai Proposal) dan **Anda yang terakhir menjawab**, tetapi sudah lebih dari 3 hari tidak ada balasan. Hanya pengingat untuk Anda; tidak ada draf otomatis, karena lead seperti ini sedang dalam proses (misalnya diminta mengisi formulir) dan bukan prospek dingin.
+- **Baca ulang percakapan**: tombol di bagian atas halaman membaca ulang setiap percakapan secara utuh (termasuk balasan Anda dari ponsel). Pertama muncul **pratinjau**: berapa percakapan akan berubah, berapa yang sudah Anda balas, label baru, tahap yang naik, dan draf usang yang ditarik. Tidak ada yang berubah sampai Anda menekan **Terapkan**. Pratinjau juga menunjukkan dua hal yang paling penting: **lead yang hanya mengirim sapaan otomatis toko** (dikembalikan ke "Sudah dihubungi", karena itu bukan balasan) dan **nomor yang sudah meminta berhenti tetapi belum diblokir** (akan diblokir dan ditutup sebagai Gagal). Label yang sudah spesifik tidak pernah ditimpa "other". Tahap yang diberi otomatis dan ternyata tidak pernah tercapai (misalnya "Meeting" karena kata "jadwal") diturunkan, sedangkan tahap yang Anda pilih sendiri tidak pernah diturunkan. Percakapan yang berlanjut dengan jawaban Anda yang tidak terekam (diketik dari ponsel sebelum fitur perekaman ada) dibiarkan apa adanya dan dilaporkan sebagai "tidak lengkap". Di kartu "Menunggu jawaban Anda", tombol **Sudah saya jawab** di tiap baris menandai lead yang sudah Anda balas dari ponsel. Ucapan sopan ("Ok kk", "makasih ka") tidak dihitung menunggu jawaban. Hasilnya: lead yang sudah Anda balas tidak lagi menunggu, label sesuai isi percakapan, tahap hanya maju, dan draf untuk pesan yang sudah terlewati diganti draf baru bila masih ada yang perlu dijawab.
 
 Di halaman detail lead, selain status ada **Nilai deal**, **Follow-up pada**, **Kenapa gagal?** (muncul saat status Gagal), dan tombol **Tandai balasan sudah ditangani**. Deal tidak pernah ditutup otomatis, kecuali permintaan berhenti (STOP) yang ditutup sebagai Gagal.
 
@@ -423,7 +436,7 @@ Status otomatis mencatat timestamp (misal: `contactedAt`, `repliedAt`, `closedAt
 ### Alur CRM yang disarankan
 
 ```
-New → Contacted → Replied → Meeting → Proposal → Won
+New → Contacted → Replied → Interested → Meeting → Proposal → Won
                                                  ↘ Lost
 ```
 
@@ -432,6 +445,7 @@ New → Contacted → Replied → Meeting → Proposal → Won
 | **New** | Baru ditemukan, belum dihubungi |
 | **Contacted** | Sudah kirim pesan/email pertama |
 | **Replied** | Prospek sudah reply/response |
+| **Interested (Tertarik)** | Menyetujui tawaran Anda (mis. "boleh" atas tawaran contoh) atau meminta contoh/info. Naik otomatis dari balasan, tidak pernah mundur |
 | **Meeting** | Sudah jadwal meeting/demo |
 | **Proposal** | Sudah kirim penawaran |
 | **Won** | Deal closed, jadi customer |

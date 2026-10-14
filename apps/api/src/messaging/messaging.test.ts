@@ -99,7 +99,7 @@ test("classifyReply understands common Indonesian and English replies", () => {
   assert.equal(classifyReply("Nanti ya, bulan depan saja"), "not_now");
   assert.equal(classifyReply("Tertarik, kirimkan info lengkapnya"), "interested");
   assert.equal(classifyReply("Ini untuk sewa kamera juga bisa?"), "question");
-  assert.equal(classifyReply("ok"), "other");
+  assert.equal(classifyReply("ok"), "ack");
   assert.equal(classifyReply("Tell me more"), "interested");
 });
 
@@ -123,7 +123,7 @@ test("stripMarkdown removes symbols that would show literally in a message", () 
 import { withLink } from "./message-writer.service";
 
 test("withLink puts the owner's link before the closing", () => {
-  assert.equal(withLink("Halo,\n\nIsi.\n\nSalam,", "https://invly.id/", "indonesian"), "Halo,\n\nIsi.\n\nSelengkapnya: https://invly.id/\n\nSalam,");
+  assert.equal(withLink("Halo,\n\nIsi.\n\nSalam,", "https://example.com/", "indonesian"), "Halo,\n\nIsi.\n\nSelengkapnya: https://example.com/\n\nSalam,");
   assert.equal(withLink("Hello,\n\nBody.", "https://x.id/", "english"), "Hello,\n\nBody.\n\nMore details: https://x.id/");
 });
 
@@ -179,4 +179,90 @@ test("only well-fitting businesses get a draft by default", () => {
   assert.equal(fitAllowed("medium", false), false);
   assert.equal(fitAllowed("medium", true), true);
   assert.equal(fitAllowed("low", true), false);
+});
+
+test("short agreements and requests for an example count as interest, in context", () => {
+  for (const t of ["boleh kak", "Boleh", "bisa dibuatkan contohnya", "Bisa kak, dibuatkan contohnya", "kirim aja kak", "silakan kak", "dikirim saja", "mau lihat contohnya", "monggo", "bisa dishare plny", "Kirim.contoh", "Tolong kirim contohnya🙏", "minta infonya dong"]) {
+    assert.equal(classifyReply(t, { lastMine: "Boleh saya kirim contohnya, Kak?" }), "interested", t);
+  }
+  assert.equal(classifyReply("iya kak", { lastMine: "Boleh saya kirim contohnya, Kak?" }), "interested");
+  assert.equal(classifyReply("ok", { lastMine: "Boleh saya kirim contohnya, Kak?" }), "interested");
+  assert.equal(classifyReply("ok"), "ack");
+});
+
+test("a yes to an offered call or demo is a meeting", () => {
+  assert.equal(classifyReply("boleh kak", { lastMine: "Mau saya tunjukkan demo singkatnya?" }), "meeting");
+  assert.equal(classifyReply("iya", { lastMine: "Boleh kita ngobrol singkat lewat telepon?" }), "meeting");
+});
+
+test("a refusal or a shop greeting is not read as interest", () => {
+  assert.equal(classifyReply("belum butuh kak", { lastMine: "Boleh saya jelaskan singkat?" }), "not_interested");
+  assert.equal(classifyReply("Terima kasih telah menghubungi Toko Maju. Jam operasional 08.00-17.00", { lastMine: "Boleh saya kirim contohnya?" }), "auto_reply");
+});
+
+test("a quick, clear reply is not mistaken for a shop bot", () => {
+  assert.equal(looksAutomaticByTiming("bisa dibuatkan contohnya", 20_000), false);
+  assert.equal(looksAutomaticByTiming("boleh kak", 10_000), false);
+  assert.equal(looksAutomaticByTiming("Halo kak, ada yang bisa kami bantu", 10_000), true);
+});
+
+test("parseIntent reads a label from the model's answer and rejects anything else", async () => {
+  const { parseIntent } = await import("./reply-intent");
+  assert.equal(parseIntent("interested"), "interested");
+  assert.equal(parseIntent("Label: meeting."), "meeting");
+  assert.equal(parseIntent("saya tidak tahu"), null);
+});
+
+test("a price objection or comparison is a price conversation, not an unknown reply", () => {
+  for (const t of ["Mahal", "kemahalan kak", "bisa nego?", "Di aplikasi lain cuma 85rban", "ada yang lebih murah?"]) {
+    assert.equal(classifyReply(t, { lastMine: "Setelah trial, biayanya Rp. 100.000/bulan." }), "price", t);
+  }
+  assert.equal(classifyReply("Berapa kak biayanya"), "price");
+});
+
+test("being pointed to another contact is its own kind of reply", () => {
+  for (const t of ["halo untuk penawaran bisa hubungi management kita langsung ya", "silakan hubungi owner kami", "[Kontak: Contoh +628120000000]", "bisa langsung chat ke nomor ini ya", "untuk kerjasama hubungi bagian marketing"]) {
+    assert.equal(classifyReply(t), "referral", t);
+  }
+  assert.equal(classifyReply("Terima kasih telah menghubungi kami. Jam operasional 08.00-17.00"), "auto_reply");
+  assert.equal(classifyReply("kami sudah punya sistem sendiri"), "not_interested");
+  assert.equal(planReplyOutcome("contacted", "referral").needsReply, true);
+});
+
+test("a schedule mentioned earlier in our pitch does not make a yes a meeting; only what we last asked does", () => {
+  const pitch = "Halo, Kak. Saya dari contoh.id, kami punya sistem sewa. Jadwal unit bisa langsung dilihat dan jadwal servis tercatat. Boleh saya kirim contoh tampilannya, Kak?";
+  assert.equal(classifyReply("Boleh", { lastMine: pitch }), "interested");
+  assert.equal(classifyReply("boleh kak", { lastMine: "Kami punya sistem sewa. Mau saya tunjukkan demo singkatnya?" }), "meeting");
+  assert.equal(classifyReply("iya", { lastMine: "Jadwal sewa terlihat jelas. Boleh kita diskusikan singkat lewat telepon?" }), "meeting");
+});
+
+test("a shop's bot connecting us to its team is an automatic message, not someone pointing us elsewhere", () => {
+  assert.equal(classifyReply("Saya sudah menghubungkan Anda dengan tim kami."), "auto_reply");
+  assert.equal(classifyReply("Pesan Anda telah kami teruskan kepada kakak ya"), "auto_reply");
+  assert.equal(classifyReply("silakan hubungi management kami langsung"), "referral");
+});
+
+test("an interested reply is its own stage, after a plain reply and before a meeting, and never moves backwards", () => {
+  assert.equal(planReplyOutcome("contacted", "interested").stage, "interested");
+  assert.equal(planReplyOutcome("replied", "interested").stage, "interested");
+  assert.equal(planReplyOutcome("interested", "interested").stage, null);
+  assert.equal(planReplyOutcome("meeting", "interested").stage, null);
+  assert.equal(planReplyOutcome("interested", "meeting").stage, "meeting");
+  assert.equal(planReplyOutcome("won", "interested").stage, null);
+  assert.equal(planReplyOutcome("contacted", "price").stage, "replied");
+});
+
+test("a shop's greeting bots are automatic messages, and 'coba, seperti apa' is interest", () => {
+  for (const t of ["Thank you for your message.  Chat nanti dibalas yah kak!  Wait for a moment", "Hi saya Contoh dari Toko Contoh, silahkan apa yang bisa saya bantu?", "SILAHKAN BERI TAU APA YANG BISA TOKO CONTOH BANTU?", "Apakah Bpk/Ibu masih terhubung dengan kami saat ini? Apabila tidak ada lagi yang dapat kami bantu, kami akan menutup sesi", "Format Informasi dan Reservasi\n1. Nama:\n2. Kota:\n3. Tanggal:"]) {
+    assert.equal(classifyReply(t), "auto_reply", t);
+  }
+  assert.equal(classifyReply("Coba ka seperti apa"), "interested");
+});
+
+test("a polite closing is a reply nobody has to answer, but a yes to our question is still a yes", () => {
+  for (const t of ["Ok kk", "Ok ka tks", "oke siap kak, maksih info nya kak", "baik, sama-sama kak", "makasih ya kak"]) assert.equal(classifyReply(t, { lastMine: "Ini contohnya ya kak." }), "ack", t);
+  assert.equal(classifyReply("Ok kk", { lastMine: "Boleh saya kirim contohnya?" }), "interested");
+  assert.equal(planReplyOutcome("contacted", "ack").needsReply, false);
+  assert.equal(planReplyOutcome("contacted", "ack").stage, "replied");
+  assert.equal(classifyReply("oke siap kak, kami sampaikan ke atasan dulu ya"), "other");
 });

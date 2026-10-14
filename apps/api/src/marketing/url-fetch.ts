@@ -208,8 +208,8 @@ export function htmlToText(rawHtml: string): { title: string; text: string } {
   return { title, text: parts.slice(0, MAX_TEXT_CHARS) };
 }
 
-async function readLimited(body: ReadableStream<Uint8Array> | null, maxBytes = MAX_BYTES): Promise<string> {
-  if (!body) return "";
+async function readLimitedBytes(body: ReadableStream<Uint8Array> | null, maxBytes = MAX_BYTES): Promise<Buffer> {
+  if (!body) return Buffer.alloc(0);
   const reader = body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -223,20 +223,22 @@ async function readLimited(body: ReadableStream<Uint8Array> | null, maxBytes = M
     }
     chunks.push(value);
   }
-  return Buffer.concat(chunks).toString("utf-8");
+  return Buffer.concat(chunks);
 }
 
 export interface FetchedResource {
   url: string;
   type: string;
   body: string;
+  /** The raw bytes, for images and other files. */
+  bytes: Buffer;
 }
 
 /**
  * Fetches one public resource with every safety limit applied (public addresses only, redirects re-validated,
  * size and time caps, content-type allow-list). Returns the raw body.
  */
-export async function fetchResource(rawUrl: string, opts: { types?: RegExp; maxBytes?: number } = {}): Promise<FetchedResource> {
+export async function fetchResource(rawUrl: string, opts: { types?: RegExp; maxBytes?: number; accept?: string } = {}): Promise<FetchedResource> {
   const types = opts.types ?? ALLOWED_TYPES;
   const maxBytes = opts.maxBytes ?? MAX_BYTES;
   let url = validatePublicUrl(rawUrl);
@@ -247,7 +249,7 @@ export async function fetchResource(rawUrl: string, opts: { types?: RegExp; maxB
         dispatcher: agent,
         redirect: "manual",
         signal: AbortSignal.timeout(TIMEOUT_MS),
-        headers: { "user-agent": "ProspexBot/1.0 (+https://github.com/asiifdev/business-leads-ai-automation)", accept: "text/html,text/plain,text/markdown,application/xml,text/xml;q=0.9,*/*;q=0.1" },
+        headers: { "user-agent": "ProspexBot/1.0 (+https://github.com/asiifdev/business-leads-ai-automation)", accept: opts.accept ?? "text/html,text/plain,text/markdown,application/xml,text/xml;q=0.9,*/*;q=0.1" },
       });
     } catch (e) {
       const code = (e as { cause?: { code?: string } }).cause?.code;
@@ -261,8 +263,8 @@ export async function fetchResource(rawUrl: string, opts: { types?: RegExp; maxB
     if (!res.ok) throw new BadRequestException(`The page answered with status ${res.status}.`);
     const type = res.headers.get("content-type") ?? "";
     if (!types.test(type)) throw new BadRequestException("Only web pages and plain text are supported. Download other documents as .md or .txt and upload them.");
-    const body = await readLimited(res.body as ReadableStream<Uint8Array> | null, maxBytes);
-    return { url: url.toString(), type, body };
+    const bytes = await readLimitedBytes(res.body as ReadableStream<Uint8Array> | null, maxBytes);
+    return { url: url.toString(), type, body: bytes.toString("utf-8"), bytes };
   }
   throw new BadRequestException("Too many redirects");
 }

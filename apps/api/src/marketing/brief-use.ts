@@ -7,6 +7,8 @@ export interface BriefForDraft {
   /** Only items that passed the grounding check when the brief was made. */
   proof: string[];
   wordsToAvoid: string[];
+  /** Who the seller is, from the brief: the only source for "what we do" in an introduction. */
+  profile?: { category: string; oneLiner: string; whatItDoes: string; callToAction: string };
 }
 
 const tokens = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length >= 4);
@@ -28,7 +30,23 @@ export function briefForDraft(summary: string, content: BriefContent, lead: { na
     angle: pickAngle(content.angles ?? [], lead.name, lead.category),
     proof: [...(content.proof?.customers ?? []).slice(0, 3), ...(content.proof?.metrics ?? []).slice(0, 2)],
     wordsToAvoid: content.voice?.wordsToAvoid ?? [],
+    profile: content.overview?.oneLiner || content.overview?.whatItDoes
+      ? { category: content.overview.category ?? "", oneLiner: content.overview.oneLiner ?? "", whatItDoes: content.overview.whatItDoes ?? "", callToAction: content.offer?.callToAction ?? "" }
+      : undefined,
   };
+}
+
+/** Nouns in an enumeration after "seperti / mulai dari / misalnya / antara lain / yaitu", split on commas and "dan / hingga / atau". */
+export function offerListWords(texts: (string | null | undefined)[]): string[] {
+  const out = new Set<string>();
+  for (const text of texts) {
+    if (!text) continue;
+    for (const m of text.slice(0, 3000).matchAll(/(?:seperti|misalnya|mulai\s+dari|antara\s+lain|yaitu)\s+([^.;:\n]{4,160})/gi)) {
+      if (!m[1].includes(",")) continue; // one item is not a list
+      for (const part of m[1].split(/,|\bdan\b|\bhingga\b|\bsampai\b|\batau\b|—|\bserta\b/i)) for (const w of tokens(part)) out.add(w);
+    }
+  }
+  return [...out];
 }
 
 const GENERIC_WORDS = new Set(["rental", "sewa", "penyewaan", "persewaan", "usaha", "bisnis", "alat", "peralatan", "layanan", "toko", "jasa", "agen", "service", "shop", "store", "perlengkapan", "barang"]);
@@ -37,13 +55,17 @@ const GENERIC_WORDS = new Set(["rental", "sewa", "penyewaan", "persewaan", "usah
  * Words that belong to ANOTHER kind of business in the brief (say "kebaya" for a costume shop) but appear in a draft.
  * A word counts as another business's when it is in exactly one brief segment and not in this lead's own name or category.
  */
-export function foreignVerticalWords(draft: string, lead: { name: string; category?: string | null }, angles: BriefContent["angles"]): string[] {
+export function foreignVerticalWords(draft: string, lead: { name: string; category?: string | null }, angles: BriefContent["angles"], offerTexts: (string | null | undefined)[] = []): string[] {
   const own = new Set(tokens(`${lead.name} ${lead.category ?? ""}`));
   const mine = pickAngle(angles ?? [], lead.name, lead.category);
   const count = new Map<string, number>();
   for (const a of angles ?? []) for (const w of new Set(tokens(a.segment))) count.set(w, (count.get(w) ?? 0) + 1);
   const mineWords = new Set(mine ? tokens(mine.segment) : []);
   const wanted = new Set([...count].filter(([w, n]) => n === 1 && !GENERIC_WORDS.has(w) && !mineWords.has(w) && !own.has(w) && ![...own].some((o) => o.startsWith(w) || w.startsWith(o))).map(([w]) => w));
+  // kinds of business named in a list inside the offer ("kamera, kebaya, alat event, hingga mobil dan motor") that are not this lead's own
+  for (const w of offerListWords(offerTexts)) {
+    if (!GENERIC_WORDS.has(w) && !own.has(w) && ![...own].some((o) => o.startsWith(w) || w.startsWith(o)) && !mineWords.has(w)) wanted.add(w);
+  }
   const said = new Set(tokens(draft));
   return [...wanted].filter((w) => said.has(w));
 }

@@ -41,3 +41,14 @@ test("a draft that names another kind of business is caught", () => {
   assert.deepEqual(foreignVerticalWords("Kami bantu jadwal sewa kamera dan lensa.", { name: "Zona Kamera", category: "Toko Elektronik" }, angles), []);
   assert.deepEqual(foreignVerticalWords("Kami bantu jadwal sewa kamera, fotografi, dan mobil.", { name: "Rental Kamera Medan", category: "Penyewaan alat" }, angles), ["mobil"]);
 });
+
+test("kinds of business listed in the offer are foreign to a lead that is none of them", async () => {
+  const { foreignVerticalWords, offerListWords } = await import("./brief-use");
+  const offer = "Kami membuat sistem sewa untuk semua jenis usaha, mulai dari kamera, kebaya, alat event, hingga mobil dan motor.";
+  assert.deepEqual(offerListWords([offer]).includes("kebaya"), true);
+  const lead = { name: "Penyewaan Jas Pria Solo", category: "Penyewaan jas" };
+  assert.deepEqual(foreignVerticalWords("Sistem kami cocok untuk sewa kebaya dan jas.", lead, [], [offer]), ["kebaya"]);
+  assert.deepEqual(foreignVerticalWords("Sistem kami cocok untuk usaha sewa jas.", lead, [], [offer]), []);
+  // a sentence without a list adds nothing
+  assert.deepEqual(offerListWords(["Kami membantu untuk mengotomatisasi proses bisnis, seperti pencatatan."]), []);
+});

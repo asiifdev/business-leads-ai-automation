@@ -8,11 +8,15 @@ const PATTERNS = [
   /\b(tolong\s+)?(berhenti|stop)\s+(kirim|chat|hubungi)/i,
 ];
 
+/** A short message that contains the word itself: people answer our own "balas STOP" line inside a sentence ("Maaf kak belum ya STOP", "ok stop"). */
+const SHORT_PATTERNS = [/(?<!\bbus\s)\bstop\b/i, /\bberhenti\b/i, /\bunsubscribe\b/i, /\bjangan\s+ganggu\b/i];
+const SHORT_MAX = 80;
+
 /** True when an incoming message asks not to be contacted again. Deliberately conservative: a false positive only stops one conversation. */
 export function isOptOut(text: string): boolean {
   const t = text.trim();
   if (!t || t.length > 300) return false;
-  return PATTERNS.some((p) => p.test(t));
+  return PATTERNS.some((p) => p.test(t)) || (t.length <= SHORT_MAX && SHORT_PATTERNS.some((p) => p.test(t)));
 }
 
 /** Line added to first-contact drafts so the recipient always has a way out. */

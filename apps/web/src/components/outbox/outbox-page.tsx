@@ -201,7 +201,7 @@ export function OutboxPage() {
               onReject={(id) => run(async () => { await api.post("/messaging/outbox/reject", { ids: [id] }); })}
               onCancel={(id) => run(async () => { await api.post("/messaging/outbox/cancel", { ids: [id] }); })}
               onRetry={(id) => run(async () => { await api.post(`/messaging/outbox/${id}/retry`, {}); })}
-              onSave={async (id, body, subject) => { try { await api.patch(`/messaging/outbox/${id}`, { body, ...(subject !== undefined ? { subject } : {}) }); await load(); } catch (e) { toast.error((e as Error).message); throw e; } }} />
+              onSave={async (id, body, subject, extras) => { try { await api.patch(`/messaging/outbox/${id}`, { body, ...(subject !== undefined ? { subject } : {}), ...(extras ?? {}) }); await load(); } catch (e) { toast.error((e as Error).message); throw e; } }} />
           ))}
         </ul>
       )}

@@ -6,6 +6,9 @@ import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { WhatsappBubble } from "./whatsapp-bubble";
+import { AttachmentPicker } from "./attachment-picker";
+import { LinkPreviewControl, firstUrl } from "./link-preview-card";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -30,13 +33,16 @@ export function TemplatePanel({ channel, onCreated }: { channel: Channel; onCrea
   const [body, setBody] = useState("");
   const [writing, setWriting] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [attachmentId, setAttachmentId] = useState<string | null>(null);
+  // null = automatic: a link in the message gets its card unless the owner turns it off
+  const [cardChoice, setCardChoice] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (open) api.get<Category[]>("/messaging/templates/categories").then(setCats).catch(() => undefined);
   }, [open]);
 
   const loadLeads = useCallback(() => {
-    const qs = new URLSearchParams({ channel, ...(category ? { category } : {}), ...(q.trim() ? { q: q.trim() } : {}), limit: "300" });
+    const qs = new URLSearchParams({ channel, ...(category ? { category } : {}), ...(q.trim() ? { q: q.trim() } : {}), limit: "500" });
     api.get<LeadRow[]>(`/messaging/templates/leads?${qs}`).then((r) => { setLeads(r); setPicked(new Set()); }).catch((e: Error) => toast.error(e.message));
   }, [channel, category, q]);
   useEffect(() => {
@@ -45,6 +51,8 @@ export function TemplatePanel({ channel, onCreated }: { channel: Channel; onCrea
     return () => clearTimeout(id);
   }, [open, loadLeads]);
 
+  const typeTotal = category ? cats.find((c) => c.category === category)?.count ?? 0 : cats.reduce((a, c) => a + c.count, 0);
+  const cut = leads !== null && (leads.length >= 500 || (!q.trim() && leads.length < typeTotal));
   const selectable = (leads ?? []).filter((l) => l.reachable && !l.alreadyMessaged);
   const toggle = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
@@ -64,6 +72,7 @@ export function TemplatePanel({ channel, onCreated }: { channel: Channel; onCrea
     try {
       const r = await api.post<{ created: number; skipped: { noContact: number; optedOut: number; alreadyMessaged: number } }>("/messaging/templates/apply", {
         channel, leadIds: [...picked], body, ...(channel === "email" ? { subject } : {}), language: lang === "id" ? "indonesian" : "english",
+        ...(channel === "whatsapp" ? { ...(attachmentId ? { attachmentId } : {}), ...(cardChoice !== null ? { linkPreview: cardChoice } : {}) } : {}),
       });
       toast.success(t("tpl.created", { n: r.created }));
       const s = r.skipped;
@@ -108,6 +117,7 @@ export function TemplatePanel({ channel, onCreated }: { channel: Channel; onCrea
                 <Button size="sm" variant="ghost" disabled={picked.size === 0} onClick={() => setPicked(new Set())}>{t("tpl.clear")}</Button>
               </div>
             </div>
+            {cut && <p className="text-xs text-warning">{t("tpl.truncated", { shown: leads?.length ?? 0, total: typeTotal })}</p>}
             <div className="max-h-64 overflow-y-auto rounded-lg border">
               {leads === null ? <div className="h-16 animate-pulse bg-muted/60" /> : leads.length === 0 ? (
                 <p className="p-4 text-sm text-muted-foreground">{t("tpl.noLeads")}</p>
@@ -143,9 +153,21 @@ export function TemplatePanel({ channel, onCreated }: { channel: Channel; onCrea
               </label>
             )}
             <label className="block text-xs text-muted-foreground">{t("tpl.body")}
-              <Textarea value={body} rows={channel === "email" ? 10 : 6} maxLength={channel === "email" ? 4000 : 900} onChange={(e) => setBody(e.target.value)} className="mt-1" />
+              <Textarea value={body} rows={channel === "email" ? 10 : 6} maxLength={channel === "email" ? 20000 : 7800} onChange={(e) => setBody(e.target.value)} className="mt-1" />
             </label>
             <p className="text-xs text-muted-foreground">{t("tpl.placeholders")}</p>
+            {channel === "whatsapp" && (
+              <>
+                <AttachmentPicker value={attachmentId} onChange={setAttachmentId} />
+                <LinkPreviewControl body={body} enabled={(cardChoice ?? !!firstUrl(body)) && !(attachmentId && body.length <= 1024)} onEnabled={setCardChoice} disabledReason={attachmentId && body.length <= 1024 ? t("wa.preview.withFile") : undefined} />
+                {body.trim() && (
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">{t("wa.preview.label")}</p>
+                    <WhatsappBubble body={body.replace(/\{nama\}/gi, "Nama Bisnis").replace(/\{kategori\}/gi, category || "Kategori")} />
+                  </div>
+                )}
+              </>
+            )}
           </section>
 
           <section className="flex items-center justify-between gap-3">

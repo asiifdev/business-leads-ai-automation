@@ -29,7 +29,7 @@ function fakePrisma(created: unknown[]) {
 
 test("apply makes one draft per reachable lead and counts the rest", async () => {
   const created: any[] = [];
-  const svc = new TemplateService(fakePrisma(created) as never, {} as never);
+  const svc = new TemplateService(fakePrisma(created) as never, {} as never, {} as never);
   const r = await svc.apply("ws", { channel: "whatsapp", leadIds: ["a", "b", "c", "d", "e"], body: "Halo {nama}, untuk {kategori}." });
   assert.deepEqual(r.skipped, { noContact: 1, optedOut: 1, alreadyMessaged: 2 });
   assert.equal(r.created, 1);
@@ -40,7 +40,7 @@ test("apply makes one draft per reachable lead and counts the rest", async () =>
 });
 
 test("apply refuses an empty message and an email without subject", async () => {
-  const svc = new TemplateService(fakePrisma([]) as never, {} as never);
+  const svc = new TemplateService(fakePrisma([]) as never, {} as never, {} as never);
   await assert.rejects(() => svc.apply("ws", { channel: "whatsapp", leadIds: ["a"], body: "  " }));
   await assert.rejects(() => svc.apply("ws", { channel: "email", leadIds: ["a"], body: "Isi" }));
 });

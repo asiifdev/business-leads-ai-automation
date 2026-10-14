@@ -3,21 +3,28 @@ import { Throttle } from "@nestjs/throttler";
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from "@nestjs/swagger";
 import { LeadsService } from "./leads.service";
 import { EnrichmentService } from "./enrichment.service";
+import { GeoService } from "./geo.service";
 import { UpdateCrmDto } from "./dto/update-crm.dto";
+import { IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 import { JwtGuard } from "../auth/jwt.guard";
 import { WorkspaceId } from "../auth/current-workspace.decorator";
+
+class ReferralDto {
+  @IsOptional() @IsString() @MaxLength(160) name?: string;
+  @IsString() @MinLength(8) @MaxLength(40) phone!: string;
+}
 
 @ApiTags("Leads")
 @ApiBearerAuth()
 @UseGuards(JwtGuard)
 @Controller("leads")
 export class LeadsController {
-  constructor(private readonly leadsService: LeadsService, private readonly enrichment: EnrichmentService) {}
+  constructor(private readonly leadsService: LeadsService, private readonly enrichment: EnrichmentService, private readonly geo: GeoService) {}
 
   @Get()
   @ApiOperation({ summary: "List all leads" })
   @ApiQuery({ name: "campaignId", required: false })
-  @ApiQuery({ name: "q", required: false, description: "Search by name" })
+  @ApiQuery({ name: "q", required: false, description: "Search by name, address (city/province), phone, website, email or category" })
   @ApiQuery({ name: "priority", required: false, enum: ["HIGH", "MEDIUM", "LOW"] })
   @ApiQuery({ name: "status", required: false })
   @ApiQuery({ name: "page", required: false, type: Number })
@@ -30,9 +37,12 @@ export class LeadsController {
     @Query("status") status?: string,
     @Query("page") page?: string,
     @Query("limit") limit?: string,
+    @Query("province") province?: string,
+    @Query("regency") regency?: string,
+    @Query("district") district?: string,
   ) {
     return this.leadsService.findAll(workspaceId, {
-      campaignId, q, priority, status,
+      campaignId, q, priority, status, province, regency, district,
       page: page ? parseInt(page, 10) : 1,
       limit: limit ? parseInt(limit, 10) : 50,
     });
@@ -50,6 +60,42 @@ export class LeadsController {
   @ApiOperation({ summary: "Read one lead's website for contact details" })
   enrichOne(@Param("id") id: string, @WorkspaceId() workspaceId: string) {
     return this.enrichment.enrichLead(workspaceId, id);
+  }
+
+  @Get("map")
+  @ApiOperation({ summary: "Every lead with coordinates, for the map (same filters as the list, no paging)" })
+  map(
+    @WorkspaceId() workspaceId: string,
+    @Query("campaignId") campaignId?: string,
+    @Query("q") q?: string,
+    @Query("priority") priority?: string,
+    @Query("status") status?: string,
+    @Query("province") province?: string,
+    @Query("regency") regency?: string,
+    @Query("district") district?: string,
+  ) {
+    return this.leadsService.mapPoints(workspaceId, { campaignId, q, priority, status, province, regency, district });
+  }
+
+  @Get("regions")
+  @ApiOperation({ summary: "Province / kabupaten-kota / kecamatan with lead counts, and how far the area lookup has got" })
+  async regions(@WorkspaceId() workspaceId: string, @Query("campaignId") campaignId?: string) {
+    return { regions: await this.leadsService.regions(workspaceId, campaignId), geo: await this.geo.status(workspaceId) };
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post("geo/backfill")
+  @ApiOperation({ summary: "Work out province / kabupaten-kota / kecamatan for leads that have coordinates" })
+  async backfillRegions(@WorkspaceId() workspaceId: string) {
+    this.geo.start(workspaceId);
+    return this.geo.status(workspaceId);
+  }
+
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Post(":id/referral")
+  @ApiOperation({ summary: "Add a contact this lead passed us as a lead of its own (never twice for the same number)" })
+  addReferral(@Param("id") id: string, @Body() dto: ReferralDto, @WorkspaceId() workspaceId: string) {
+    return this.leadsService.createFromReferral(workspaceId, id, dto);
   }
 
   @Get(":id")

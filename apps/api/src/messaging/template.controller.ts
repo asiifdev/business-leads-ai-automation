@@ -1,9 +1,10 @@
 import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
-import { ArrayMaxSize, ArrayNotEmpty, IsArray, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { ArrayMaxSize, ArrayNotEmpty, IsArray, IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 import { JwtGuard } from "../auth/jwt.guard";
 import { WorkspaceId } from "../auth/current-workspace.decorator";
+import { MAX_EMAIL_BODY } from "./messaging.service";
 import { MAX_TEMPLATE_LEADS, TemplateService } from "./template.service";
 
 class GenerateTemplateDto {
@@ -16,9 +17,11 @@ class GenerateTemplateDto {
 class ApplyTemplateDto {
   @IsIn(["whatsapp", "email"]) channel!: "whatsapp" | "email";
   @IsArray() @ArrayNotEmpty() @ArrayMaxSize(MAX_TEMPLATE_LEADS) @IsString({ each: true }) leadIds!: string[];
-  @IsString() @MinLength(1) @MaxLength(4000) body!: string;
+  @IsString() @MinLength(1) @MaxLength(MAX_EMAIL_BODY) body!: string;
   @IsOptional() @IsString() @MaxLength(200) subject?: string;
   @IsOptional() @IsIn(["indonesian", "english"]) language?: "indonesian" | "english";
+  @IsOptional() @IsString() @MaxLength(64) attachmentId?: string;
+  @IsOptional() @IsBoolean() linkPreview?: boolean;
 }
 
 @ApiTags("Message templates")

@@ -21,3 +21,16 @@ export function neutralHonorificChat(text: string): string {
 export function neutralHonorific(text: string): string {
   return text.replace(/\b(Bapak|Ibu|Pak|Bu)\b(?!\s+[A-Z])/g, "Anda");
 }
+
+/**
+ * The first WhatsApp message goes to someone whose name and gender are unknown: "Kak" for the greeting, never Bapak/Ibu.
+ * Done in code because a model writes "Halo," alone or "Jika Bapak/Ibu berkenan" now and then whatever the prompt says.
+ */
+export function tidyWhatsappOutreach(text: string): string {
+  return text
+    .replace(/\b(Bapak\s*\/\s*Ibu|Ibu\s*\/\s*Bapak|Bapak|Ibu|Pak|Bu|Mbak|Mas)\b(?!\s+[A-Z])/g, "Kakak")
+    .replace(/\bAnda(nya)?\b/g, "Kakak") // one way of addressing them: "Kak" in the greeting and "Kakak" after it, never "Anda"
+    .replace(/^(?:Halo|Hai)[ \t]*,?[ \t]*(?:Kakak|Kak)[ \t]*[,.!]?/i, "Halo, Kak.") // "Halo Kakak," / "Hai Kak" -> "Halo, Kak."
+    .replace(/^(Halo|Hai)[ \t]*,?[ \t]*(?=\n)/i, "Halo, Kak.")
+    .replace(/^(Halo|Hai)\s*,?\s+(?!Kak)(?=[A-Z])/, "Halo, Kak. ");
+}

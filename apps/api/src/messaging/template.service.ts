@@ -1,5 +1,9 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { AttachmentService } from "./attachment.service";
+import { CAPTION_LIMIT } from "./attachment-file";
+import { maybePreview } from "./link-preview";
 import { isValidEmail } from "./email-address";
 import { MessageWriterService } from "./message-writer.service";
 import { MAX_BODY, MAX_EMAIL_BODY } from "./messaging.service";
@@ -21,7 +25,7 @@ export function fillTemplate(text: string, lead: { name: string; category?: stri
  */
 @Injectable()
 export class TemplateService {
-  constructor(private readonly prisma: PrismaService, private readonly writer: MessageWriterService) {}
+  constructor(private readonly prisma: PrismaService, private readonly writer: MessageWriterService, private readonly attachments: AttachmentService) {}
 
   /** Kinds of business among the workspace's leads, with how many can be reached on each channel. */
   async categories(workspaceId: string) {
@@ -66,7 +70,7 @@ export class TemplateService {
   }
 
   /** Turns the template into one draft per selected lead. Leads that cannot or should not be messaged are counted, not failed. */
-  async apply(workspaceId: string, o: { channel: Channel; leadIds: string[]; body: string; subject?: string; language?: "indonesian" | "english" }) {
+  async apply(workspaceId: string, o: { channel: Channel; leadIds: string[]; body: string; subject?: string; language?: "indonesian" | "english"; attachmentId?: string; linkPreview?: boolean }) {
     const body = o.body.trim();
     const language = o.language === "english" ? "english" : "indonesian";
     if (!body) throw new BadRequestException("The message is empty");
@@ -76,6 +80,11 @@ export class TemplateService {
     const subject = o.subject?.trim();
     if (o.channel === "email" && !subject) throw new BadRequestException("An email needs a subject");
 
+    if (o.channel === "email" && (o.attachmentId || o.linkPreview)) throw new BadRequestException("Attachments and link previews are only for WhatsApp messages");
+    if (o.attachmentId) await this.attachments.owned(workspaceId, o.attachmentId);
+    // one card for every draft: the link is the same, so the page is opened once, not once per lead
+    const found = o.channel === "whatsapp" ? await maybePreview(body, o.linkPreview, !!o.attachmentId && body.length <= CAPTION_LIMIT) : null;
+    const card = found ? (found as unknown as Prisma.InputJsonValue) : undefined;
     const ids = [...new Set(o.leadIds)].slice(0, MAX_TEMPLATE_LEADS);
     const leads = await this.prisma.lead.findMany({ where: { workspaceId, id: { in: ids } }, select: { id: true, name: true, category: true, phone: true, phoneE164: true, email: true } });
     const account = await this.prisma.whatsappAccount.findUnique({ where: { workspaceId }, select: { defaultCountryCode: true } });
@@ -102,7 +111,7 @@ export class TemplateService {
           const text = fillTemplate(body, lead);
           return {
             workspaceId, leadId: lead.id, channel: o.channel, source: "ai_outreach", status: "draft",
-            ...(o.channel === "email" ? { toEmail: to, toPhone: "", subject: fillTemplate(subject ?? "", lead).slice(0, 200), body: text, context: { template: true, language } } : { toPhone: to, body: `${text}\n\n${hint}`, context: { template: true } }),
+            ...(o.channel === "email" ? { toEmail: to, toPhone: "", subject: fillTemplate(subject ?? "", lead).slice(0, 200), body: text, context: { template: true, language } } : { toPhone: to, body: `${text}\n\n${hint}`, context: { template: true }, attachmentId: o.attachmentId ?? null, ...(card ? { linkPreview: card } : {}) }),
           };
         }),
       });

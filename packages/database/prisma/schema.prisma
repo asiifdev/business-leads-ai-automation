@@ -40,6 +40,7 @@ model Workspace {
   usageEvents      UsageEvent[]
 
   @@map("workspaces")
+  messageAttachments MessageAttachment[]
 }
 
 model User {
@@ -197,6 +198,12 @@ model Lead {
   // What their latest reply meant: interested | meeting | question | later | not_interested | wrong_number | other
   lastIntent String?
 
+  // Where the business is, from its coordinates (province, kabupaten/kota, kecamatan). geocodedAt is set even when nothing was found, so it is not asked again.
+  province   String?
+  regency    String?
+  district   String?
+  geocodedAt DateTime?
+
   scrapedAt DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -215,6 +222,7 @@ model Lead {
 
   @@index([workspaceId, phoneE164])
   @@index([workspaceId, needsReply])
+  @@index([workspaceId, province, regency])
   @@map("leads")
 }
 
@@ -452,12 +460,18 @@ model OutboundMessage {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  // WhatsApp only: a file sent with the text as its caption, and the card shown for a link in the text.
+  attachment   MessageAttachment? @relation(fields: [attachmentId], references: [id], onDelete: Restrict)
+  attachmentId String?
+  linkPreview  Json? // { url, title, description, thumbnail (base64 JPEG, optional) }
+
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId String
   lead        Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
   leadId      String?
 
   @@index([workspaceId, status, createdAt])
+  @@index([attachmentId])
   @@index([workspaceId, sentAt])
   @@index([leadId])
   @@map("outbound_messages")
@@ -605,4 +619,21 @@ model InstanceSetting {
   updatedAt DateTime @updatedAt
 
   @@map("instance_settings")
+}
+
+/// A file the owner uploaded to send over WhatsApp (brochure, price list, photo). Reused by many messages.
+model MessageAttachment {
+  id          String   @id @default(cuid())
+  fileName    String
+  mimeType    String
+  sizeBytes   Int
+  storageKey  String   @unique // file name on disk; never taken from the client
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  messages    OutboundMessage[]
+
+  @@index([workspaceId, createdAt])
+  @@map("message_attachments")
 }

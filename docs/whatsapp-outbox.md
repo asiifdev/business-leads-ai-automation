@@ -58,15 +58,34 @@ WhatsApp increasingly addresses chats with an opaque `@lid` identifier instead o
 
 Incoming text messages are stored and matched to a lead by phone number. Then:
 
-- **STOP, berhenti, unsubscribe and similar**: the number is added to the opt-out list, its pending drafts and approved messages are cancelled, and it is never messaged again, even if you approve something later.
+- **STOP, berhenti, unsubscribe and similar**, including inside a short sentence ("Maaf kak belum ya STOP", "ok stop"; people answer our own "balas STOP" line this way; a message longer than 80 characters needs one of the stricter phrases): the number is added to the opt-out list, its pending drafts and approved messages are cancelled, and it is never messaged again, even if you approve something later.
 - **STOP** also closes the lead as lost ("Meminta berhenti (STOP)"), the one reply that closes a deal by itself.
 - **Quick first answers** (within 45 seconds of our message, no clear question such as price or interest) are treated as automatic too: a person rarely replies that fast.
 - **A shop's automatic greeting** ("Terima kasih telah menghubungi…", "mohon menunggu", opening hours, long canned menus) is recognised by rules and only recorded: no stage change, follow-ups stay, no reply draft.
 - **What the reply does is planned in code**, not left to the model: thanks and goodbye, "I will pass it to my superior" and "later" get fixed polite wording; price questions and interest get a model-written one or two sentences limited to your facts, checked afterwards (no second introduction, no emoji, no commands, no invented links) and replaced by safe wording if it fails twice.
+- **Captions and shared contacts are read.** A photo or document with a caption counts as a reply with that text; a shared contact card is read as `[Kontak: name +number]`. A picture or file with no words is not a reply.
+- **What they "just said" is everything written together.** Bubbles within 3 minutes of each other are answered as one; a shop's automatic messages and older chat are history, never part of it (`thread.ts`).
+- **Pointed to another contact** ("contact our management", a shared contact card) is its own kind of reply: the draft is a fixed thank-you chosen in code (or a request for the number), the contact is kept in the lead's activity log, and "Add as a lead" creates it once.
 - **Any other reply from a known lead**: its meaning is classified by rules (interested, wants a meeting, asked the price, question, not now, not interested), the lead moves forward (never backward), is flagged as waiting for you, pending follow-ups are cancelled, and a **reply draft** appears in your Review tab with the customer's message quoted above it. If they asked for time, a follow-up date is set 30 days out.
 - **A message from an unknown number**: stored, never answered. If WhatsApp hid the sender's number (an `@lid` address without `senderPn`), the message is kept under `lid:<id>` and listed on the Pipeline page under "Messages from unknown senders"; it cannot be matched to a lead, so a STOP from one has to be handled by hand.
 
 Replies are drafted in your voice's spelling and warmth with the same knowledge base and style as first messages, but with the right role: the sender is a business you approached, so the draft is polite and humble, gives no commands ("kabari saja ya"), has no emoji and no guessed honorific (Mbak, Mas, Bapak, Ibu become "Kak"). Your chats are with your own customers, where you are the one serving, so copying their attitude would sound like a boss to a stranger. Because a customer's text is untrusted input, it is wrapped in delimiters and the model is told to treat it as data. A draft that contains links, prices, discounts or bank details that your knowledge base does not support, or a customer message that looks like instructions to the AI, is flagged in the Outbox so you read it twice before approving.
+
+## Messages you type on your own phone
+
+Many owners answer straight from their phone or WhatsApp Web. Prospex hears about those messages and records them, **only when the number belongs to a lead**; a message to any other number is ignored and never stored. A message Prospex sent itself is recognised (same WhatsApp id, or the same text within 10 minutes) and not recorded twice.
+
+When one is recorded: it is stored as a sent message with the source "external", the lead stops waiting for an answer, `contactedAt` moves forward, drafts for follow-ups and replies that were waiting are withdrawn ("Answered from the phone"), pending follow-up timing restarts, and the next draft sees what you said because the conversation includes it. These messages do not count toward the hourly and daily limits. A photo, file or voice note with no words is stored as a marker such as `[Dokumen: name.pdf]`. The history WhatsApp replays when a device links is not imported.
+
+## Reply drafts never go stale
+
+A draft is written about 20 seconds after the prospect's last bubble (`REPLY_DRAFT_DELAY_MS`), so a burst of short messages gets one draft that covers all of it. It is skipped if you have already answered, and a new draft replaces any older waiting one. The pipeline page's "Re-read conversations" button applies the same rules to old conversations: it previews what would change (labels, who is waiting, outdated drafts) and applies only when you confirm.
+
+## Formatting, files and link previews
+
+- **Formatting.** WhatsApp's own syntax is kept: `*bold*`, `_italic_`, `~strike~`, `- ` lists and blank lines between paragraphs. Markdown a model writes is converted and unbalanced symbols are removed. The Outbox shows each message as a WhatsApp bubble.
+- **Files.** Upload a PDF, JPG, PNG, WebP, MP4, DOCX, XLSX or PPTX (up to 16 MB). The type is read from the file's first bytes, never from its name. The message text is the file's caption; WhatsApp shows at most 1,024 characters of a caption, so a longer text is sent as its own message right after the file. Files are stored under `ATTACHMENTS_DIR`, one folder per workspace, under a generated name. A file that a waiting message still uses cannot be deleted, a file already sent stays in the history, and a message whose file is missing fails instead of being sent without it. The official Cloud API connection refuses files.
+- **Link previews.** A link in the text gets a card (title, description, picture) built by fetching the page through the same safe fetcher as website reading (public addresses only, redirects re-checked, size and time limits); Baileys' own preview builder is not used. You see the card before approving it, it is on by default when a link is present, and a page that cannot be read simply goes out without a card. A short text sent as a file's caption has no card.
 
 ## Connecting a number
 

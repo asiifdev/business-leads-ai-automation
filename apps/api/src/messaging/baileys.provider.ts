@@ -3,11 +3,14 @@ import { ConfigService } from "@nestjs/config";
 import { existsSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
-import makeWASocket, { Browsers, DisconnectReason, fetchLatestBaileysVersion, useMultiFileAuthState, type WASocket } from "@whiskeysockets/baileys";
+import makeWASocket, { Browsers, DisconnectReason, fetchLatestBaileysVersion, useMultiFileAuthState, type AnyMessageContent, type WASocket } from "@whiskeysockets/baileys";
 import pino from "pino";
 import { PrismaService } from "../prisma/prisma.service";
 import { phoneFromKey } from "./phone";
-import { ProviderUnavailableError, type InboundWhatsappMessage, type WaStatus, type WhatsappProvider } from "./whatsapp.provider";
+import { CAPTION_LIMIT } from "./attachment-file";
+import { firstUrl } from "./link-preview";
+import { messageText } from "./wa-text";
+import { ProviderUnavailableError, type InboundWhatsappMessage, type OwnWhatsappMessage, type SendExtras, type WaStatus, type WhatsappProvider } from "./whatsapp.provider";
 
 interface Session {
   sock: WASocket | null;
@@ -22,6 +25,39 @@ const MAX_RECONNECTS = 8;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
+ * What to send for one message: normally one WhatsApp message, but a file with a text longer than a caption can hold goes out as
+ * the file first and the text right after it (with its link card, since that is now an ordinary text message).
+ */
+export function planBaileysMessages(text: string, extras: SendExtras = {}): AnyMessageContent[] {
+  if (extras.attachment && text.length > CAPTION_LIMIT) {
+    return [buildBaileysContent("", { attachment: extras.attachment }), buildBaileysContent(text, { linkPreview: extras.linkPreview })];
+  }
+  return [buildBaileysContent(text, extras)];
+}
+
+/**
+ * The Baileys message for a text and its extras. A file carries the text as its caption; a link card is only built when the
+ * address the card was made for is really in the text, and the card is handed over ready-made (Baileys does not fetch anything).
+ */
+export function buildBaileysContent(text: string, extras: SendExtras = {}): AnyMessageContent {
+  const f = extras.attachment;
+  if (f) {
+    if (f.kind === "image") return { image: f.data, caption: text, mimetype: f.mimeType };
+    if (f.kind === "video") return { video: f.data, caption: text, mimetype: f.mimeType };
+    return { document: f.data, caption: text, mimetype: f.mimeType, fileName: f.fileName };
+  }
+  const card = extras.linkPreview;
+  const matched = card ? firstUrl(text) : null;
+  if (card && matched) {
+    return {
+      text,
+      linkPreview: { "canonical-url": card.url, "matched-text": matched, title: card.title, description: card.description, ...(card.thumbnail ? { jpegThumbnail: card.thumbnail } : {}) },
+    };
+  }
+  return { text };
+}
+
+/**
  * WhatsApp through a linked device (Baileys). Unofficial: use a dedicated business number, never a personal one.
  * Sessions live on disk under WA_AUTH_DIR/<workspaceId>; mount that directory as a volume in production.
  */
@@ -29,6 +65,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export class BaileysProvider implements WhatsappProvider, OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(BaileysProvider.name);
   private readonly sessions = new Map<string, Session>();
+  private ownMessage: ((workspaceId: string, msg: OwnWhatsappMessage) => Promise<void>) | null = null;
   private inbound: ((workspaceId: string, msg: InboundWhatsappMessage) => Promise<void>) | null = null;
   private readonly authRoot: string;
   private readonly disabled: boolean;
@@ -40,6 +77,10 @@ export class BaileysProvider implements WhatsappProvider, OnModuleInit, OnModule
 
   onInbound(handler: (workspaceId: string, msg: InboundWhatsappMessage) => Promise<void>) {
     this.inbound = handler;
+  }
+
+  onOwnMessage(handler: (workspaceId: string, msg: OwnWhatsappMessage) => Promise<void>) {
+    this.ownMessage = handler;
   }
 
   /** Resume sessions that were linked before the server restarted. */
@@ -99,14 +140,21 @@ export class BaileysProvider implements WhatsappProvider, OnModuleInit, OnModule
     return hit?.exists ? hit.jid : null;
   }
 
-  async send(workspaceId: string, to: string, text: string, typingMs: number) {
+  async send(workspaceId: string, to: string, text: string, typingMs: number, extras?: SendExtras) {
     const sock = this.live(workspaceId);
     await sock.sendPresenceUpdate("composing", to);
     await sleep(typingMs);
     await sock.sendPresenceUpdate("paused", to);
-    const sent = await sock.sendMessage(to, { text });
-    if (!sent?.key?.id) throw new Error("WhatsApp did not return a message id");
-    return sent.key.id;
+    // A file followed by its text is two WhatsApp messages. If the second fails after the first went out, a retry sends the file again;
+    // that is rare and better than losing the text, so it is accepted.
+    let id: string | undefined;
+    for (const content of planBaileysMessages(text, extras)) {
+      if (id) await sleep(1500);
+      const sent = await sock.sendMessage(to, content);
+      if (!sent?.key?.id) throw new Error("WhatsApp did not return a message id");
+      id = sent.key.id;
+    }
+    return id as string;
   }
 
   private live(workspaceId: string): WASocket {
@@ -148,16 +196,25 @@ export class BaileysProvider implements WhatsappProvider, OnModuleInit, OnModule
         const kind = jid.endsWith("@s.whatsapp.net") ? "phone" : jid.endsWith("@lid") ? "lid" : jid.endsWith("@g.us") ? "group" : jid.endsWith("@broadcast") ? "broadcast" : "other";
         this.logger.log(`incoming event: type=${type} fromMe=${!!m.key.fromMe} address=${kind} text=${!!(m.message?.conversation || m.message?.extendedTextMessage?.text)} phoneResolved=${!!phoneFromKey(m.key as { remoteJid?: string | null; senderPn?: string | null; participantPn?: string | null })}`);
       }
-      if (type !== "notify" || this.sessions.get(workspaceId) !== session) return;
+      if (this.sessions.get(workspaceId) !== session) return;
       for (const m of messages) {
-        if (m.key.fromMe || !m.key.id) continue;
+        if (!m.key.id) continue;
         const phone = phoneFromKey(m.key as { remoteJid?: string | null; senderPn?: string | null; participantPn?: string | null });
-        const text = m.message?.conversation ?? m.message?.extendedTextMessage?.text ?? "";
+        const at = new Date(Number(m.messageTimestamp ?? 0) * 1000 || Date.now());
+        if (m.key.fromMe) {
+          // The owner wrote this from their phone or WhatsApp Web. Only live messages (not the history WhatsApp replays when it links),
+          // only to a number we can resolve; InboundService keeps it only if the number belongs to a lead.
+          const live = type === "notify" || (type === "append" && Date.now() - at.getTime() < 10 * 60_000);
+          const text = messageText(m.message as never, { markers: true });
+          if (live && phone && text && this.ownMessage) this.ownMessage(workspaceId, { phone, text, id: m.key.id, at }).catch((e) => this.logger.error(`Own message handling failed: ${e}`));
+          continue;
+        }
+        if (type !== "notify") continue;
+        const text = messageText(m.message as never);
         // A hidden-number (LID) sender whose phone WhatsApp did not reveal: keep the message under its LID so it is
         // visible to the owner instead of vanishing. It can never be matched to a lead automatically.
         const who = phone ?? ((m.key.remoteJid ?? "").endsWith("@lid") ? `lid:${(m.key.remoteJid ?? "").split("@")[0]}` : null);
         if (!who || !text.trim() || !this.inbound) continue;
-        const at = new Date(Number(m.messageTimestamp ?? 0) * 1000 || Date.now());
         this.inbound(workspaceId, { phone: who, text: text.trim(), id: m.key.id, at }).catch((e) => this.logger.error(`Inbound handling failed: ${e}`));
       }
     });

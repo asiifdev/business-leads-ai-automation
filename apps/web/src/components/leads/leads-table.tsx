@@ -33,6 +33,7 @@ function CrmBadge({ status }: { status: Lead["crmStatus"] }) {
     new: "secondary",
     contacted: "info",
     replied: "info",
+    interested: "success",
     meeting: "warning",
     proposal: "warning",
     won: "success",

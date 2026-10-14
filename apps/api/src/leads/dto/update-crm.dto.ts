@@ -3,7 +3,7 @@ import { ApiProperty } from "@nestjs/swagger";
 
 export class UpdateCrmDto {
   @ApiProperty({
-    enum: ["new", "contacted", "replied", "meeting", "proposal", "won", "lost"],
+    enum: ["new", "contacted", "replied", "interested", "meeting", "proposal", "won", "lost"],
     required: false,
   })
   @IsString() @IsOptional()

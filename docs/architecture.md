@@ -22,7 +22,7 @@ Everything is scoped to a `Workspace`. Every table that holds customer data has 
 | Module | Responsibility |
 |--------|----------------|
 | `auth`, `workspace`, `settings` | Accounts (JWT), API keys, encrypted integration secrets |
-| `campaigns`, `scraper`, `leads` | Campaigns, Google Maps scraping (BullMQ worker, headless Chromium), leads and CRM state |
+| `campaigns`, `scraper`, `leads` | Campaigns, Google Maps scraping (BullMQ worker, headless Chromium), leads and CRM state, search and paging, the map feed, and areas (province, city, district) from coordinates (`geo.ts`, `geo.service.ts`) |
 | `ai` | OpenAI-compatible client, lead scoring and per-business fit judgement, knowledge base (chunks and vectors), AI Style (chat-export parser, statistics, retrieval), spelling clean-up |
 | `marketing` | Marketing Brief: sources (websites, text, PDF, DOCX, Markdown), safe fetching and site crawling, guarded page renderer, brief generation and grounding |
 | `messaging` | Outbox, WhatsApp provider, sender, inbound handling and reply understanding, follow-ups, draft writer, one-message-for-many-leads templates |
@@ -73,8 +73,16 @@ HIGH from 70, MEDIUM from 50
 | `messaging.service.ts` | Outbox operations (generate in the background, edit, approve, reject, cancel, retry), account settings, overview |
 | `sender.service.ts` | 15-second loop: first sends an approved reply (`ai_reply`) outside the pacing, then applies the send policy to cold messages, claims a message atomically, sends, handles failures, trips the circuit breaker |
 | `send-policy.ts` | Pure functions: `decide`, `nextGapMs`, `typingDelayMs`, quiet hours, local-day boundaries. Unit tested. |
-| `inbound.service.ts` | Stores replies, honours STOP (and closes the lead as lost), ignores shop auto-replies, classifies the reply, moves the lead forward, cancels follow-ups, creates reply drafts |
-| `reply-intent.ts` | Pure rules: `classifyReply` (auto_reply, interested, meeting, price, question, not_now, not_interested, other) and `planReplyOutcome` (stage only forward, never closes a deal). Unit tested. |
+| `inbound.service.ts` | Stores replies, honours STOP (and closes the lead as lost), ignores shop auto-replies, classifies the reply against the whole conversation, moves the lead forward, cancels follow-ups, schedules one reply draft after their last bubble (replacing any older waiting draft), and records the owner's own phone messages for numbers that belong to a lead |
+| `thread.ts`, `conversation-loader.ts` | Pure `buildThread` / `analyzeConversation` (bubbles written together, automatic messages set aside, who spoke last) and the loader that reads both sides of a lead's conversation from the database. One reading shared by receiving a message, writing a draft and re-reading the pipeline. |
+| `reclassify.service.ts` | Preview and apply: reads every conversation again, corrects labels and "waiting" status, withdraws outdated drafts, writes a fresh one where an answer is owed |
+| `wa-text.ts` | The readable text of a WhatsApp message: captions, wrapped messages, shared contact cards, markers for the owner's files; `parseReferrals` |
+| `whatsapp-format.ts` | Turns model output into WhatsApp syntax (Markdown converted, stray symbols removed, bold limited, paragraphs and lists spaced) |
+| `attachment.service.ts`, `attachment-file.ts` | Stores uploaded files per workspace, reads the type from the file's bytes, refuses deletion while a waiting message uses a file |
+| `link-preview.ts` | Builds the link card through `marketing/url-fetch.ts`; the card is handed to Baileys ready-made |
+| `outreach-check.ts`, `reply-plan.ts` | Checks a first message must pass (question words, slang, jargon, introduction, clients named in the brief) and the checks and fixed wording for replies, including a second reading by the model |
+| `offer-kind.ts` (`ai/chat-import`) | Reads an offer as a finished product or a service, which changes the first message
+| `reply-intent.ts` | Pure rules: `classifyReply` (auto_reply, interested, meeting, price, question, referral, not_now, not_interested, other; the previous message of ours is context, so "boleh" after an offered demo is a meeting) and `planReplyOutcome` (stage only forward, never closes a deal). Unit tested. |
 | `template.service.ts`, `template.controller.ts` | One message for many leads: categories, lead picker, one AI call to write a generic message, bulk draft creation with `{nama}` and `{kategori}`, skips contacts that cannot or should not be messaged |
 | `plain-text.ts` | Strips markdown symbols, emoji and guessed honorifics from drafts |
 | `followup.service.ts` | Hourly: drafts follow-ups after 3 and 5 days of silence, at most two |
@@ -90,12 +98,18 @@ HIGH from 70, MEDIUM from 50
 | `outbound_messages` | The queue and the history: body, the original AI text (`aiBody`, to measure edits), source, status, context (trace, flags), provider id |
 | `inbound_messages` | Replies, unique per workspace and provider message id (so redelivery is ignored), with the classified `intent` |
 | `message_opt_outs` | Numbers that must never be contacted, unique per workspace and number |
+| `message_attachments` | Files uploaded to send on WhatsApp: name, real type, size, generated storage key (never taken from the client) |
+
+`outbound_messages` also carries `attachmentId` (a file sent with the text) and `linkPreview` (the card). Its `source` can be `external`: a message the owner typed on their phone. `leads` carries `province`, `regency`, `district` and `geocodedAt`.
 
 `leads.phoneE164` stores the normalized number so replies can be matched to leads. Leads created before this column existed are backfilled at startup.
 
 ### Design decisions worth knowing
 
 - **Approval is the only way into the queue.** No code path sends a draft.
+- **The conversation is whole.** The owner's own phone messages are recorded (only for numbers that belong to a lead), so classification and drafts see both sides. A draft is never written for something already answered, and a newer draft replaces an older waiting one.
+- **Checks that use a fake provider stay in their own workspace.** `sender.tick(workspaceId)` exists for them; without it a fake provider is handed every workspace's queue.
+- **No business-specific words in the code.** Client and case-study names come from each user's own brief; examples in tests and docs are invented.
 - **Claim, then send.** `updateMany where status = approved` guarantees one winner, so a crash or a second process cannot double-send.
 - **Uncertain means failed, not retried.** A message found in `sending` after a restart might have been delivered. Prospex chooses a missed send over a duplicate.
 - **One provider interface.** The official WhatsApp Cloud API is a new class, not a rewrite.
@@ -119,7 +133,8 @@ Next.js App Router with route groups `(auth)` and `(dashboard)`, shadcn/ui and T
 | Layer | How |
 |-------|-----|
 | Pure logic (parser, stats, chunker, scoring, send policy, opt-out, spelling, brief, crawler, documents, hostile-input timing) | `pnpm --filter @prospex/api test` |
-| Sender and inbound against a real database | `apps/api/scripts/pipeline-check.ts` with a fake provider |
+| Sender, inbound, your own phone messages, outdated drafts, re-reading the pipeline and referrals against a real database | `apps/api/scripts/pipeline-check.ts` with a fake provider, in a throwaway workspace |
+| Attachments and link previews against a real database and a real page | `apps/api/scripts/attachment-check.ts` |
 | Style quality | `apps/api/scripts/eval-style.ts` |
 | End to end UI | Playwright specs in `tests/e2e` |
 

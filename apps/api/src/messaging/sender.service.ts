@@ -2,8 +2,9 @@ import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nest
 import { ConfigService } from "@nestjs/config";
 import type { OutboundMessage, WhatsappAccount } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { AttachmentService } from "./attachment.service";
 import { decide, nextGapMs, startOfLocalDay, typingDelayMs } from "./send-policy";
-import { ProviderUnavailableError, WHATSAPP_PROVIDER, type RoutedWhatsappProvider } from "./whatsapp.provider";
+import { ProviderUnavailableError, WHATSAPP_PROVIDER, type RoutedWhatsappProvider, type SendExtras } from "./whatsapp.provider";
 import { EntitlementsService } from "../entitlements/entitlements.service";
 
 const TICK_MS = 15_000;
@@ -26,6 +27,7 @@ export class SenderService implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
     @Inject(WHATSAPP_PROVIDER) private readonly wa: RoutedWhatsappProvider,
     private readonly entitlements: EntitlementsService,
+    private readonly attachments: AttachmentService,
   ) {}
 
   async onModuleInit() {
@@ -43,11 +45,12 @@ export class SenderService implements OnModuleInit, OnModuleDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
-  async tick() {
+  /** One pass over the accounts. `onlyWorkspaceId` limits it to one workspace: checks that use a fake provider must never touch anyone else's queue. */
+  async tick(onlyWorkspaceId?: string) {
     if (this.running) return;
     this.running = true;
     try {
-      const accounts = await this.prisma.whatsappAccount.findMany({ where: { paused: false } });
+      const accounts = await this.prisma.whatsappAccount.findMany({ where: { paused: false, ...(onlyWorkspaceId ? { workspaceId: onlyWorkspaceId } : {}) } });
       for (const a of accounts) {
         this.wa.use(a.workspaceId, a.provider);
         // a plan that no longer includes the official API stops sending through it (the hosted service enforces its plans)
@@ -72,8 +75,8 @@ export class SenderService implements OnModuleInit, OnModuleDestroy {
 
     const now = new Date();
     const [sentLastHour, sentToday] = await Promise.all([
-      this.prisma.outboundMessage.count({ where: { workspaceId: a.workspaceId, channel: "whatsapp", status: "sent", source: { not: "ai_reply" }, sentAt: { gte: new Date(now.getTime() - 3_600_000) } } }),
-      this.prisma.outboundMessage.count({ where: { workspaceId: a.workspaceId, channel: "whatsapp", status: "sent", source: { not: "ai_reply" }, sentAt: { gte: startOfLocalDay(now, a.timezone) } } }),
+      this.prisma.outboundMessage.count({ where: { workspaceId: a.workspaceId, channel: "whatsapp", status: "sent", source: { notIn: ["ai_reply", "external"] }, sentAt: { gte: new Date(now.getTime() - 3_600_000) } } }),
+      this.prisma.outboundMessage.count({ where: { workspaceId: a.workspaceId, channel: "whatsapp", status: "sent", source: { notIn: ["ai_reply", "external"] }, sentAt: { gte: startOfLocalDay(now, a.timezone) } } }),
     ]);
     const d = decide({ now, timezone: a.timezone, hourlyLimit: a.hourlyLimit, dailyLimit: a.dailyLimit, quietStartHour: a.quietStartHour, quietEndHour: a.quietEndHour, sentLastHour, sentToday, nextSendAt: a.nextSendAt, paused: a.paused });
     if (!d.ok) return;
@@ -98,7 +101,19 @@ export class SenderService implements OnModuleInit, OnModuleDestroy {
         await this.prisma.outboundMessage.update({ where: { id: next.id }, data: { status: "failed", error: "Number is not on WhatsApp" } });
         return; // a dead number says nothing about the account's health
       }
-      const providerId = await this.wa.send(a.workspaceId, jid, next.body, typingDelayMs(next.body.length));
+      const extras: SendExtras = {};
+      if (next.attachmentId) {
+        try {
+          extras.attachment = await this.attachments.load(a.workspaceId, next.attachmentId);
+        } catch (e) {
+          // never send the text alone when it was meant to go with a file
+          await this.prisma.outboundMessage.update({ where: { id: next.id }, data: { status: "failed", error: (e as Error).message } });
+          return;
+        }
+      }
+      const card = next.linkPreview as { url?: string; title?: string; description?: string; thumbnail?: string } | null;
+      if (card?.url && card.title) extras.linkPreview = { url: card.url, title: card.title, description: card.description ?? "", thumbnail: card.thumbnail ? Buffer.from(card.thumbnail, "base64") : undefined };
+      const providerId = await this.wa.send(a.workspaceId, jid, next.body, typingDelayMs(next.body.length), extras);
       const at = new Date();
       await this.prisma.outboundMessage.update({ where: { id: next.id }, data: { status: "sent", sentAt: at, providerMessageId: providerId, error: null } });
       if (paced) await this.prisma.whatsappAccount.update({ where: { id: a.id }, data: { nextSendAt: new Date(at.getTime() + nextGapMs(a.hourlyLimit)) } });

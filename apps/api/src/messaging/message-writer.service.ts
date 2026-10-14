@@ -6,9 +6,12 @@ import { AiClientService } from "../ai/ai-client.service";
 import { KnowledgeService } from "../ai/knowledge.service";
 import { StyleService } from "../ai/style.service";
 import { type OutreachVariant } from "../ai/chat-import/style-prompt";
-import { checkReply, fallbackReply, templateReply, type ReplyAction } from "./reply-plan";
-import { neutralHonorific, neutralHonorificChat, removeEmoji, stripMarkdown } from "./plain-text";
-import { buildDraftMessages, buildOutreachMessages, pickVariant } from "../ai/chat-import/style-prompt";
+import { checkReply, fallbackReply, judgeMessages, parseJudge, templateReply, type ReplyAction } from "./reply-plan";
+import { outreachProblems } from "./outreach-check";
+import { toWhatsapp } from "./whatsapp-format";
+import { tidyWhatsappOutreach, neutralHonorific, neutralHonorificChat, removeEmoji, stripMarkdown } from "./plain-text";
+import { detectOfferKind } from "../ai/chat-import/offer-kind";
+import { buildDraftMessages, buildOutreachMessages, OUTREACH_VARIANTS, pickVariant } from "../ai/chat-import/style-prompt";
 import type { StyleStats } from "../ai/chat-import/style-stats";
 import { draftRisks } from "./draft-risk";
 import { neutralGreeting, normalizeDraft } from "../ai/orthography";
@@ -35,7 +38,16 @@ export function withLink(body: string, url: string, language: "indonesian" | "en
   return m ? `${body.slice(0, m.index).trimEnd()}\n\n${line}\n\n${m[0].trim()}` : `${body.trimEnd()}\n\n${line}`;
 }
 
-function clean(raw: string): string {
+/** Replies are written in two lines: MAKSUD (what they meant, for the model's own reasoning) then BALASAN. Only the reply is kept. */
+function pickReply(raw: string): string {
+  const m = raw.match(/BALASAN\s*:\s*([\s\S]*)$/i);
+  if (m) return m[1];
+  return raw.replace(/^\s*MAKSUD\s*:.*(\r?\n)?/i, "");
+}
+
+/** WhatsApp keeps its own formatting (*bold*, _italic_, lists, paragraphs); email is plain text, so Markdown symbols are removed there. */
+function clean(raw: string, whatsapp = false): string {
+  if (whatsapp) return toWhatsapp(raw.trim().replace(/^["“”']+|["“”']+$/g, ""));
   return stripMarkdown(raw).trim().replace(/^["“”']+|["“”']+$/g, "").replace(/\n{3,}/g, "\n\n").trim();
 }
 
@@ -96,7 +108,8 @@ export class MessageWriterService {
     const variant = followUp ? undefined : pickVariant(lead.id);
     const angles = (briefRow?.content as unknown as BriefContent | undefined)?.angles ?? [];
     const business = await this.businessDescription(workspaceId);
-    const build = (avoid?: string[]) => buildOutreachMessages({
+    const offerKind = detectOfferKind(briefRow?.summary, lead.campaign.yourService);
+    const build = (avoid?: string[], note?: string) => buildOutreachMessages({
       businessDescription: business,
       offer: lead.campaign.yourService,
       language,
@@ -106,20 +119,31 @@ export class MessageWriterService {
       },
       style: stats,
       examples: examples.map((e) => ({ incoming: e.incoming, reply: e.reply, at: new Date() })),
-      knowledge: facts.confidence === "none" ? [] : facts.hits.map((h) => h.content),
+      knowledge: facts.confidence === "none" || (offerKind === "service" && !followUp) ? [] : facts.hits.map((h) => h.content),
       brief,
       followUp,
       channel,
       variant,
       avoid,
+      offerKind,
+      retryNote: note,
     });
-    let body = await this.generate(workspaceId, followUp ? "followup" : "outreach", `${lead.id}`, build(), facts.hits.map((h) => h.sourceId), facts.confidence, { language, names: [lead.name, business] });
-    // a draft that talks about another kind of business (a rental system for kebaya offered to a costume shop) gets one more try
-    let foreign = followUp ? [] : foreignVerticalWords(body.text, lead, angles);
-    if (foreign.length) {
-      body = await this.generate(workspaceId, "outreach", `${lead.id}`, build(foreign), facts.hits.map((h) => h.sourceId), facts.confidence, { language, names: [lead.name, business] });
-      foreign = foreignVerticalWords(body.text, lead, angles);
+    const normOpts = { language: language as "indonesian" | "english", names: [lead.name, business], whatsapp: channel === "whatsapp" };
+    const tidy = (b: { text: string }) => ({ text: channel === "whatsapp" && !followUp ? tidyWhatsappOutreach(b.text) : b.text });
+    let body = tidy(await this.generate(workspaceId, followUp ? "followup" : "outreach", `${lead.id}`, build(), facts.hits.map((h) => h.sourceId), facts.confidence, normOpts));
+    // a draft that talks about another kind of business (a rental system for kebaya offered to a costume shop) gets up to two more tries
+    const offerTexts = [briefRow?.summary, lead.campaign.yourService];
+    const foreignIn = (text: string) => (followUp ? [] : foreignVerticalWords(text, lead, angles, offerTexts));
+    const caseStudies = (briefRow?.content as unknown as BriefContent | undefined)?.proof?.customers ?? [];
+    const check = (text: string) => ({ foreign: foreignIn(text), issues: followUp ? [] : outreachProblems(text, { service: offerKind === "service", category: lead.category, caseStudies }) });
+    let c = check(body.text);
+    const banned = new Set<string>();
+    for (let retry = 0; retry < 2 && (c.foreign.length || c.issues.length); retry++) {
+      c.foreign.forEach((w) => banned.add(w));
+      body = tidy(await this.generate(workspaceId, "outreach", `${lead.id}`, build([...banned], c.issues.join("; ") || undefined), facts.hits.map((h) => h.sourceId), facts.confidence, normOpts));
+      c = check(body.text);
     }
+    const foreign = c.foreign;
     const hint = language === "english" ? OPT_OUT_HINT_EN : OPT_OUT_HINT_ID;
     // Email carries an unsubscribe link in its footer instead of a "reply STOP" line.
     let emailText = channel === "email" ? neutralHonorific(body.text) : body.text;
@@ -129,7 +153,7 @@ export class MessageWriterService {
     }
     return {
       text: channel === "email" ? emailText : `${body.text}\n\n${hint}`,
-      risks: [...draftRisks(body.text, facts.hits.map((h) => h.content)), ...(foreign.length ? ["other-business"] : [])],
+      risks: [...draftRisks(body.text, facts.hits.map((h) => h.content)), ...(foreign.length ? ["other-business"] : []), ...(c.issues.length ? ["style"] : [])],
       trace: { variant, styled: !!stats, examples: examples.length, knowledge: facts.confidence, model: ai.chatModel, latencyMs: Date.now() - started },
     };
   }
@@ -146,21 +170,35 @@ export class MessageWriterService {
       const briefRow = await this.prisma.marketingBrief.findUnique({ where: { workspaceId }, select: { summary: true, content: true } });
       const brief = briefRow ? briefForDraft(briefRow.summary, briefRow.content as unknown as BriefContent, { name: o.segment, category: o.segment }) : undefined;
       const business = await this.businessDescription(workspaceId);
-      const messages = buildOutreachMessages({
+      // a service gets a different shape on each call; a product template has no business facts for the "observation" opening
+      const kind = detectOfferKind(briefRow?.summary, o.offer);
+      const picked = o.variant ?? OUTREACH_VARIANTS[Math.floor(Math.random() * OUTREACH_VARIANTS.length)];
+      const genericVariant = kind === "service" || picked !== "observation" ? picked : "pain";
+      const build = (note?: string) => buildOutreachMessages({
         businessDescription: business,
         offer: o.offer?.trim() || briefRow?.summary || business,
         language: o.language,
         lead: { name: o.segment, category: o.segment },
         style: stats,
-        knowledge: facts.confidence === "none" ? [] : facts.hits.map((h) => h.content),
+        knowledge: facts.confidence === "none" || kind === "service" ? [] : facts.hits.map((h) => h.content),
         brief,
         channel: o.channel,
-        variant: o.variant === "observation" ? "pain" : (o.variant ?? "pain"),
+        variant: genericVariant,
         generic: true,
+        offerKind: kind,
+        retryNote: note,
       });
-      const body = await this.generate(workspaceId, "outreach", `template:${o.segment}`, messages, facts.hits.map((h) => h.sourceId), facts.confidence, { language: o.language, names: [business] });
+      const normOpts = { language: o.language, names: [business], whatsapp: o.channel === "whatsapp" };
+      const tidy = (b: { text: string }) => ({ text: o.channel === "whatsapp" ? tidyWhatsappOutreach(b.text) : b.text });
+      let body = tidy(await this.generate(workspaceId, "outreach", `template:${o.segment}`, build(), facts.hits.map((h) => h.sourceId), facts.confidence, normOpts));
+      const caseStudies = (briefRow?.content as unknown as BriefContent | undefined)?.proof?.customers ?? [];
+      let issues = outreachProblems(body.text, { service: kind === "service", category: o.segment, caseStudies });
+      for (let retry = 0; retry < 2 && issues.length; retry++) {
+        body = tidy(await this.generate(workspaceId, "outreach", `template:${o.segment}`, build(issues.join("; ")), facts.hits.map((h) => h.sourceId), facts.confidence, normOpts));
+        issues = outreachProblems(body.text, { service: kind === "service", category: o.segment, caseStudies });
+      }
       const text = o.channel === "email" ? neutralHonorific(body.text) : body.text;
-      return { text, risks: draftRisks(text, facts.hits.map((h) => h.content)) };
+      return { text, risks: [...draftRisks(text, facts.hits.map((h) => h.content)), ...(issues.length ? ["style"] : [])] };
     } catch (e) {
       await release();
       throw e;
@@ -209,16 +247,21 @@ export class MessageWriterService {
     const started = Date.now();
     const profile = await this.prisma.styleProfile.findUnique({ where: { workspaceId } });
     if (!profile) throw new BadRequestException("No style profile yet");
+    // "boleh" or "iya" alone say nothing about the topic: search with what we last said as well
+    const lastMine = history.split("\n").reverse().find((l) => l.startsWith("Saya:"))?.slice(5).trim() ?? "";
+    const topicQuery = `${lastMine.slice(0, 300)} ${incoming}`.trim();
     let examples: { incoming: string; reply: string; similarity: number }[] = [];
     try {
-      examples = await this.style.retrieveExamples(workspaceId, profile, incoming);
+      examples = await this.style.retrieveExamples(workspaceId, profile, topicQuery);
     } catch (e) {
       this.logger.warn(`Style examples skipped: ${(e as Error).message}`);
     }
-    const facts = await this.knowledge.search(workspaceId, incoming);
     const language = lead?.campaign.language === "english" ? "english" : "indonesian";
+    const facts = await this.knowledge.search(workspaceId, topicQuery);
     const knownFacts = facts.confidence === "none" ? [] : facts.hits.map((h) => h.content);
     const alreadyIntroduced = /\b(saya|kami)\s+dari\b/i.test(history);
+    const briefSummary = (await this.prisma.marketingBrief.findUnique({ where: { workspaceId }, select: { summary: true } }))?.summary;
+    const offerKind = detectOfferKind(briefSummary, lead?.campaign.yourService);
     const names = [...(lead ? [lead.name] : []), await this.businessDescription(workspaceId)];
     const build = (retryNote?: string) => buildDraftMessages({
       businessDescription: `${names[names.length - 1]}${lead ? `, menawarkan ${lead.campaign.yourService} kepada ${lead.name}` : ""}`,
@@ -231,28 +274,46 @@ export class MessageWriterService {
       action,
       alreadyIntroduced,
       retryNote,
+      reason: true,
+      offerKind,
     });
     let text = "";
     let problems: string[] = [];
     for (let attempt = 0; attempt < 2; attempt++) {
-      const body = await this.generate(workspaceId, "reply", incoming, build(attempt ? problems.join(", ") : undefined), facts.hits.map((h) => h.sourceId), facts.confidence, { language: language === "english" ? "english" : "auto", names });
+      const body = await this.generate(workspaceId, "reply", incoming, build(attempt ? problems.join(", ") : undefined), facts.hits.map((h) => h.sourceId), facts.confidence, { language: language === "english" ? "english" : "auto", names, whatsapp: true }, pickReply);
       text = neutralHonorificChat(lead ? removeEmoji(body.text) : body.text);
       problems = checkReply(text, { alreadyIntroduced, knownText: [history, ...knownFacts].join("\n") });
+      // a second reading catches what the rules cannot: a cut-off sentence, an answer to another question, an invented price
+      if (problems.length === 0) {
+        const verdict = await this.judgeReply(workspaceId, { history, incoming, draft: text, facts: knownFacts });
+        if (verdict) problems = [`pemeriksa: ${verdict}`];
+      }
       if (problems.length === 0) break;
     }
     const risks = draftRisks(text, knownFacts);
     // two failed attempts: show safe wording instead of a reply that makes no sense, and say so
-    if (problems.length > 0) { text = fallbackReply(action, language); risks.push("fallback"); }
+    if (problems.length > 0) { text = fallbackReply(action, language, offerKind); risks.push("fallback"); }
     return { text, risks, trace: { styled: true, examples: examples.length, knowledge: facts.confidence, model: ai.chatModel, latencyMs: Date.now() - started } };
   }
 
-  private async generate(workspaceId: string, kind: string, input: string, messages: { role: "system" | "user"; content: string }[], sourceIds: string[], confidence: string, norm: { language: "indonesian" | "english" | "auto"; names: string[] }) {
+  /** null = the draft passes (or the check itself could not run: it only ever adds a retry, never blocks). */
+  private async judgeReply(workspaceId: string, o: { history: string; incoming: string; draft: string; facts: string[] }): Promise<string | null> {
+    try {
+      const ai = await this.ai.forWorkspace(workspaceId);
+      return parseJudge(await ai.chat(judgeMessages(o), { temperature: 0 }));
+    } catch (e) {
+      this.logger.warn(`Reply check skipped: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
+  private async generate(workspaceId: string, kind: string, input: string, messages: { role: "system" | "user"; content: string }[], sourceIds: string[], confidence: string, norm: { language: "indonesian" | "english" | "auto"; names: string[]; whatsapp?: boolean }, pick: (raw: string) => string = (raw) => raw) {
     const ai = await this.ai.forWorkspace(workspaceId);
     const started = Date.now();
     let output = "";
     let error: string | undefined;
     try {
-      output = normalizeDraft(neutralGreeting(clean(await ai.chat(messages))), norm);
+      output = normalizeDraft(neutralGreeting(clean(pick(await ai.chat(messages, kind === "reply" ? undefined : { temperature: 0.9 })), norm.whatsapp)), norm);
       if (!output) error = "empty output";
       else if (PLACEHOLDER.test(output)) error = "output contains a template placeholder";
     } catch (e) {

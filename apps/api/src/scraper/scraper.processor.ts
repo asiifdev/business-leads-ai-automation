@@ -4,6 +4,7 @@ import { Job } from "bullmq";
 import { CampaignsService } from "../campaigns/campaigns.service";
 import { LeadsService } from "../leads/leads.service";
 import { LeadIntelligenceService } from "../ai/lead-intelligence.service";
+import { GeoService } from "../leads/geo.service";
 import { EnrichmentService } from "../leads/enrichment.service";
 import { FitService } from "../ai/fit.service";
 import { MarketingAiService } from "../ai/marketing-ai.service";
@@ -41,6 +42,7 @@ export class ScraperProcessor extends WorkerHost {
     private googleMaps: GoogleMapsScraperService,
     private fit: FitService,
     private enrichment: EnrichmentService,
+    private geo: GeoService,
   ) {
     super();
   }
@@ -131,6 +133,7 @@ export class ScraperProcessor extends WorkerHost {
       });
 
       await this.campaigns.updateStatus(campaignId, "completed", 100);
+      this.geo.start(workspaceId); // province / kota / kecamatan for the new leads, in the background
       this.logger.log(`Campaign ${campaignId} done: ${total} leads, ${priority} priority`);
 
       // Contact details from each business's own website. Runs after the campaign is complete and never fails it.

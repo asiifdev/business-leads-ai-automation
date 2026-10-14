@@ -23,8 +23,21 @@ test("templates are polite and have no emoji or commands", () => {
 test("checkReply catches the failures seen in real drafts", () => {
   const ctx = { alreadyIntroduced: true, knownText: "" };
   assert.ok(checkReply("Siapp, Kak. Kabari saja ya kalau sudah.", ctx).includes("commanding tone"));
-  assert.ok(checkReply("Baik, Kak. Saya dari invly.id, kami bantu software sewa dan rental.", ctx).includes("introduces itself again"));
+  assert.ok(checkReply("Baik, Kak. Saya dari contoh.id, kami bantu software sewa dan rental.", ctx).includes("introduces itself again"));
   assert.ok(checkReply("Baik, Kak 😁 terima kasih banyak", ctx).includes("emoji"));
   assert.ok(checkReply("Silakan lihat https://contoh.com/x ya", ctx).includes("unknown link"));
   assert.deepEqual(checkReply("Baik, Kak. Harganya mulai Rp199.000 per bulan, dan ada coba gratis 14 hari.", ctx), []);
+});
+
+test("a reply that talks about roles instead of answering is rejected", () => {
+  assert.match(checkReply("Baik, Kak. Saya bukan pelanggan, Kak. Saya pemilik bisnis yang ingin tahu apakah sistem kami cocok.", { alreadyIntroduced: false, knownText: "" }).join(" "), /roles/);
+  assert.match(checkReply("Baik, Kak. Kami ini bukan penyewa, Kak.", { alreadyIntroduced: false, knownText: "" }).join(" "), /roles/);
+  assert.deepEqual(checkReply("Baik, Kak. Terima kasih, contoh tampilannya saya kirimkan sekarang ya.", { alreadyIntroduced: true, knownText: "" }), []);
+});
+
+test("pointing us to another contact is answered with fixed wording and never a pitch", () => {
+  assert.equal(planReplyAction("referral", "[Kontak: Contoh +628120000000] halo untuk penawaran hubungi management ya"), "thanks_referral");
+  assert.equal(planReplyAction("referral", "silakan hubungi management kami"), "ask_contact");
+  assert.match(templateReply("thanks_referral", "indonesian") ?? "", /hubungi nomor tersebut/);
+  assert.match(templateReply("ask_contact", "indonesian") ?? "", /nomor atau kontak/);
 });
