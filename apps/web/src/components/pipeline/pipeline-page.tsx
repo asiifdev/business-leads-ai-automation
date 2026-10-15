@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -115,6 +115,17 @@ export function PipelinePage() {
   if (!data) return <div className="space-y-4 p-6"><Skeleton className="h-24 w-full" /><Skeleton className="h-64 w-full" /></div>;
 
   const max = Math.max(1, ...data.stages.map((s) => s.count));
+  // "2 jam yang lalu" / "3 days ago": how long it has been, which is what decides who to look at first
+  const ago = (v: string | null) => {
+    if (!v) return "";
+    const mins = Math.round((new Date(v).getTime() - Date.now()) / 60_000);
+    const rtf = new Intl.RelativeTimeFormat(lang === "id" ? "id" : "en", { numeric: "auto" });
+    if (Math.abs(mins) < 60) return rtf.format(mins, "minute");
+    if (Math.abs(mins) < 1440) return rtf.format(Math.round(mins / 60), "hour");
+    return rtf.format(Math.round(mins / 1440), "day");
+  };
+  const intentBadge = (l: LeadRow): { label: string; tone: BadgeTone } | null =>
+    l.lastIntent ? { label: t(`pipeline.intent.${l.lastIntent}` as MessageKey), tone: INTENT_TONE[l.lastIntent] ?? "secondary" } : null;
   const date = (v: string | null) => (v ? new Date(v).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { day: "numeric", month: "short" }) : "");
 
   return (
@@ -145,11 +156,13 @@ export function PipelinePage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <LeadList title={t("pipeline.needsReply")} empty={t("pipeline.needsReply.empty")} rows={data.needsReply} total={data.totals.needsReply} onHandled={markHandled} note={(l) => (l.lastIntent ? t(`pipeline.intent.${l.lastIntent}` as MessageKey) : date(l.repliedAt))} />
-        <LeadList title={t("pipeline.due")} empty={t("pipeline.due.empty")} rows={data.dueFollowUps} total={data.totals.dueFollowUps} note={(l) => date(l.followUpDate)} />
-        <LeadList title={t("pipeline.waiting")} empty={t("pipeline.waiting.empty")} hint={t("pipeline.waiting.hint")} rows={data.waitingOnThem} total={data.totals.waitingOnThem} note={(l) => `${l.lastIntent ? t(`pipeline.intent.${l.lastIntent}` as MessageKey) + " · " : ""}${date(l.contactedAt)}`} />
-        <LeadList title={t("pipeline.stale")} empty={t("pipeline.stale.empty")} rows={data.stale} total={data.totals.stale} note={(l) => date(l.contactedAt)} />
+      <div className="space-y-4">
+        <LeadList wide title={t("pipeline.needsReply")} empty={t("pipeline.needsReply.empty")} rows={data.needsReply} total={data.totals.needsReply} onHandled={markHandled} badge={intentBadge} when={(l) => ago(l.repliedAt)} />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <LeadList title={t("pipeline.due")} empty={t("pipeline.due.empty")} rows={data.dueFollowUps} total={data.totals.dueFollowUps} when={(l) => date(l.followUpDate)} />
+          <LeadList title={t("pipeline.waiting")} empty={t("pipeline.waiting.empty")} hint={t("pipeline.waiting.hint")} rows={data.waitingOnThem} total={data.totals.waitingOnThem} badge={intentBadge} when={(l) => ago(l.contactedAt)} />
+          <LeadList title={t("pipeline.stale")} empty={t("pipeline.stale.empty")} rows={data.stale} total={data.totals.stale} when={(l) => ago(l.contactedAt)} />
+        </div>
       </div>
 
       {data.unmatched.length > 0 && (
@@ -199,24 +212,44 @@ function Stat({ label, value }: { label: string; value: string }) {
   return <Card><CardContent className="pt-5"><div className="text-2xl font-semibold tabular-nums">{value}</div><div className="text-xs text-muted-foreground">{label}</div></CardContent></Card>;
 }
 
-function LeadList({ title, empty, hint, rows, total, note, onHandled }: { title: string; empty: string; hint?: string; rows: LeadRow[]; total: number; note: (l: LeadRow) => string; onHandled?: (id: string) => void }) {
+type BadgeTone = "secondary" | "info" | "warning" | "success" | "destructive";
+const INTENT_TONE: Record<string, BadgeTone> = { interested: "success", meeting: "success", price: "info", question: "info", referral: "warning", not_interested: "destructive" };
+
+/**
+ * One list on the Pipeline page: the name takes the room it needs, a coloured chip says what they meant, the time says how long
+ * ago, and (where it makes sense) a quiet check marks a lead you already answered from your phone.
+ */
+function LeadList({ title, empty, hint, rows, total, when, badge, onHandled, wide }: { title: string; empty: string; hint?: string; rows: LeadRow[]; total: number; when: (l: LeadRow) => string; badge?: (l: LeadRow) => { label: string; tone: BadgeTone } | null; onHandled?: (id: string) => void; wide?: boolean }) {
   const { t } = useI18n();
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle className="flex items-center justify-between text-base">{title}<Badge variant="secondary">{total}</Badge></CardTitle></CardHeader>
-      <CardContent className="space-y-1.5 text-sm">
-        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-        {total > rows.length && <p className="text-xs text-muted-foreground">{t("pipeline.showing", { shown: rows.length, total })}</p>}
-        {rows.length === 0 && <p className="text-muted-foreground">{empty}</p>}
-        {rows.map((l) => (
-          <div key={l.id} className="flex items-center gap-1 rounded-md hover:bg-muted">
-            <Link href={`/leads/${l.id}`} className="flex min-w-0 flex-1 items-center justify-between gap-2 px-2 py-1.5">
-              <span className="truncate">{l.name}</span>
-              <span className="shrink-0 text-xs text-muted-foreground">{note(l)}</span>
-            </Link>
-            {onHandled && <button type="button" title={t("pipeline.handled.hint")} onClick={() => onHandled(l.id)} className="shrink-0 rounded px-1.5 py-1 text-xs text-muted-foreground underline hover:text-foreground">{t("pipeline.handled")}</button>}
-          </div>
-        ))}
+      <CardHeader className="pb-3"><CardTitle className="flex items-start justify-between gap-3 text-base leading-snug">{title}<Badge variant="secondary" className="shrink-0">{total}</Badge></CardTitle>
+        {hint && <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>}
+      </CardHeader>
+      <CardContent className="text-sm">
+        {total > rows.length && <p className="mb-2 text-xs text-muted-foreground">{t("pipeline.showing", { shown: rows.length, total })}</p>}
+        {rows.length === 0 && <p className="mt-1 text-xs text-muted-foreground">{empty}</p>}
+        <ul className={`max-h-[28rem] overflow-y-auto pr-1 ${wide ? "grid gap-x-6 md:grid-cols-2" : ""}`}>
+          {rows.map((l) => {
+            const chip = badge?.(l);
+            return (
+              <li key={l.id} className="flex items-center gap-1 rounded-md hover:bg-muted">
+                <Link href={`/leads/${l.id}`} className="min-w-0 flex-1 px-2 py-2">
+                  <p className="truncate font-medium" title={l.name}>{l.name}</p>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                    {chip && <Badge variant={chip.tone} className="whitespace-nowrap">{chip.label}</Badge>}
+                    <span className="tabular-nums">{when(l)}</span>
+                  </div>
+                </Link>
+                {onHandled && (
+                  <button type="button" title={t("pipeline.handled.hint")} aria-label={t("pipeline.handled")} onClick={() => onHandled(l.id)} className="mr-1 shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-foreground">
+                    <Check className="h-4 w-4" />
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       </CardContent>
     </Card>
   );
