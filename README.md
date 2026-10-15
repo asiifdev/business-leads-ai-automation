@@ -1,8 +1,8 @@
 <div align="center">
   <h1>Prospex</h1>
-  <p><strong>Open-source outreach for selling to local businesses.</strong></p>
-  <p>Find businesses on Google Maps, let AI draft the first message in your own voice (or write one message for a whole kind of business), approve it, send it on WhatsApp or email at a safe pace, and follow every lead until it closes.</p>
-  <p><a href="https://alatpintar.id">Hosted version</a> · <a href="#quickstart">Self-host</a> · <a href="docs/whatsapp-outbox.md">How sending works</a> · <a href="#roadmap">Roadmap</a> · <a href="COMMERCIAL-LICENSE.md">Commercial license</a></p>
+  <p><strong>Open-source AI sales and marketing automation for local businesses.</strong></p>
+  <p>Discover business leads, enrich business information, draft personalized outreach with AI, review every message before sending, and manage follow-ups in one workflow.</p>
+  <p><a href="https://alatpintar.id">🚀 Try Prospex</a> · <a href="#quickstart">⚙️ Self-host</a> · <a href="docs/whatsapp-outbox.md">📨 How sending works</a> · <a href="#roadmap">🗺️ Roadmap</a> · <a href="COMMERCIAL-LICENSE.md">📄 Commercial license</a></p>
 
   [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
   [![GitHub stars](https://img.shields.io/github/stars/asiifdev/business-leads-ai-automation?style=social)](https://github.com/asiifdev/business-leads-ai-automation/stargazers)
