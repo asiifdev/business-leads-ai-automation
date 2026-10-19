@@ -6,10 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Phone, Search, Globe, MapPin, Star, Mail, Loader2, Copy } from "lucide-react";
+import { ArrowLeft, Phone, Search, Globe, MapPin, Star, Mail, Loader2, Copy, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { useLead } from "@/hooks/use-leads";
 import { api } from "@/lib/api";
@@ -32,6 +31,8 @@ export function LeadDetail({ id }: { id: string }) {
   const [crmStatus, setCrmStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deal, setDeal] = useState<{ value: string; lost: string; follow: string } | null>(null);
+  const [notes, setNotes] = useState<string | null>(null);
+  const [savingNotes, setSavingNotes] = useState(false);
   const dealForm = deal ?? { value: lead?.dealValue != null ? String(lead.dealValue) : "", lost: lead?.lostReason ?? "", follow: lead?.followUpDate ? lead.followUpDate.slice(0, 10) : "" };
   const saveDeal = async (extra: object = {}) => {
     setSaving(true);
@@ -50,6 +51,16 @@ export function LeadDetail({ id }: { id: string }) {
       setSaving(false);
     }
   };
+  const saveNotes = async () => {
+    if (notes === null) return;
+    setSavingNotes(true);
+    try {
+      await api.patch(`/leads/${id}/crm`, { crmNotes: notes });
+      await refresh();
+      setNotes(null);
+    } catch (e) { toast.error((e as Error).message); } finally { setSavingNotes(false); }
+  };
+
   const [enriching, setEnriching] = useState(false);
   const enrich = async () => {
     setEnriching(true);
@@ -150,7 +161,8 @@ export function LeadDetail({ id }: { id: string }) {
                 { icon: Mail, label: t("leads.enrich.email"), value: lead.email ?? undefined },
                 { icon: Globe, label: t("leads.detail.website"), value: lead.website },
                 { icon: MapPin, label: t("leads.detail.address"), value: lead.address },
-                { icon: Star, label: t("leads.detail.rating"), value: lead.rating ? t("leads.detail.ratingValue", { rating: lead.rating }) : undefined },
+                { icon: Star, label: t("leads.detail.rating"), value: lead.rating ? `${lead.rating}${lead.reviewCount != null ? ` · ${t(lead.reviewCount === 1 ? "leads.detail.reviewCount" : "leads.detail.reviewCount_plural", { n: lead.reviewCount })}` : ""}` : undefined },
+                ...(lead.province ? [{ icon: MapPin, label: t("leads.detail.region"), value: [lead.district, lead.regency, lead.province].filter(Boolean).join(", ") }] : []),
               ]
                 .filter((i) => i.value)
                 .map((item) => (
@@ -228,6 +240,68 @@ export function LeadDetail({ id }: { id: string }) {
                     </div>
                   </div>
                 )}
+                {lead.marketingContent.linkedin && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <MessageSquare className="w-4 h-4 text-blue-500" />
+                      <span className="text-sm font-medium">{t("leads.detail.linkedin")}</span>
+                      <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs opacity-60 hover:opacity-100" onClick={() => navigator.clipboard.writeText(lead.marketingContent!.linkedin!.connectionNote)}>
+                        {t("leads.detail.copy")}
+                      </Button>
+                    </div>
+                    <div className="bg-muted/50 rounded-lg p-3 text-xs leading-relaxed">
+                      <p className="whitespace-pre-wrap">{lead.marketingContent.linkedin.connectionNote}</p>
+                    </div>
+                  </div>
+                )}
+                {lead.marketingContent.coldCall && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Phone className="w-4 h-4 text-emerald-500" />
+                      <span className="text-sm font-medium">{t("leads.detail.coldCall")}</span>
+                      <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs opacity-60 hover:opacity-100" onClick={() => navigator.clipboard.writeText(lead.marketingContent!.coldCall!.opening)}>
+                        {t("leads.detail.copy")}
+                      </Button>
+                    </div>
+                    <div className="bg-muted/50 rounded-lg p-3 text-xs leading-relaxed">
+                      <p className="whitespace-pre-wrap">{lead.marketingContent.coldCall.opening}</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* AI Score Breakdown */}
+          {lead.aiAnalysis && (lead.aiAnalysis.fit || (lead.aiAnalysis.factors?.length ?? 0) > 0) && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">{t("leads.detail.aiAnalysis")}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {lead.aiAnalysis.fit && (
+                  <div className="flex items-start gap-2">
+                    <Badge variant={lead.aiAnalysis.fit.fit === "high" ? "success" : lead.aiAnalysis.fit.fit === "medium" ? "warning" : "secondary"} className="shrink-0 mt-0.5">
+                      {t(`leads.detail.fit.${lead.aiAnalysis.fit.fit}` as keyof typeof leadsEn)}
+                    </Badge>
+                    {lead.aiAnalysis.fit.reason && (
+                      <span className="text-muted-foreground leading-relaxed">{lead.aiAnalysis.fit.reason}</span>
+                    )}
+                  </div>
+                )}
+                {lead.aiAnalysis.recommendation && (
+                  <p className="text-muted-foreground leading-relaxed">{lead.aiAnalysis.recommendation}</p>
+                )}
+                {(lead.aiAnalysis.factors?.length ?? 0) > 0 && (
+                  <ul className="space-y-1">
+                    {lead.aiAnalysis.factors!.map((f, i) => (
+                      <li key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                        <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
           )}
@@ -285,6 +359,22 @@ export function LeadDetail({ id }: { id: string }) {
                   </label>
                 )}
                 <Button variant="outline" className="w-full text-sm h-9" onClick={() => saveDeal()} disabled={saving}>{t("leads.deal.save")}</Button>
+              </div>
+              <div className="border-t pt-3 space-y-2">
+                <label className="block text-xs text-muted-foreground">{t("leads.detail.crmNotes")}
+                  <textarea
+                    rows={3}
+                    value={notes ?? lead.crmNotes ?? ""}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder={t("leads.detail.crmNotesPlaceholder")}
+                    className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </label>
+                {notes !== null && notes !== (lead.crmNotes ?? "") && (
+                  <Button variant="outline" size="sm" className="w-full" onClick={saveNotes} disabled={savingNotes}>
+                    {savingNotes && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}{t("leads.detail.crmNotesSave")}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

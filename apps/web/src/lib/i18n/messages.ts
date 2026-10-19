@@ -23,7 +23,9 @@ import { pipelineEn } from "./features-pipeline.en";
 import { pipelineId } from "./features-pipeline.id";
 import { templatesEn } from "./features-templates.en";
 import { templatesId } from "./features-templates.id";
+import { knowledgeEn } from "./features-knowledge.en";
+import { knowledgeId } from "./features-knowledge.id";
 
-export const enAll = { ...en, ...authEn, ...campaignsEn, ...leadsEn, ...adminEn, ...marketingEn, ...workspaceEn, ...billingEn, ...pipelineEn, ...templatesEn } as const;
+export const enAll = { ...en, ...authEn, ...campaignsEn, ...leadsEn, ...adminEn, ...marketingEn, ...workspaceEn, ...billingEn, ...pipelineEn, ...templatesEn, ...knowledgeEn } as const;
 export type MessageKey = keyof typeof enAll;
-export const idAll: Record<MessageKey, string> = { ...id, ...authId, ...campaignsId, ...leadsId, ...adminId, ...marketingId, ...workspaceId, ...billingId, ...pipelineId, ...templatesId };
+export const idAll: Record<MessageKey, string> = { ...id, ...authId, ...campaignsId, ...leadsId, ...adminId, ...marketingId, ...workspaceId, ...billingId, ...pipelineId, ...templatesId, ...knowledgeId };

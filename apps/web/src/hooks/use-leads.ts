@@ -15,7 +15,7 @@ export interface Lead {
   score: number;
   priority: "HIGH" | "MEDIUM" | "LOW";
   crmStatus: "new" | "contacted" | "replied" | "interested" | "meeting" | "proposal" | "won" | "lost";
-  crmNotes?: string;
+  crmNotes?: string | null;
   dealValue?: number | null;
   lostReason?: string | null;
   needsReply?: boolean;
@@ -46,7 +46,10 @@ export interface Lead {
   aiAnalysis?: {
     factors?: string[];
     recommendation?: string;
+    fit?: { fit: "high" | "medium" | "low"; reason: string };
   };
+  contactedAt?: string | null;
+  repliedAt?: string | null;
   activities?: Array<{ id: string; type: string; note: string; metadata?: { crmStatus?: string; contacts?: { name: string | null; phone: string }[] } | null; createdAt: string }>;
   scrapedAt: string;
   createdAt: string;
