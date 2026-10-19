@@ -47,16 +47,20 @@ Every feature, its purpose, its limits and how far it has been verified: [docs/f
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/campaign-form.png" alt="New campaign form: source material on the left, the form filled in by the AI on the right"><br><sub><b>New campaign.</b> Give it a website or documents; the AI fills the form and says what it could not find. Fields marked AI are yours to correct.</sub></td>
+    <td width="50%"><img src="docs/screenshots/leads.png" alt="Leads table sorted by AI score, with priority and CRM status badges"><br><sub><b>Leads.</b> Scored, filterable by priority, status, province, city and district. List and map views.</sub></td>
+    <td width="50%"><img src="docs/screenshots/lead-detail.png" alt="Lead detail: contact info, AI score breakdown with fit badge and factors, CRM notes"><br><sub><b>Lead detail.</b> Contact info, AI score breakdown (fit badge, reason and factors), email and call notes, and CRM notes — all in one page.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/outbox.png" alt="Outbox with drafts waiting for review, Write drafts and Check follow-ups controls"><br><sub><b>Outbox.</b> Every message waits for your approval. WhatsApp and Email tabs, Review / Queue / Sent / Needs attention.</sub></td>
+    <td width="50%"><img src="docs/screenshots/knowledge.png" alt="Knowledge base page with indexed sources and a test search panel"><br><sub><b>Knowledge base.</b> Facts, pricing and case studies the AI may draw on when writing drafts. Add any text; the AI only mentions what is here.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/campaign-form.png" alt="Campaigns page with New campaign dialog"><br><sub><b>Campaigns.</b> Give it a website or documents; the AI fills the brief and says what it could not find.</sub></td>
     <td width="50%"><img src="docs/screenshots/marketing-brief.png" alt="Marketing Brief page"><br><sub><b>Marketing brief.</b> What you sell, to whom, what is proven, and what is still missing. Every section is editable.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/outbox.png" alt="Outbox with drafts waiting for review"><br><sub><b>Outbox.</b> Every message waits for your approval.</sub></td>
-    <td width="50%"><img src="docs/screenshots/ai-style.png" alt="AI Style page showing a learned writing profile"><br><sub><b>AI Style.</b> The voice learned from your own chat exports: reply length, emoji, punctuation, openers.</sub></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/leads.png" alt="Leads table sorted by score"><br><sub><b>Leads.</b> Scored and filterable, with CRM status per lead.</sub></td>
-    <td width="50%"><img src="docs/screenshots/dashboard.png" alt="Dashboard with lead and campaign totals"><br><sub><b>Dashboard.</b> Leads, campaigns and conversion at a glance.</sub></td>
+    <td width="50%"><img src="docs/screenshots/ai-style.png" alt="AI Style page showing a learned writing profile"><br><sub><b>AI Style.</b> Voice learned from your own WhatsApp exports: reply length, emoji, punctuation, openers.</sub></td>
+    <td width="50%"><img src="docs/screenshots/dashboard.png" alt="Dashboard with lead and campaign totals, conversion rate and recent campaigns"><br><sub><b>Dashboard.</b> Leads, campaigns, conversion rate and deals won at a glance.</sub></td>
   </tr>
 </table>
 
