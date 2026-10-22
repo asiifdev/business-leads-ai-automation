@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeRating, pickCategory } from "./maps-parse";
+import { normalizeRating, pickCategory, businessStatusFrom } from "./maps-parse";
 
 test("normalizeRating handles Indonesian and English formats", () => {
   assert.equal(normalizeRating("4,6"), "4.6");
@@ -21,4 +21,11 @@ test("pickCategory ignores rating, hours and addresses; returns empty when unsur
   assert.equal(pickCategory(["4,5(10)", "Buka · Tutup pukul 21.00", "Jl. Merdeka No. 3 · 0812-3456-7890"]), "");
   assert.equal(pickCategory([]), "");
   assert.equal(pickCategory(["Jl. Slamet Riyadi 12 · Solo"]), "");
+});
+
+test("businessStatusFrom reads closed listings in both languages and ignores closing hours", () => {
+  assert.equal(businessStatusFrom(["Toko Kamera · Jl. Contoh No.1", "Tutup permanen"]), "permanently_closed");
+  assert.equal(businessStatusFrom(["Permanently closed"]), "permanently_closed");
+  assert.equal(businessStatusFrom(["Sementara tutup"]), "temporarily_closed");
+  assert.equal(businessStatusFrom(["Buka · Tutup pukul 22.00"]), null);
 });

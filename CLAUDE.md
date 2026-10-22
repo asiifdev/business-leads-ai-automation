@@ -30,6 +30,7 @@ pnpm lint                                              # turbo lint (all apps)
 
 pnpm --filter @prospex/api test                        # unit tests (node:test via tsx): parser, style stats, send policy, opt-out, draft risk
 DATABASE_URL=... WORKSPACE_ID=... pnpm --filter @prospex/api exec tsx scripts/pipeline-check.ts   # sender + inbound against a real DB with a fake WhatsApp provider
+DATABASE_URL=... pnpm --filter @prospex/api exec tsx scripts/data-quality-check.ts   # repeats, closed listings, WhatsApp/e-mail gates against a real DB (use a scratch database)
 pnpm test:e2e                                          # Playwright e2e against localhost:3000/3001 (servers must already be running)
 pnpm test:e2e:ui                                       # Playwright UI mode
 npx playwright test tests/e2e/leads.spec.ts            # run a single e2e spec
@@ -89,6 +90,14 @@ Read `docs/architecture.md` and `docs/whatsapp-outbox.md` first. Invariants to k
 
 ### Email (`apps/api/src/email`)
 Read `docs/email-channel.md` first. Same rules as WhatsApp: drafts need approval (`MessagingService.approve` branches on `channel`), the sender claims `approved -> sending` atomically, opt-outs (`email_opt_outs`) are checked at draft, approve and send. Extra invariants: every message carries the footer and `List-Unsubscribe` headers; the unsubscribe GET never changes state; the SMTP host goes through `resolvePublic` and only allowed ports; never return `passwordEnc` to a client. WhatsApp code must filter `channel: "whatsapp"` (counts, queue, follow-ups, crash recovery) because both channels share `outbound_messages`.
+
+### Data quality (`apps/api/src/leads`)
+Read `docs/architecture.md` ("Data quality"). Invariants to keep:
+- **Drafting is gated before any AI call.** `draftGate` (pure, in `data-quality.ts`) decides from the lead's facts, recomputed at the time (not the stored `dataQuality`, which is for display and filters). Bulk drafting in `MessagingService` and `EmailService` uses it; a single hand-made draft is flagged through `qualityRiskLabels`, never blocked.
+- **Only free checks.** DNS for e-mail domains, the pages already fetched, the workspace's own WhatsApp for numbers. No paid verification or enrichment service, and no SMTP probing.
+- **"Unknown" is not "bad".** A failed lookup stores nothing and lets the draft go ahead; only a definite answer (`false`) blocks.
+- **Repeats are kept, not dropped.** `LeadsService.createMany` marks them (`duplicateOfId`, a self relation that sets null when the original is deleted); shared hosts (Instagram, Linktree, marketplaces) never count as a shared website.
+- New fields on a lead need a source in `fieldMeta`.
 
 ### Workspaces
 One login can belong to many workspaces (businesses). The JWT carries the active `workspaceId`; `POST /workspace/switch` checks membership and issues a new token. Everything a business owns (brief, style, knowledge, WhatsApp, email, AI provider, campaigns, leads) hangs off `workspaceId`, so new per-business state must too. `JwtGuard` re-checks the membership behind the token (10 s cache), so removal works at once. Changing the AI provider or integrations, testing it, and re-indexing need `assertOwnerOrAdmin` (`auth/roles.ts`); a missing user id is refused. The web app reloads after a switch so no data from the previous business stays in memory.

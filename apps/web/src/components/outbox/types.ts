@@ -26,7 +26,7 @@ export interface OutboxMessage {
 
 export interface GenerationJob {
   running: boolean; total: number; done: number; created: number; failed: number;
-  /** Reasons leads were left out: noValidPhone, optedOut, duplicateNumber (WhatsApp) or noEmail, optedOut, duplicateAddress (email). */
+  /** Reasons leads were left out: noValidPhone, optedOut, duplicateNumber, lowQuality, notOnWhatsapp (WhatsApp) or noEmail, optedOut, duplicateAddress, lowQuality, badEmail (email). */
   skipped: Record<string, number>; firstError: string | null;
 }
 

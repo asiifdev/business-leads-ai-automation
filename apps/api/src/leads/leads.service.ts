@@ -1,5 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
+import { createDuplicateIndex, type DedupeCandidate } from "./dedupe";
+import { qualityColumns, withSource } from "./validation";
 import { normalizePhone } from "../messaging/phone";
 import { PrismaService } from "../prisma/prisma.service";
 import { UpdateCrmDto } from "./dto/update-crm.dto";
@@ -14,6 +17,8 @@ export interface LeadFilter {
   province?: string;
   regency?: string;
   district?: string;
+  /** high | medium | low, as stored on the lead (see data-quality.ts). */
+  quality?: string;
   page?: number;
   limit?: number;
 }
@@ -24,7 +29,7 @@ export class LeadsService {
 
   /** The filter shared by the list, the map and the region counts. */
   private where(workspaceId: string, filter: LeadFilter): Prisma.LeadWhereInput {
-    const { campaignId, q, priority, status, province, regency, district } = filter;
+    const { campaignId, q, priority, status, province, regency, district, quality } = filter;
     const term = q?.trim().slice(0, 100);
     // Phone numbers are stored as typed ("0812-...") and as digits with country code, so match on digits too.
     const digits = term?.replace(/\D/g, "") ?? "";
@@ -37,6 +42,7 @@ export class LeadsService {
       ...(province && { province }),
       ...(regency && { regency }),
       ...(district && { district }),
+      ...(quality && (["high", "medium", "low"] as string[]).includes(quality) && { dataQuality: quality }),
       ...(term && {
         OR: [
           ...(["name", "address", "website", "email", "category", "phone", "province", "regency", "district"] as const).map((f) => ({ [f]: { contains: term, mode: "insensitive" as const } })),
@@ -173,6 +179,57 @@ export class LeadsService {
     return lead;
   }
 
+  /**
+   * Works out data quality for every lead of the workspace again: marks repeats (the earliest lead is the original), fills in where
+   * each field came from for leads saved before that was recorded, and refreshes the stored level. Safe to run any number of times.
+   */
+  async recomputeQuality(workspaceId: string) {
+    const index = createDuplicateIndex<DedupeCandidate & { id: string }>([]);
+    const now = new Date();
+    const out = { checked: 0, updated: 0, duplicates: 0, low: 0, medium: 0, high: 0 };
+    let cursor: string | undefined;
+    for (;;) {
+      const rows = await this.prisma.lead.findMany({
+        where: { workspaceId },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        take: 500,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      if (!rows.length) break;
+      cursor = rows[rows.length - 1].id;
+      const writes: Prisma.PrismaPromise<unknown>[] = [];
+      for (const r of rows) {
+        out.checked++;
+        const dup = r.source === "fixture" ? null : index.find(r);
+        if (!dup && r.source !== "fixture") index.add(r);
+        const duplicateOfId = dup?.match.id ?? null;
+        const state = { ...r, duplicateOfId };
+        const q = qualityColumns(state, now);
+        out[q.dataQuality as "low" | "medium" | "high"]++;
+        if (duplicateOfId) out.duplicates++;
+        const sameIssues = r.qualityIssues.length === q.qualityIssues.length && r.qualityIssues.every((x, i) => x === q.qualityIssues[i]);
+        const needsMeta = !r.fieldMeta;
+        if (r.dataQuality === q.dataQuality && sameIssues && r.duplicateOfId === duplicateOfId && !needsMeta) continue;
+        out.updated++;
+        writes.push(this.prisma.lead.update({
+          where: { id: r.id },
+          data: {
+            ...q,
+            duplicateOfId,
+            ...(needsMeta ? { fieldMeta: withSource(null, ["name", "address", "phone", "website", "category"].filter((f) => !!(r as Record<string, unknown>)[f]), r.source, r.scrapedAt) } : {}),
+          },
+        }));
+      }
+      if (writes.length) await this.prisma.$transaction(writes);
+    }
+    return out;
+  }
+
+  /**
+   * Stores new leads. Each one is compared with the workspace's earlier leads and with those earlier in the same batch (phone, website domain, name and place); a repeat is
+   * still kept, so the campaign shows it, but it points at the original and is left out of drafting. Where each field came from
+   * and how far the data can be trusted is recorded here too.
+   */
   async createMany(leads: Array<{
     name: string;
     address?: string;
@@ -186,6 +243,7 @@ export class LeadsService {
     referenceUrl?: string;
     source?: string;
     category?: string;
+    businessStatus?: string | null;
     score?: number;
     priority?: string;
     marketingContent?: object;
@@ -193,8 +251,37 @@ export class LeadsService {
     campaignId: string;
     workspaceId: string;
   }>) {
+    const workspaceIds = [...new Set(leads.map((l) => l.workspaceId))];
+    const indexes = new Map<string, ReturnType<typeof createDuplicateIndex<DedupeCandidate & { id: string }>>>();
+    for (const workspaceId of workspaceIds) {
+      const existing = await this.prisma.lead.findMany({
+        where: { workspaceId, duplicateOfId: null, source: { not: "fixture" } },
+        select: { id: true, name: true, phone: true, phoneE164: true, website: true, lat: true, lng: true },
+        take: 100_000,
+      });
+      indexes.set(workspaceId, createDuplicateIndex(existing));
+    }
+    const now = new Date();
     return this.prisma.lead.createMany({
-      data: leads.map((l) => ({ ...l, phoneE164: normalizePhone(l.phone) })),
+      data: leads.map((l) => {
+        const phoneE164 = normalizePhone(l.phone);
+        const id = randomUUID();
+        const index = l.source === "fixture" ? undefined : indexes.get(l.workspaceId);
+        const dup = index?.find({ ...l, phoneE164 }) ?? null;
+        // A lead of this same batch can be the original of a later one, so each new original joins the index at once.
+        if (index && !dup) index.add({ id, name: l.name, phone: l.phone, phoneE164, website: l.website, lat: l.lat, lng: l.lng });
+        const known = { phone: l.phone, phoneE164, businessStatus: l.businessStatus ?? null, duplicateOfId: dup?.match.id ?? null, scrapedAt: now };
+        const origin = l.source ?? "google_maps";
+        return {
+          ...l,
+          id,
+          phoneE164,
+          businessStatus: l.businessStatus ?? null,
+          duplicateOfId: known.duplicateOfId,
+          fieldMeta: withSource(null, ["name", "address", "phone", "website", "category"].filter((f) => !!(l as Record<string, unknown>)[f]), origin, now),
+          ...qualityColumns(known, now),
+        };
+      }),
       skipDuplicates: true,
     });
   }

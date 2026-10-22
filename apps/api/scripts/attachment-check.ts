@@ -53,7 +53,7 @@ async function main() {
     const wa = new FakeWa();
     const entitlements = { has: async () => false, edition: "community" } as never;
     const sender = new SenderService(prisma, new ConfigService({ WHATSAPP_DISABLED: "false" }), wa, entitlements, attachments);
-    const messaging = new MessagingService(prisma, {} as never, wa, entitlements, attachments);
+    const messaging = new MessagingService(prisma, {} as never, wa, entitlements, attachments, {} as never);
     const resetPacing = () => prisma.whatsappAccount.update({ where: { workspaceId: ws }, data: { nextSendAt: null } });
 
     // 1. upload rules

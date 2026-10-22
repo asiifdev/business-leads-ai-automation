@@ -14,6 +14,7 @@ import { detectOfferKind } from "../ai/chat-import/offer-kind";
 import { buildDraftMessages, buildOutreachMessages, OUTREACH_VARIANTS, pickVariant } from "../ai/chat-import/style-prompt";
 import type { StyleStats } from "../ai/chat-import/style-stats";
 import { draftRisks } from "./draft-risk";
+import { qualityRiskLabels } from "../leads/data-quality";
 import { neutralGreeting, normalizeDraft } from "../ai/orthography";
 import { briefForDraft, foreignVerticalWords } from "../marketing/brief-use";
 import type { BriefContent } from "../marketing/brief-schema";
@@ -153,7 +154,7 @@ export class MessageWriterService {
     }
     return {
       text: channel === "email" ? emailText : `${body.text}\n\n${hint}`,
-      risks: [...draftRisks(body.text, facts.hits.map((h) => h.content)), ...(foreign.length ? ["other-business"] : []), ...(c.issues.length ? ["style"] : [])],
+      risks: [...draftRisks(body.text, facts.hits.map((h) => h.content)), ...(foreign.length ? ["other-business"] : []), ...(c.issues.length ? ["style"] : []), ...qualityRiskLabels(lead)],
       trace: { variant, styled: !!stats, examples: examples.length, knowledge: facts.confidence, model: ai.chatModel, latencyMs: Date.now() - started },
     };
   }

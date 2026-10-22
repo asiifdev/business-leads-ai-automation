@@ -204,6 +204,19 @@ model Lead {
   district   String?
   geocodedAt DateTime?
 
+  // How far the contact data can be trusted. fieldMeta: where each field came from ({ phone: { source, at } }).
+  // validation: free checks ({ waRegistered, emailMx, websiteLive, checkedAt }). dataQuality: high | medium | low, with the reasons in qualityIssues.
+  fieldMeta     Json?
+  validation    Json?
+  dataQuality   String?
+  qualityIssues String[] @default([])
+  // open | temporarily_closed | permanently_closed, as the listing says. Null when unknown.
+  businessStatus String?
+  // The earlier lead (same business) this one repeats, found by phone, website domain or name and place.
+  duplicateOfId String?
+  duplicateOf   Lead?  @relation("LeadDuplicate", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates    Lead[] @relation("LeadDuplicate")
+
   scrapedAt DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -223,6 +236,7 @@ model Lead {
   @@index([workspaceId, phoneE164])
   @@index([workspaceId, needsReply])
   @@index([workspaceId, province, regency])
+  @@index([workspaceId, duplicateOfId])
   @@map("leads")
 }
 

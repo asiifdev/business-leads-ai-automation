@@ -3,6 +3,8 @@ import { PrismaService } from "../prisma/prisma.service";
 import { fetchResource, pageTextFromHtml } from "../marketing/url-fetch";
 import { normalizePhone } from "../messaging/phone";
 import { PageRenderer } from "../marketing/page-renderer";
+import { STALE_DAYS, websiteReadDue } from "./data-quality";
+import { checkEmailDomain, looksParked, mergeValidation, qualityColumns, withSource } from "./validation";
 import { contactPageLinks, extractContacts, phoneFromWaProfile, mergeContacts, type ExtractedContacts } from "./contact-extract";
 
 const MAX_PER_BATCH = 50;
@@ -31,9 +33,11 @@ export class EnrichmentService {
 
     const pages: string[] = [];
     const found: ExtractedContacts[] = [];
+    let parked = false;
     try {
       const home = await fetchResource(lead.website, { types: /html/i });
       pages.push(home.url);
+      parked = looksParked(pageTextFromHtml(home.url, home.body).text);
       found.push(extractContacts(home.body, home.url));
       for (const link of contactPageLinks(home.body, home.url)) {
         try {
@@ -54,7 +58,9 @@ export class EnrichmentService {
       }
     } catch (e) {
       this.log.debug(`enrich ${leadId}: ${(e as Error).message}`);
-      await this.prisma.lead.update({ where: { id: leadId }, data: { enrichedAt: new Date(), enrichment: { status: "unreachable", pages: [] } } });
+      const now = new Date();
+      const validation = mergeValidation(lead.validation, { websiteLive: false, websiteParked: false }, now);
+      await this.prisma.lead.update({ where: { id: leadId }, data: { enrichedAt: now, enrichment: { status: "unreachable", pages: [] }, validation, ...qualityColumns({ ...lead, validation, enrichedAt: now }, now) } });
       return { leadId, status: "unreachable" };
     }
 
@@ -69,20 +75,44 @@ export class EnrichmentService {
       } catch { /* an unknown username simply stays a handle */ }
     }
     // Fill gaps only; a number from Google Maps is never replaced by one from a website.
-    const data: Record<string, unknown> = { enrichedAt: new Date(), enrichment: { status: "enriched", ...c, whatsappResolved: resolved, pages } };
-    if (!lead.email && c.emails[0]) data.email = c.emails[0];
+    const now = new Date();
+    const data: Record<string, unknown> = { enrichedAt: now, enrichment: { status: "enriched", ...c, whatsappResolved: resolved, pages } };
+    const filled: string[] = [];
+    if (!lead.email && c.emails[0]) { data.email = c.emails[0]; filled.push("email"); }
     if (!lead.phone && c.whatsapp[0]) {
       data.phone = "+" + c.whatsapp[0];
       data.phoneE164 = normalizePhone("+" + c.whatsapp[0]);
+      filled.push("phone");
     }
+    // Free checks: is the site a real business site, and can the e-mail domain receive mail. A lookup that fails stays "unknown".
+    const email = (data.email as string | undefined) ?? lead.email;
+    const emailMx = email ? await checkEmailDomain(email) : null;
+    const validation = mergeValidation(lead.validation, { websiteLive: true, websiteParked: parked, ...(email ? { emailMx } : {}) }, now);
+    data.validation = validation;
+    if (filled.length) data.fieldMeta = withSource(lead.fieldMeta, filled, "website", now);
+    Object.assign(data, qualityColumns({ ...lead, phone: (data.phone as string | undefined) ?? lead.phone, phoneE164: (data.phoneE164 as string | null | undefined) ?? lead.phoneE164, email, validation, enrichedAt: now }, now));
     await this.prisma.lead.update({ where: { id: leadId }, data });
     return { leadId, status: "enriched", found: { emails: c.emails.length, whatsapp: c.whatsapp.length + c.whatsappHandles.length, social: Object.keys(c.social).length } };
   }
 
-  /** Enriches leads of a campaign that have a website and were not enriched yet, a few at a time. */
+  /** Reads the website again when it never was or the reading is older than STALE_DAYS. Returns whether it did; never throws. */
+  async refreshIfDue(workspaceId: string, leadId: string): Promise<boolean> {
+    try {
+      const lead = await this.prisma.lead.findFirst({ where: { id: leadId, workspaceId }, select: { website: true, enrichedAt: true } });
+      if (!lead || !websiteReadDue(lead)) return false;
+      await this.enrichLead(workspaceId, leadId);
+      return true;
+    } catch (e) {
+      this.log.debug(`refresh ${leadId}: ${(e as Error).message}`);
+      return false;
+    }
+  }
+
+  /** Enriches leads of a campaign that have a website and were not read yet or not for STALE_DAYS, a few at a time. */
   async enrichCampaign(workspaceId: string, campaignId: string) {
+    const cutoff = new Date(Date.now() - STALE_DAYS * 86_400_000);
     const leads = await this.prisma.lead.findMany({
-      where: { workspaceId, campaignId, enrichedAt: null, website: { not: null } },
+      where: { workspaceId, campaignId, website: { not: null }, OR: [{ enrichedAt: null }, { enrichedAt: { lt: cutoff } }] },
       select: { id: true }, take: MAX_PER_BATCH,
     });
     const results: EnrichmentResult[] = [];

@@ -8,6 +8,9 @@ import { inQuietHours, localHour, startOfLocalDay } from "../messaging/send-poli
 import { decryptSecret, encryptSecret } from "../settings/encryption.util";
 import { createTransport, friendlySmtpError } from "./email-transport";
 import { fitAllowed, fitLevel } from "../messaging/fit-gate";
+import { EnrichmentService } from "../leads/enrichment.service";
+import { draftGate } from "../leads/data-quality";
+import { checkEmailDomain, mergeValidation, qualityColumns, type Validation } from "../leads/validation";
 import { headerLine, isPublicUnsubscribeBase, unsubscribeBase } from "./email-utils";
 
 export const MAX_GENERATE = 200;
@@ -20,7 +23,7 @@ export interface EmailAccountInput {
 
 export interface EmailGenerationJob {
   running: boolean; total: number; done: number; created: number; failed: number;
-  skipped: { noEmail: number; optedOut: number; duplicateAddress: number; lowFit: number };
+  skipped: { noEmail: number; optedOut: number; duplicateAddress: number; lowFit: number; lowQuality: number; badEmail: number };
   firstError: string | null; startedAt: Date;
 }
 
@@ -37,7 +40,7 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly jobs = new Map<string, EmailGenerationJob>();
 
-  constructor(private readonly prisma: PrismaService, private readonly config: ConfigService, private readonly writer: MessageWriterService) {}
+  constructor(private readonly prisma: PrismaService, private readonly config: ConfigService, private readonly writer: MessageWriterService, private readonly enrichment: EnrichmentService) {}
 
   private key() { return this.config.getOrThrow<string>("ENCRYPTION_KEY"); }
 
@@ -136,12 +139,15 @@ export class EmailService {
       include: { campaign: { select: { yourService: true, language: true } } },
     });
     const optOuts = new Set((await this.prisma.emailOptOut.findMany({ where: { workspaceId }, select: { email: true } })).map((o) => o.email));
-    const job: EmailGenerationJob = { running: true, total: 0, done: 0, created: 0, failed: 0, skipped: { noEmail: 0, optedOut: 0, duplicateAddress: 0, lowFit: 0 }, firstError: null, startedAt: new Date() };
+    const job: EmailGenerationJob = { running: true, total: 0, done: 0, created: 0, failed: 0, skipped: { noEmail: 0, optedOut: 0, duplicateAddress: 0, lowFit: 0, lowQuality: 0, badEmail: 0 }, firstError: null, startedAt: new Date() };
     const plan: { lead: LeadWithCampaign; to: string }[] = [];
     const seen = new Set<string>();
     for (const lead of candidates) {
       if (plan.length >= limit) break;
       if (!fitAllowed(fitLevel(lead.aiAnalysis), !!input.includeMedium)) { job.skipped.lowFit++; continue; }
+      const gate = draftGate(lead, "email");
+      if (gate === "lowQuality") { job.skipped.lowQuality++; continue; }
+      if (gate === "badEmail") { job.skipped.badEmail++; continue; }
       const to = (lead.email ?? "").trim().toLowerCase();
       if (!isValidEmail(to)) { job.skipped.noEmail++; continue; }
       if (optOuts.has(to)) { job.skipped.optedOut++; continue; }
@@ -160,7 +166,14 @@ export class EmailService {
     try {
       for (const { lead, to } of plan) {
         try {
-          const w = await this.writer.outreach(workspaceId, lead, undefined, "email");
+          // Look up the address's mail domain (DNS only) before spending an AI call on it.
+          await this.enrichment.refreshIfDue(workspaceId, lead.id);
+          if ((await this.checkDomain(lead.id, to)) === false) { job.skipped.badEmail++; job.done++; continue; }
+          // The lead as it is now: the checks above changed it, and the draft's flags and the gate must use that.
+          const current = (await this.prisma.lead.findFirst({ where: { id: lead.id, workspaceId }, include: { campaign: { select: { yourService: true, language: true } } } })) ?? lead;
+          const gate = draftGate(current, "email");
+          if (gate) { job.skipped[gate === "badEmail" ? "badEmail" : "lowQuality"]++; job.done++; continue; }
+          const w = await this.writer.outreach(workspaceId, current, undefined, "email");
           const language = lead.campaign.language === "english" ? "english" : "indonesian";
           const subject = await this.writer.subjectFor(workspaceId, w.text, language);
           await this.prisma.outboundMessage.create({
@@ -176,6 +189,20 @@ export class EmailService {
         if (job.failed >= 3 && job.created === 0) break;
       }
     } finally { job.running = false; }
+  }
+
+  /** Whether the address's domain can receive mail. The saved answer is used when there is one; null when it cannot be told. */
+  private async checkDomain(leadId: string, to: string): Promise<boolean | null> {
+    const lead = await this.prisma.lead.findUnique({ where: { id: leadId } });
+    if (!lead) return null;
+    const saved = (lead.validation as Validation | null)?.emailMx;
+    if (typeof saved === "boolean") return saved;
+    const emailMx = await checkEmailDomain(to);
+    if (emailMx !== null) {
+      const validation = mergeValidation(lead.validation, { emailMx });
+      await this.prisma.lead.update({ where: { id: leadId }, data: { validation, ...qualityColumns({ ...lead, validation }) } });
+    }
+    return emailMx;
   }
 
   private async hasActive(workspaceId: string, to: string) {

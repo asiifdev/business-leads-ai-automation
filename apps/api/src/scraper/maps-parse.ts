@@ -24,3 +24,11 @@ export function pickCategory(rows: string[]): string {
   }
   return "";
 }
+
+/** The listing's own opening status, read from the text of a result card. Null when the card says nothing about it. */
+export function businessStatusFrom(rows: string[]): "permanently_closed" | "temporarily_closed" | null {
+  const text = rows.join(" ").slice(0, 4000).toLowerCase();
+  if (/permanently closed|tutup permanen/.test(text)) return "permanently_closed";
+  if (/temporarily closed|sementara tutup|tutup sementara/.test(text)) return "temporarily_closed";
+  return null;
+}

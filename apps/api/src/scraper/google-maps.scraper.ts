@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { chromium, Browser, BrowserContext, Page } from "playwright";
-import { normalizeRating, pickCategory } from "./maps-parse";
+import { businessStatusFrom, normalizeRating, pickCategory } from "./maps-parse";
 import { DEFAULT_RADIUS_KM, inArea, type LatLng } from "./areas";
 
 export interface ScrapedBusiness {
@@ -17,6 +17,8 @@ export interface ScrapedBusiness {
   lat: number | null;
   lng: number | null;
   source: string;
+  /** What the listing says about being open; null when it says nothing. */
+  businessStatus: "permanently_closed" | "temporarily_closed" | null;
 }
 
 // Google Maps place URLs embed coordinates either as a precise place marker
@@ -243,10 +245,11 @@ export class GoogleMapsScraperService {
       )
       .catch(() => []);
 
-    return (cards as Array<Omit<ScrapedBusiness, "category" | "lat" | "lng"> & { rows: string[] }>).map(({ rows, ...card }) => ({
+    return (cards as Array<Omit<ScrapedBusiness, "category" | "lat" | "lng" | "businessStatus"> & { rows: string[] }>).map(({ rows, ...card }) => ({
       ...card,
       rating: card.rating === "N/A" ? "N/A" : normalizeRating(card.rating) || "N/A",
       category: pickCategory(rows),
+      businessStatus: businessStatusFrom(rows),
       ...extractLatLng(card.referenceLink),
     }));
   }

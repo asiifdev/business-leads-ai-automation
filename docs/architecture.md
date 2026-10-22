@@ -50,6 +50,15 @@ Design decisions worth knowing:
 - **The brief is a stored, versioned, editable document** (`marketing_briefs`, one per workspace). Sources keep their extracted text (`knowledge_sources.text`) so a brief can be regenerated without reading the site again.
 - **Fetching is the sensitive part.** Everything that opens a user-supplied address goes through the checks above; the unit tests include hostile inputs (private addresses, names resolving to loopback, pathological HTML, XML and link lists) with time limits.
 
+## Data quality
+
+Separate from the score below. `leads/data-quality.ts` (pure, tested) turns a lead's facts into a level and reasons, `leads/dedupe.ts` finds the same business twice, and `leads/validation.ts` holds the free checks (DNS for e-mail domains, parked-page detection) and the bookkeeping for `Lead.fieldMeta` and `Lead.validation`.
+
+- `LeadsService.createMany` marks repeats (`duplicateOfId`), records the source of each field and stores the first quality level.
+- `EnrichmentService` adds website liveness, parked detection and the e-mail domain check, and refreshes the quality level.
+- `MessagingService` and `EmailService` call `draftGate` before drafting and check the number or domain just before the AI call. The gate recomputes the level from the lead's facts (so "stale" is judged today, not when the lead was saved); the stored `dataQuality` is for display.
+- Draft risk flags for medium problems come from `qualityRiskLabels` in `MessageWriterService.outreach`.
+
 ## Lead scoring
 
 `LeadIntelligenceService` ranks leads with an index built only from the listing and one judgement:
@@ -135,6 +144,7 @@ Next.js App Router with route groups `(auth)` and `(dashboard)`, shadcn/ui and T
 | Pure logic (parser, stats, chunker, scoring, send policy, opt-out, spelling, brief, crawler, documents, hostile-input timing) | `pnpm --filter @prospex/api test` |
 | Sender, inbound, your own phone messages, outdated drafts, re-reading the pipeline and referrals against a real database | `apps/api/scripts/pipeline-check.ts` with a fake provider, in a throwaway workspace |
 | Attachments and link previews against a real database and a real page | `apps/api/scripts/attachment-check.ts` |
+| Data quality: repeats across campaigns and inside a batch, closed listings, quality filter, recompute, WhatsApp and e-mail gates before drafting, against a real database with a fake WhatsApp provider, stub writers and real DNS | `apps/api/scripts/data-quality-check.ts`, in a throwaway workspace |
 | Style quality | `apps/api/scripts/eval-style.ts` |
 | End to end UI | Playwright specs in `tests/e2e` |
 

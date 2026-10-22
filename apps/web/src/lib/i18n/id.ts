@@ -125,6 +125,7 @@ export const id: Record<keyof typeof en, string> = {
   "outbox.gen.done": "{created} draf selesai ditulis",
   "outbox.gen.includeMedium": "Sertakan bisnis dengan kecocokan sedang",
   "outbox.gen.lowFit": "{n} dilewati karena kurang cocok dengan penawaran Anda (misalnya toko yang menjual, bukan menyewakan). Centang kotak untuk menyertakan yang kecocokannya sedang.",
+  "outbox.gen.quality": "Dilewati karena masalah data: {low} belum siap dihubungi (tutup, duplikat, tanpa kontak), {wa} tidak ada di WhatsApp, {mail} dengan domain email yang tidak bisa menerima surat.",
   "outbox.gen.skipped": "Dilewati: {noPhone} tanpa nomor valid, {dup} sudah dihubungi atau duplikat, {opt} berhenti berlangganan.",
   "outbox.gen.failed": "{n} gagal ditulis. Galat pertama: {err}",
   "outbox.gen.none": "Tidak ada lead untuk dibuatkan draf: tidak tersisa yang bernomor valid dan belum pernah dihubungi.",

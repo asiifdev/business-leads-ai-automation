@@ -11,6 +11,9 @@ import { inQuietHours, localHour, startOfLocalDay } from "./send-policy";
 import { WHATSAPP_PROVIDER, type RoutedWhatsappProvider } from "./whatsapp.provider";
 import { EntitlementsService } from "../entitlements/entitlements.service";
 import { fitAllowed, fitLevel } from "./fit-gate";
+import { EnrichmentService } from "../leads/enrichment.service";
+import { draftGate } from "../leads/data-quality";
+import { mergeValidation, qualityColumns, waCheckDue, type Validation } from "../leads/validation";
 import { isPublicUnsubscribeBase, unsubscribeBase } from "../email/email-utils";
 
 export const MAX_BODY = 8000; // a sanity ceiling, not a style rule: WhatsApp itself allows far more
@@ -26,7 +29,7 @@ export interface GenerationJob {
   done: number;
   created: number;
   failed: number;
-  skipped: { noValidPhone: number; optedOut: number; duplicateNumber: number; lowFit: number };
+  skipped: { noValidPhone: number; optedOut: number; duplicateNumber: number; lowFit: number; lowQuality: number; notOnWhatsapp: number };
   firstError: string | null;
   startedAt: Date;
 }
@@ -52,6 +55,7 @@ export class MessagingService {
     @Inject(WHATSAPP_PROVIDER) private readonly wa: RoutedWhatsappProvider,
     private readonly entitlements: EntitlementsService,
     private readonly attachments: AttachmentService,
+    private readonly enrichment: EnrichmentService,
   ) {}
 
   // ---------- account ----------
@@ -185,12 +189,15 @@ export class MessagingService {
     });
     const optOuts = new Set((await this.prisma.messageOptOut.findMany({ where: { workspaceId }, select: { phone: true } })).map((o) => o.phone));
 
-    const job: GenerationJob = { running: true, total: 0, done: 0, created: 0, failed: 0, skipped: { noValidPhone: 0, optedOut: 0, duplicateNumber: 0, lowFit: 0 }, firstError: null, startedAt: new Date() };
+    const job: GenerationJob = { running: true, total: 0, done: 0, created: 0, failed: 0, skipped: { noValidPhone: 0, optedOut: 0, duplicateNumber: 0, lowFit: 0, lowQuality: 0, notOnWhatsapp: 0 }, firstError: null, startedAt: new Date() };
     const plan: { lead: (typeof candidates)[number]; phone: string }[] = [];
     const seen = new Set<string>();
     for (const lead of candidates) {
       if (plan.length >= limit) break;
       if (!fitAllowed(fitLevel(lead.aiAnalysis), !!input.includeMedium)) { job.skipped.lowFit++; continue; }
+      const gate = draftGate(lead, "whatsapp");
+      if (gate === "lowQuality") { job.skipped.lowQuality++; continue; }
+      if (gate === "notOnWhatsapp") { job.skipped.notOnWhatsapp++; continue; }
       const phone = lead.phoneE164 || normalizePhone(lead.phone, account.defaultCountryCode);
       if (!phone) { job.skipped.noValidPhone++; continue; }
       if (optOuts.has(phone)) { job.skipped.optedOut++; continue; }
@@ -209,7 +216,14 @@ export class MessagingService {
     try {
       for (const { lead, phone } of plan) {
         try {
-          const w = await this.writer.outreach(workspaceId, lead);
+          // Before spending an AI call: read the website again when its data is old, then ask WhatsApp whether the number exists.
+          await this.enrichment.refreshIfDue(workspaceId, lead.id);
+          if ((await this.checkWhatsapp(workspaceId, lead.id, phone)) === false) { job.skipped.notOnWhatsapp++; job.done++; continue; }
+          // The lead as it is now: the checks above changed it, and the draft's flags and the gate must use that.
+          const current = (await this.prisma.lead.findFirst({ where: { id: lead.id, workspaceId }, include: { campaign: { select: { yourService: true, language: true } } } })) ?? lead;
+          const gate = draftGate(current, "whatsapp");
+          if (gate) { job.skipped[gate === "notOnWhatsapp" ? "notOnWhatsapp" : "lowQuality"]++; job.done++; continue; }
+          const w = await this.writer.outreach(workspaceId, current);
           await this.prisma.outboundMessage.create({
             data: { workspaceId, leadId: lead.id, toPhone: phone, body: w.text, aiBody: w.text, source: "ai_outreach", status: "draft", context: { flagged: w.risks.length > 0, risks: w.risks, trace: w.trace } },
           });
@@ -225,6 +239,28 @@ export class MessagingService {
       }
     } finally {
       job.running = false;
+    }
+  }
+
+  /**
+   * Whether the number is on WhatsApp: the saved answer while it is recent, otherwise asked through the workspace's own connection
+   * (free, a few per second at most). Null when it cannot be told (not connected, lookup failed); the draft then goes ahead.
+   */
+  private async checkWhatsapp(workspaceId: string, leadId: string, phone: string): Promise<boolean | null> {
+    const lead = await this.prisma.lead.findFirst({ where: { id: leadId, workspaceId } });
+    if (!lead) return null;
+    const saved = (lead.validation as Validation | null)?.waRegistered;
+    if (!waCheckDue(lead.validation) && typeof saved === "boolean") return saved;
+    if (this.wa.state(workspaceId).status !== "connected") return null;
+    try {
+      const registered = !!(await this.wa.resolve(workspaceId, phone));
+      const validation = mergeValidation(lead.validation, { waRegistered: registered });
+      await this.prisma.lead.update({ where: { id: leadId }, data: { validation, ...qualityColumns({ ...lead, validation }) } });
+      await new Promise((r) => setTimeout(r, 600 + Math.random() * 900)); // lookups in a row from one account should not look like a bot
+      return registered;
+    } catch (e) {
+      this.logger.debug(`WhatsApp lookup for lead ${leadId} failed: ${(e as Error).message}`);
+      return null;
     }
   }
 

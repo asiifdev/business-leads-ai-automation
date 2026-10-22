@@ -125,6 +125,7 @@ export const en = {
   "outbox.gen.done": "{created} drafts written",
   "outbox.gen.includeMedium": "Include businesses with a medium fit",
   "outbox.gen.lowFit": "{n} left out because they fit your offer poorly (a business that sells rather than rents, for example). Tick the box to include medium fits.",
+  "outbox.gen.quality": "Left out for data problems: {low} not ready to contact (closed, duplicate, no contact), {wa} not on WhatsApp, {mail} with an email domain that cannot receive mail.",
   "outbox.gen.skipped": "Skipped: {noPhone} without a valid number, {dup} already contacted or duplicate, {opt} opted out.",
   "outbox.gen.failed": "{n} could not be written. First error: {err}",
   "outbox.gen.none": "No leads to draft: none left with a valid number and no earlier message.",

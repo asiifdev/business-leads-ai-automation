@@ -109,6 +109,7 @@ export class ScraperProcessor extends WorkerHost {
             score: lead.score,
             priority: lead.priority,
             category: (lead as { category?: string }).category || undefined,
+            businessStatus: (lead as { businessStatus?: string | null }).businessStatus ?? null,
             aiAnalysis: { factors: lead.factors, recommendation: lead.recommendation, ...(lead.fit ? { fit: lead.fit } : {}) },
             marketingContent,
             campaignId,
@@ -216,6 +217,7 @@ export class ScraperProcessor extends WorkerHost {
       referenceLink?: string;
       lat?: number | null;
       lng?: number | null;
+      businessStatus?: string | null;
     },
     industry: string,
   ) {
@@ -231,6 +233,7 @@ export class ScraperProcessor extends WorkerHost {
       referenceUrl: raw.referenceLink ?? "",
       lat: raw.lat ?? null,
       lng: raw.lng ?? null,
+      businessStatus: raw.businessStatus ?? null,
       industry,
       source: "google_maps",
     };
@@ -261,6 +264,7 @@ export class ScraperProcessor extends WorkerHost {
       referenceUrl: "",
       lat: null,
       lng: null,
+      businessStatus: null,
       industry: data.industry,
       source: "fixture",
     }));

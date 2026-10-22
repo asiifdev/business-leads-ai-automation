@@ -22,6 +22,11 @@ export interface Lead {
   followUpDate?: string | null;
   email?: string | null;
   enrichedAt?: string | null;
+  dataQuality?: "high" | "medium" | "low" | null;
+  qualityIssues?: string[];
+  businessStatus?: string | null;
+  duplicateOfId?: string | null;
+  validation?: { waRegistered?: boolean | null; emailMx?: boolean | null; websiteLive?: boolean | null; checkedAt?: string } | null;
   enrichment?: {
     status: "enriched" | "unreachable";
     emails?: string[];
@@ -70,6 +75,7 @@ export interface LeadFilter {
   province?: string;
   regency?: string;
   district?: string;
+  quality?: string;
   page?: number;
   limit?: number;
 }
@@ -80,7 +86,7 @@ export function useLeads(filter: LeadFilter = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { campaignId, q, priority, status, province, regency, district, page = 1, limit = 50 } = filter;
+  const { campaignId, q, priority, status, province, regency, district, quality, page = 1, limit = 50 } = filter;
 
   const refresh = useCallback(async () => {
     try {
@@ -92,6 +98,7 @@ export function useLeads(filter: LeadFilter = {}) {
       if (province) params.set("province", province);
       if (regency) params.set("regency", regency);
       if (district) params.set("district", district);
+      if (quality) params.set("quality", quality);
       params.set("page", String(page));
       params.set("limit", String(limit));
 
@@ -104,7 +111,7 @@ export function useLeads(filter: LeadFilter = {}) {
     } finally {
       setLoading(false);
     }
-  }, [campaignId, q, priority, status, province, regency, district, page, limit]);
+  }, [campaignId, q, priority, status, province, regency, district, quality, page, limit]);
 
   useEffect(() => { setLoading(true); refresh(); }, [refresh]);
   return { leads, total, loading, error, refresh };

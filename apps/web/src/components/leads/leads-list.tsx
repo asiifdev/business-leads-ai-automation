@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Download } from "lucide-react";
+import { Search, Download, ShieldCheck, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { useLeads, useLeadMap, useRegions } from "@/hooks/use-leads";
 import { Pager, LEADS_PAGE_SIZE as PAGE_SIZE } from "./pager";
 import { RegionFilter, NO_REGION, type RegionValue } from "./region-filter";
@@ -21,6 +22,8 @@ export function LeadsList() {
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState("all");
   const [crmStatus, setCrmStatus] = useState("all");
+  const [quality, setQuality] = useState("all");
+  const [rechecking, setRechecking] = useState(false);
   const [debouncedQ, setDebouncedQ] = useState("");
 
   const [page, setPage] = useState(1);
@@ -31,13 +34,27 @@ export function LeadsList() {
     q: debouncedQ || undefined,
     priority: priority !== "all" ? priority : undefined,
     status: crmStatus !== "all" ? crmStatus : undefined,
+    quality: quality !== "all" ? quality : undefined,
     province: region.province !== "all" ? region.province : undefined,
     regency: region.regency !== "all" ? region.regency : undefined,
     district: region.district !== "all" ? region.district : undefined,
   };
 
-  const { leads, total, loading } = useLeads({ ...where, page, limit: PAGE_SIZE });
+  const { leads, total, loading, refresh } = useLeads({ ...where, page, limit: PAGE_SIZE });
   const map = useLeadMap(where, view === "map");
+
+  const recheck = async () => {
+    setRechecking(true);
+    try {
+      const r = await api.post<{ checked: number; duplicates: number; low: number }>("/leads/quality/recompute", {});
+      toast.success(t("leads.quality.rechecked", { n: r.checked, dup: r.duplicates, low: r.low }));
+      void refresh();
+    } catch {
+      toast.error(t("leads.quality.recheckFailed"));
+    } finally {
+      setRechecking(false);
+    }
+  };
 
   // Debounce search input to avoid too many API calls
   useEffect(() => {
@@ -46,7 +63,7 @@ export function LeadsList() {
   }, [search]);
 
   // A new filter starts again from the first page.
-  useEffect(() => { setPage(1); }, [debouncedQ, priority, crmStatus, region]);
+  useEffect(() => { setPage(1); }, [debouncedQ, priority, crmStatus, quality, region]);
 
 
   return (
@@ -83,6 +100,19 @@ export function LeadsList() {
             <SelectItem value="lost">{t("leads.crm.lost")}</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={quality} onValueChange={setQuality}>
+          <SelectTrigger className="w-40"><SelectValue placeholder={t("leads.list.quality")} /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("leads.list.allQualities")}</SelectItem>
+            <SelectItem value="high">{t("leads.quality.high")}</SelectItem>
+            <SelectItem value="medium">{t("leads.quality.medium")}</SelectItem>
+            <SelectItem value="low">{t("leads.quality.low")}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button variant="outline" size="sm" onClick={() => void recheck()} disabled={rechecking}>
+          {rechecking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+          {rechecking ? t("leads.quality.rechecking") : t("leads.quality.recheck")}
+        </Button>
         <RegionFilter regions={regions} geo={geo} value={region} onChange={setRegion} onClassify={() => void classify()} />
         <Tabs value={view} onValueChange={(v) => setView(v as "list" | "map")}>
           <TabsList>

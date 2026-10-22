@@ -27,6 +27,7 @@ export class LeadsController {
   @ApiQuery({ name: "q", required: false, description: "Search by name, address (city/province), phone, website, email or category" })
   @ApiQuery({ name: "priority", required: false, enum: ["HIGH", "MEDIUM", "LOW"] })
   @ApiQuery({ name: "status", required: false })
+  @ApiQuery({ name: "quality", required: false, enum: ["high", "medium", "low"], description: "Data quality (how far the contact data can be trusted)" })
   @ApiQuery({ name: "page", required: false, type: Number })
   @ApiQuery({ name: "limit", required: false, type: Number })
   findAll(
@@ -40,9 +41,10 @@ export class LeadsController {
     @Query("province") province?: string,
     @Query("regency") regency?: string,
     @Query("district") district?: string,
+    @Query("quality") quality?: string,
   ) {
     return this.leadsService.findAll(workspaceId, {
-      campaignId, q, priority, status, province, regency, district,
+      campaignId, q, priority, status, province, regency, district, quality,
       page: page ? parseInt(page, 10) : 1,
       limit: limit ? parseInt(limit, 10) : 50,
     });
@@ -73,14 +75,22 @@ export class LeadsController {
     @Query("province") province?: string,
     @Query("regency") regency?: string,
     @Query("district") district?: string,
+    @Query("quality") quality?: string,
   ) {
-    return this.leadsService.mapPoints(workspaceId, { campaignId, q, priority, status, province, regency, district });
+    return this.leadsService.mapPoints(workspaceId, { campaignId, q, priority, status, province, regency, district, quality });
   }
 
   @Get("regions")
   @ApiOperation({ summary: "Province / kabupaten-kota / kecamatan with lead counts, and how far the area lookup has got" })
   async regions(@WorkspaceId() workspaceId: string, @Query("campaignId") campaignId?: string) {
     return { regions: await this.leadsService.regions(workspaceId, campaignId), geo: await this.geo.status(workspaceId) };
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post("quality/recompute")
+  @ApiOperation({ summary: "Mark repeated businesses and rate the data quality of every lead again (also fills in data for leads saved earlier)" })
+  recomputeQuality(@WorkspaceId() workspaceId: string) {
+    return this.leadsService.recomputeQuality(workspaceId);
   }
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })

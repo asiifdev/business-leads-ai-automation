@@ -182,6 +182,28 @@ export function LeadDetail({ id }: { id: string }) {
             </CardContent>
           </Card>
 
+          {/* How far the data can be trusted */}
+          <Card>
+            <CardHeader className="pb-3 flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-base">{t("leads.quality.title")}</CardTitle>
+              {lead.dataQuality && (
+                <Badge variant={lead.dataQuality === "low" ? "destructive" : lead.dataQuality === "medium" ? "secondary" : "default"}>
+                  {t(`leads.quality.${lead.dataQuality}` as keyof typeof leadsEn)}
+                </Badge>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-1.5 text-sm">
+              {(lead.qualityIssues ?? []).length === 0 ? (
+                <p className="text-muted-foreground">{t("leads.quality.none")}</p>
+              ) : (
+                (lead.qualityIssues ?? []).map((q) => (
+                  <p key={q} className="text-muted-foreground">{`leads.quality.${q}` in leadsEn ? t(`leads.quality.${q}` as keyof typeof leadsEn) : q}</p>
+                ))
+              )}
+              {lead.validation?.checkedAt && <p className="pt-1 text-xs text-muted-foreground">{t("leads.quality.checked", { date: new Date(lead.validation.checkedAt).toLocaleDateString() })}</p>}
+            </CardContent>
+          </Card>
+
           {/* Found on their website */}
           <Card>
             <CardHeader className="pb-3 flex-row items-center justify-between space-y-0">

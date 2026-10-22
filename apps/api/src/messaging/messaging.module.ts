@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { AiModule } from "../ai/ai.module";
+import { LeadsModule } from "../leads/leads.module";
 import { AttachmentService } from "./attachment.service";
 import { BaileysProvider } from "./baileys.provider";
 import { FollowUpService } from "./followup.service";
@@ -16,7 +17,7 @@ import { WHATSAPP_PROVIDER } from "./whatsapp.provider";
 import { WhatsappGateway } from "./whatsapp.gateway";
 
 @Module({
-  imports: [AuthModule, AiModule],
+  imports: [AuthModule, AiModule, LeadsModule],
   controllers: [MessagingController, TemplateController],
   providers: [
     BaileysProvider,

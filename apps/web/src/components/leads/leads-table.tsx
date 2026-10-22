@@ -93,6 +93,9 @@ export function LeadsTable({ leads, loading }: Props) {
               <span className="font-medium text-sm truncate">{lead.name}</span>
               <PriorityBadge priority={lead.priority} />
               <CrmBadge status={lead.crmStatus} />
+              {(lead.dataQuality === "low" || lead.dataQuality === "medium") && (
+                <Badge variant={lead.dataQuality === "low" ? "destructive" : "secondary"}>{t(`leads.quality.${lead.dataQuality}` as keyof typeof leadsEn)}</Badge>
+              )}
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
               {lead.address && (

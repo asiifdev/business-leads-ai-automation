@@ -169,6 +169,9 @@ export function OutboxPage() {
           {channel === "whatsapp" && job && !job.running && job.total > 0 && (job.skipped.noValidPhone + job.skipped.duplicateNumber + job.skipped.optedOut) > 0 && (
             <p className="text-xs text-muted-foreground">{t("outbox.gen.skipped", { noPhone: job.skipped.noValidPhone, dup: job.skipped.duplicateNumber, opt: job.skipped.optedOut })}</p>
           )}
+          {job && !job.running && ((job.skipped.lowQuality ?? 0) + (job.skipped.notOnWhatsapp ?? 0) + (job.skipped.badEmail ?? 0)) > 0 && (
+            <p className="text-xs text-muted-foreground">{t("outbox.gen.quality", { low: job.skipped.lowQuality ?? 0, wa: job.skipped.notOnWhatsapp ?? 0, mail: job.skipped.badEmail ?? 0 })}</p>
+          )}
           {job && !job.running && (job.skipped.lowFit ?? 0) > 0 && <p className="text-xs text-muted-foreground">{t("outbox.gen.lowFit", { n: job.skipped.lowFit })}</p>}
           {channel === "email" && <p className="text-xs text-muted-foreground">{t("email.gen.eligible", { n: emailOverview?.usage.leadsWithEmail ?? 0 })}</p>}
         </div>
