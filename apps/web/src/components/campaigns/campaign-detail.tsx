@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ArrowLeft, Download, Users, Star, TrendingUp, MapPin, Loader2, Search, List, Map as MapIcon } from "lucide-react";
+import { ArrowLeft, Download, FileUp, Users, Star, TrendingUp, MapPin, Loader2, Search, List, Map as MapIcon } from "lucide-react";
 import { useCampaign } from "@/hooks/use-campaigns";
 import { useLeads, useLeadMap } from "@/hooks/use-leads";
 import { Input } from "@/components/ui/input";
 import { Pager, LEADS_PAGE_SIZE } from "@/components/leads/pager";
 import { CampaignConfig } from "@/components/campaigns/campaign-config";
+import { ImportLeadsDialog } from "@/components/campaigns/import-leads-dialog";
 import { LeadsTable } from "@/components/leads/leads-table";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -37,6 +38,7 @@ export function CampaignDetail({ id }: { id: string }) {
   const { t } = useI18n();
   const { campaign, loading, refresh } = useCampaign(id);
   const [enriching, setEnriching] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [enrichNote, setEnrichNote] = useState<string | null>(null);
   const enrichAll = async () => {
     setEnriching(true); setEnrichNote(null);
@@ -111,6 +113,9 @@ export function CampaignDetail({ id }: { id: string }) {
           <p className="text-muted-foreground text-sm capitalize">{campaign.industry} · {campaign.location}</p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} disabled={campaign.status === "running"}>
+            <FileUp className="mr-2 h-4 w-4" />{t("camp.import.button")}
+          </Button>
           <Button variant="outline" size="sm" onClick={enrichAll} disabled={enriching}>
             {enriching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
             {enriching ? t("leads.enrich.finding") : t("leads.enrich.campaign")}
@@ -128,6 +133,12 @@ export function CampaignDetail({ id }: { id: string }) {
       </motion.div>
 
       {enrichNote && <p role="status" className="text-sm text-muted-foreground">{enrichNote}</p>}
+      {campaign.error && campaign.status !== "running" && (
+        <p role="status" className={`rounded-md px-3 py-2 text-sm ${campaign.status === "failed" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}>
+          <span className="font-medium">{campaign.status === "failed" ? t("camp.note.failed") : t("camp.note.info")}</span> {campaign.error}
+        </p>
+      )}
+      <ImportLeadsDialog campaignId={id} open={importOpen} onOpenChange={setImportOpen} onDone={() => void refresh()} />
 
       <motion.div variants={item} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[

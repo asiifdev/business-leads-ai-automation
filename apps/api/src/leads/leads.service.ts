@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { createDuplicateIndex, type DedupeCandidate } from "./dedupe";
-import { qualityColumns, withSource } from "./validation";
+import { qualityColumns, withSource, type FieldMeta } from "./validation";
 import { normalizePhone } from "../messaging/phone";
 import { PrismaService } from "../prisma/prisma.service";
 import { UpdateCrmDto } from "./dto/update-crm.dto";
@@ -237,11 +237,14 @@ export class LeadsService {
     lng?: number;
     phone?: string;
     website?: string;
+    email?: string;
     rating?: string;
     reviewCount?: number;
     hasWebsite?: boolean;
     referenceUrl?: string;
     source?: string;
+    /** Fields that came from a different source than `source` (the same business found twice). */
+    fieldSources?: Record<string, string>;
     category?: string;
     businessStatus?: string | null;
     score?: number;
@@ -270,15 +273,20 @@ export class LeadsService {
         const dup = index?.find({ ...l, phoneE164 }) ?? null;
         // A lead of this same batch can be the original of a later one, so each new original joins the index at once.
         if (index && !dup) index.add({ id, name: l.name, phone: l.phone, phoneE164, website: l.website, lat: l.lat, lng: l.lng });
-        const known = { phone: l.phone, phoneE164, businessStatus: l.businessStatus ?? null, duplicateOfId: dup?.match.id ?? null, scrapedAt: now };
+        const known = { phone: l.phone, email: l.email, phoneE164, businessStatus: l.businessStatus ?? null, duplicateOfId: dup?.match.id ?? null, scrapedAt: now };
         const origin = l.source ?? "google_maps";
+        const { fieldSources, ...columns } = l;
+        const meta: FieldMeta = {};
+        for (const f of ["name", "address", "phone", "email", "website", "category"]) {
+          if ((l as Record<string, unknown>)[f]) Object.assign(meta, withSource(null, [f], fieldSources?.[f] ?? origin, now));
+        }
         return {
-          ...l,
+          ...columns,
           id,
           phoneE164,
           businessStatus: l.businessStatus ?? null,
           duplicateOfId: known.duplicateOfId,
-          fieldMeta: withSource(null, ["name", "address", "phone", "website", "category"].filter((f) => !!(l as Record<string, unknown>)[f]), origin, now),
+          fieldMeta: meta,
           ...qualityColumns(known, now),
         };
       }),

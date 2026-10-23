@@ -22,6 +22,7 @@ export function CampaignConfig({ campaign }: { campaign: Campaign & { maxResults
   const rows: [string, string][] = [
     [t("camp.cfg.industry"), label("camp.ind", IND, campaign.industry)],
     [t("camp.cfg.location"), campaign.location],
+    [t("camp.cfg.sources"), (campaign.sources?.length ? campaign.sources : ["google_maps"]).map((s) => (s === "google_maps" || s === "osm" ? t(`camp.src.${s}` as MessageKey) : s)).join(", ")],
     [t("camp.cfg.maxResults"), campaign.maxResults ? t("camp.form.leadsCount", { n: campaign.maxResults }) : "—"],
     [t("camp.cfg.style"), label("camp.style", STYLES, campaign.contentStyle)],
     [t("camp.cfg.language"), label("camp.lang", LANGS, campaign.language)],

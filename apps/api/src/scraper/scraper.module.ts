@@ -4,6 +4,11 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ScraperController } from "./scraper.controller";
 import { ScraperProcessor } from "./scraper.processor";
 import { GoogleMapsScraperService } from "./google-maps.scraper";
+import { GoogleMapsSource } from "./sources/google-maps.source";
+import { OsmSource } from "./sources/osm.source";
+import { LeadCollectorService } from "./lead-collector.service";
+import { LeadPipelineService } from "./lead-pipeline.service";
+import { LeadImportService } from "./lead-import.service";
 import { CampaignsModule } from "../campaigns/campaigns.module";
 import { LeadsModule } from "../leads/leads.module";
 import { AiModule } from "../ai/ai.module";
@@ -27,6 +32,7 @@ import { AuthModule } from "../auth/auth.module";
     AuthModule,
   ],
   controllers: [ScraperController],
-  providers: [ScraperProcessor, GoogleMapsScraperService],
+  providers: [ScraperProcessor, GoogleMapsScraperService, GoogleMapsSource, OsmSource, LeadCollectorService, LeadPipelineService, LeadImportService],
+  exports: [LeadCollectorService, LeadPipelineService],
 })
 export class ScraperModule {}

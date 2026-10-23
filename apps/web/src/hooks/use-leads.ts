@@ -21,6 +21,8 @@ export interface Lead {
   needsReply?: boolean;
   followUpDate?: string | null;
   email?: string | null;
+  source?: string;
+  referenceUrl?: string | null;
   enrichedAt?: string | null;
   dataQuality?: "high" | "medium" | "low" | null;
   qualityIssues?: string[];

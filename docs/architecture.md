@@ -50,6 +50,12 @@ Design decisions worth knowing:
 - **The brief is a stored, versioned, editable document** (`marketing_briefs`, one per workspace). Sources keep their extracted text (`knowledge_sources.text`) so a brief can be regenerated without reading the site again.
 - **Fetching is the sensitive part.** Everything that opens a user-supplied address goes through the checks above; the unit tests include hostile inputs (private addresses, names resolving to loopback, pathological HTML, XML and link lists) with time limits.
 
+## Lead sources
+
+`scraper/sources/lead-source.ts` defines `LeadSource` (`search(request)` returns `RawSourceLead[]`, throws when it cannot run) and the shared lead shape. Implemented: `GoogleMapsSource` (the browser scraper), `OsmSource` (Nominatim box plus one Overpass request per place; `osm-tags.ts` turns search terms into tags, `osm-overpass.ts` builds the query and reads the answer, both pure). `LeadCollectorService` runs a campaign's `sources` in order, asks each only for what is left of `maxResults`, merges with `mergeSourceLeads` (same phone, website domain or name at the same place: fill the gaps, record `fieldSources`) and reports a failed source as a warning unless nothing was found anywhere. `LeadPipelineService.ingest` is everything after finding (fit, score, notes, `LeadsService.createMany`, totals counted from the leads the campaign holds, areas, enrichment) and is shared by scraping and by file import. `LeadImportService` reads a CSV (`leads/import/csv.ts`) or .xlsx (`leads/import/xlsx.ts`), maps columns (`leads/import/lead-import.ts`) and queues an `import` job on the same `scraper` queue.
+
+To add a source: implement `LeadSource`, add its id to `common/lead-sources.ts`, register it in `LeadCollectorService`, and document its terms of use and cost (it must be free to run).
+
 ## Data quality
 
 Separate from the score below. `leads/data-quality.ts` (pure, tested) turns a lead's facts into a level and reasons, `leads/dedupe.ts` finds the same business twice, and `leads/validation.ts` holds the free checks (DNS for e-mail domains, parked-page detection) and the bookkeeping for `Lead.fieldMeta` and `Lead.validation`.
@@ -144,6 +150,7 @@ Next.js App Router with route groups `(auth)` and `(dashboard)`, shadcn/ui and T
 | Pure logic (parser, stats, chunker, scoring, send policy, opt-out, spelling, brief, crawler, documents, hostile-input timing) | `pnpm --filter @prospex/api test` |
 | Sender, inbound, your own phone messages, outdated drafts, re-reading the pipeline and referrals against a real database | `apps/api/scripts/pipeline-check.ts` with a fake provider, in a throwaway workspace |
 | Attachments and link previews against a real database and a real page | `apps/api/scripts/attachment-check.ts` |
+| Lead sources and file import end to end (OpenStreetMap through the queue, CSV preview and import, repeats across sources, running and foreign campaigns) against a running API | `apps/api/scripts/sources-check.ts` (`SKIP_OSM=true` skips the public services) |
 | Data quality: repeats across campaigns and inside a batch, closed listings, quality filter, recompute, WhatsApp and e-mail gates before drafting, against a real database with a fake WhatsApp provider, stub writers and real DNS | `apps/api/scripts/data-quality-check.ts`, in a throwaway workspace |
 | Style quality | `apps/api/scripts/eval-style.ts` |
 | End to end UI | Playwright specs in `tests/e2e` |

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { SourceMaterial } from "@/components/marketing/source-material";
 import { hasBrief, type Brief, type BriefResponse } from "@/components/marketing/types";
 import { toast } from "sonner";
@@ -20,6 +21,7 @@ export function CreateCampaignForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [queries, setQueries] = useState<string[]>([""]);
+  const [sources, setSources] = useState<string[]>(["google_maps"]);
   // source material and AI autofill
   const [selected, setSelected] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
@@ -118,6 +120,7 @@ export function CreateCampaignForm() {
         industry: form.industry,
         location: form.location,
         searchQueries: queries.filter(Boolean),
+        sources,
         yourService: form.yourService,
         maxResults: Number(form.maxResults),
         contentStyle: form.contentStyle,
@@ -245,6 +248,26 @@ export function CreateCampaignForm() {
           <Textarea id="service" placeholder={t("camp.form.servicePh")} value={form.yourService} onChange={set("yourService")} className="resize-y" rows={4} required />
         </fieldset>
 
+        <fieldset className="space-y-3 border-b pb-8">
+          <legend className="mb-1 text-sm font-semibold">{t("camp.src.title")}</legend>
+          {(["google_maps", "osm"] as const).map((s) => (
+            <label key={s} className="flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={sources.includes(s)}
+                onChange={(e) => setSources((cur) => (e.target.checked ? [...cur, s] : cur.filter((x) => x !== s)))}
+                className="mt-0.5 h-4 w-4 accent-[hsl(var(--primary))]"
+              />
+              <span>
+                <span className="font-medium">{t(`camp.src.${s}` as MessageKey)}</span>
+                <span className="block text-xs text-muted-foreground">{t(`camp.src.${s === "osm" ? "osmDesc" : "google_mapsDesc"}` as MessageKey)}</span>
+              </span>
+            </label>
+          ))}
+          {sources.includes("osm") && <p className="text-xs text-muted-foreground">{t("camp.src.osmHint")}</p>}
+          {sources.length === 0 && <p role="alert" className="text-xs text-destructive">{t("camp.src.atLeastOne")}</p>}
+        </fieldset>
+
         <fieldset className="space-y-4">
           <legend className="mb-1 text-sm font-semibold">{t("camp.group.how")}</legend>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -286,7 +309,7 @@ export function CreateCampaignForm() {
 
         <div className="flex items-center justify-end gap-3 border-t pt-6">
           <Button type="button" variant="ghost" onClick={() => router.back()}>{t("camp.form.cancel")}</Button>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading || sources.length === 0}>
             {loading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("camp.form.starting")}</>) : t("camp.form.start")}
           </Button>
         </div>

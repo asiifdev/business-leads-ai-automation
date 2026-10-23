@@ -30,6 +30,7 @@ pnpm lint                                              # turbo lint (all apps)
 
 pnpm --filter @prospex/api test                        # unit tests (node:test via tsx): parser, style stats, send policy, opt-out, draft risk
 DATABASE_URL=... WORKSPACE_ID=... pnpm --filter @prospex/api exec tsx scripts/pipeline-check.ts   # sender + inbound against a real DB with a fake WhatsApp provider
+API_URL=http://localhost:3999/api DATABASE_URL=... pnpm --filter @prospex/api exec tsx scripts/sources-check.ts   # sources + file import against a RUNNING API on a scratch database (SKIP_OSM=true skips public services)
 DATABASE_URL=... pnpm --filter @prospex/api exec tsx scripts/data-quality-check.ts   # repeats, closed listings, WhatsApp/e-mail gates against a real DB (use a scratch database)
 pnpm test:e2e                                          # Playwright e2e against localhost:3000/3001 (servers must already be running)
 pnpm test:e2e:ui                                       # Playwright UI mode
@@ -52,6 +53,15 @@ Env files: copy `.env.example` to `apps/api/.env` and `packages/database/.env`. 
 
 ### Multi-tenancy
 Everything in Prisma is scoped under `Workspace` (`packages/database/prisma/schema.prisma`): `Campaign`, `Lead`, `Contact`, `Integration`, `ApiKey` all carry a `workspaceId`. `WorkspaceMember` links `User`↔`Workspace` with a `role`. Auth (`apps/api/src/auth`) uses JWT sessions (`Session`/`Account` models, bcrypt) plus a separate `ApiKeyGuard` for API-key auth (`apps/api/src/auth/api-key.guard.ts`) — most endpoints resolve the acting workspace via the `@CurrentWorkspace()` decorator, not just the user.
+
+### Lead sources (`apps/api/src/scraper`)
+Read `docs/architecture.md` ("Lead sources"). Invariants to keep:
+- **Every source implements `LeadSource` and returns the shared `RawSourceLead`**; scoring, repeats, enrichment and data quality never branch on where a lead came from. A source never invents a business: it returns nothing or throws.
+- **Sources must be free to run.** No paid place, enrichment or verification API. Anything that needs a key or a card is out; the only paid dependency is the AI provider.
+- **Public services are used lightly**: identified by `User-Agent`, few requests, size-capped answers, a pause between places. Operator-set URLs (`OVERPASS_URL`, `GEOCODER_URL`) are not user input; anything a user types never becomes a URL or is written into a query unescaped (`osm-overpass.ts` only writes `[a-z0-9_:]` tokens and `[A-Za-z0-9 '&-]` phrases).
+- **A later source fills only what an earlier one left**; merging goes through `mergeSourceLeads`, and the order of sources decides whose details win.
+- **Imported files are untrusted**: size and row caps, linear parsers with hostile-input tests, a file's type is decided from its bytes. Bad values are dropped and counted, never stored.
+- New sources need their terms of use stated in `docs/features.md`.
 
 ### Campaign → scrape → score pipeline
 1. `POST /api/scraper/campaigns/:id/start` (`apps/api/src/scraper/scraper.controller.ts`) enqueues a BullMQ job on the `scraper` queue (Redis-backed, `scraper.module.ts`).

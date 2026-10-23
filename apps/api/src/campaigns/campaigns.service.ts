@@ -59,11 +59,24 @@ export class CampaignsService {
       data: {
         status,
         ...(progress !== undefined && { progress }),
-        ...(error && { error }),
+        // A message belongs to one run: starting or finishing a run replaces the last one (a finished run may carry a warning).
+        ...(status === "running" || status === "completed" ? { error: error ?? null } : error ? { error } : {}),
         ...(status === "running" && { startedAt: new Date() }),
         ...(status === "completed" && { completedAt: new Date() }),
       },
     });
+  }
+
+  /** Counts from the leads the campaign holds now, so a second run or an import adds to the totals instead of replacing them. */
+  async refreshStats(id: string) {
+    const where = { campaignId: id };
+    const [totalLeads, priorityLeads, highQualityLeads, avg] = await Promise.all([
+      this.prisma.lead.count({ where }),
+      this.prisma.lead.count({ where: { ...where, priority: "HIGH" } }),
+      this.prisma.lead.count({ where: { ...where, score: { gte: 70 } } }),
+      this.prisma.lead.aggregate({ where, _avg: { score: true } }),
+    ]);
+    return this.updateStats(id, { totalLeads, priorityLeads, highQualityLeads, averageScore: Math.round(avg._avg.score ?? 0) });
   }
 
   async updateStats(id: string, stats: {

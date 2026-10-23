@@ -128,6 +128,8 @@ model Campaign {
   industry      String
   location      String
   searchQueries String[]
+  // Where leads are looked for, in order; later sources fill what earlier ones left of maxResults. google_maps | osm
+  sources       String[]  @default(["google_maps"])
   maxResults    Int       @default(20)
   yourService   String
   contentStyle  String    @default("balanced")

@@ -218,9 +218,15 @@ Masuk ke **Leads** di sidebar untuk melihat semua leads dari semua campaign.
 **Filter tersedia:**
 - Kolom cari: nama, alamat, nomor telepon (mengetik "0812" juga menemukan nomor yang tersimpan sebagai 62812), website, email, kategori, dan wilayah
 - Priority: HIGH / MEDIUM / LOW
+- **Kualitas data**: Bisa diandalkan / Periksa dulu / Belum siap dihubungi. Lead yang tutup permanen, duplikat, tanpa kontak, atau nomornya tidak ada di WhatsApp dinilai rendah dan dilewati saat membuat draf massal. Tombol **Cek ulang data** menilai ulang semua lead (termasuk yang disimpan sebelum fitur ini) dan menandai bisnis yang sama di campaign lain.
 - CRM Status: New / Contacted / Replied / Interested / Meeting / Won / Lost
 - **Provinsi, Kabupaten/Kota, dan Kecamatan**: dihitung dari koordinat tiap lead (alamat Google Maps jarang menyebut kota). Tombol **Klasifikasi wilayah N lead** menjalankannya di latar belakang; lead dari scrape baru diproses otomatis. Layanan gratis yang dipakai membatasi satu permintaan per detik, jadi ratusan lead butuh beberapa menit. Atur `GEOCODER_URL` ke Nominatim sendiri agar lebih cepat.
 - Tab **Daftar / Peta**: daftar dibagi per halaman ("Halaman 1 dari 17") dan peta menampilkan **semua** lead yang punya koordinat, bukan hanya halaman pertama.
+
+### Sumber lead dan impor file
+
+- Di form campaign, **Cari di mana** memilih sumber: **Google Maps** (ada rating dan ulasan) dan/atau **OpenStreetMap** (gratis, menemukan bisnis yang tidak ada di Maps, hanya yang punya telepon, website atau email, tanpa rating; satu pencarian bisa makan waktu semenit). Sumber dicoba berurutan; yang kedua hanya mengisi sisa target, dan bisnis yang sama dari dua sumber digabung jadi satu lead. Untuk OpenStreetMap, jenis usaha umum (restoran, bengkel, apotek, toko kamera) dikenali; untuk jenis lain tulis tag-nya, misalnya `craft=carpenter`.
+- Di halaman campaign, **Impor file** menambahkan bisnis dari CSV atau Excel (.xlsx), maksimal 2.000 baris dan 5 MB. Kolom dikenali dari judulnya (Indonesia atau Inggris) dan bisa Anda ubah sebelum mengimpor; pratinjau menunjukkan berapa lead yang akan masuk dan apa yang dilewati. Lead hasil impor diperlakukan sama seperti hasil scrape (skor, cek duplikat, kualitas data, pembacaan kontak).
 
 ### Prioritas leads
 

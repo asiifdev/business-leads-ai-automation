@@ -179,6 +179,15 @@ export function LeadDetail({ id }: { id: string }) {
                     </Button>
                   </div>
                 ))}
+              {lead.source && lead.source !== "fixture" && (
+                <p className="border-t pt-3 text-xs text-muted-foreground">
+                  {t("leads.source.title")}: {`leads.source.${lead.source}` in leadsEn ? t(`leads.source.${lead.source}` as keyof typeof leadsEn) : lead.source}
+                  {lead.referenceUrl && (
+                    <> · <a href={lead.referenceUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{t("leads.source.open")}</a></>
+                  )}
+                  {lead.source === "osm" && <> · {t("leads.source.attribution")}</>}
+                </p>
+              )}
             </CardContent>
           </Card>
 

@@ -79,7 +79,7 @@ export class LeadIntelligenceService {
     } else {
       factors.push("Fit with your offer was not assessed");
     }
-    if (!lead.website && !lead.hasWebsite) factors.push("No website listed on Google Maps");
+    if (!lead.website && !lead.hasWebsite) factors.push("No website listed");
 
     score = Math.min(100, Math.max(0, Math.round(score)));
     const priority: "HIGH" | "MEDIUM" | "LOW" = score >= 70 ? "HIGH" : score >= 50 ? "MEDIUM" : "LOW";
@@ -92,7 +92,7 @@ export class LeadIntelligenceService {
   }
 
   /** Scores and sorts. `fits[i]` is the fit verdict for `leads[i]` (or undefined when it was not assessed). */
-  scoreLeads(leads: LeadData[], fits: (FitVerdict | undefined)[] = []): Array<LeadData & LeadIntelligence> {
+  scoreLeads<T extends LeadData>(leads: T[], fits: (FitVerdict | undefined)[] = []): Array<T & LeadIntelligence> {
     return leads
       .map((lead, i) => ({ ...lead, ...this.scoreLead(lead, fits[i]) }))
       .sort((a, b) => b.score - a.score);

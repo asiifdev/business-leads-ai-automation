@@ -56,6 +56,8 @@ import { EntitlementsModule } from "./entitlements/entitlements.module";
         GEOCODER_DISABLED: Joi.string().valid("true", "false").default("false"),
         GEOCODER_URL: Joi.string().uri().optional(),
         GEOCODER_USER_AGENT: Joi.string().optional(),
+        OVERPASS_URL: Joi.string().uri().optional(),
+        OVERPASS_DISABLED: Joi.string().valid("true", "false").default("false"),
       }),
       validationOptions: { abortEarly: true },
     }),

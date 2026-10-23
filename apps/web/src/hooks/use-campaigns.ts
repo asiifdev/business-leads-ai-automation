@@ -11,6 +11,9 @@ export interface Campaign {
   searchQueries?: string[];
   yourService: string;
   maxResults?: number;
+  sources?: string[];
+  /** A message from the last run: why it stopped, or a note such as a source that failed or an import summary. */
+  error?: string | null;
   contentStyle: string;
   language: string;
   status: "draft" | "running" | "completed" | "failed" | "paused";

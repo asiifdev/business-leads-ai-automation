@@ -1,6 +1,6 @@
 # Proposal: trustworthy data first, more lead sources
 
-Status: Part 1 (data trust) is built (see [features.md](features.md) "Data quality"): provenance, free checks, closed status, duplicate marking, the gate on bulk drafting, re-reading old data, the quality filter, recompute for older leads and the lead page card. Part 2 (more sources) is not built yet. Prompted by two pieces of community feedback:
+Status: Part 1 (data trust) is built (see [features.md](features.md) "Data quality"): provenance, free checks, closed status, duplicate marking, the gate on bulk drafting, re-reading old data, the quality filter, recompute for older leads and the lead page card. Part 2 (more sources) is built for its first two steps: the pluggable `LeadSource` foundation with Google Maps and OpenStreetMap, and CSV/Excel import. Not built: the domain list (2.3 #3), directories and marketplaces (#4, after a terms review), social profiles (#5), enrichment of leads without a website (2.4), and the Phase 3 items. Prompted by two pieces of community feedback:
 
 1. "Data enrichment first. In outreach, a wrong role or stale company detail kills trust before scoring matters, and AI scoring on shaky inputs is just a very organized guess."
 2. Add sources beyond Google Maps, because many businesses have no Maps listing.
