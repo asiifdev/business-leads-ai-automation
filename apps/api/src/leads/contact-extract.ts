@@ -54,7 +54,7 @@ const SOCIAL: { key: keyof ExtractedContacts["social"]; re: RegExp; skip: RegExp
   { key: "youtube", re: /https?:\/\/(?:www\.)?youtube\.com\/((?:@|channel\/|c\/)[A-Za-z0-9._\-]{2,80})\/?/i, skip: /^$/ },
 ];
 
-function cleanEmail(raw: string, siteHost: string | null): string | null {
+export function cleanEmail(raw: string, siteHost: string | null): string | null {
   const e = raw.toLowerCase().replace(/^[.\-_%+]+/, "").replace(/[.]+$/, "");
   const at = e.lastIndexOf("@");
   if (at < 1) return null;

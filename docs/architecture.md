@@ -56,6 +56,10 @@ Design decisions worth knowing:
 
 To add a source: implement `LeadSource`, add its id to `common/lead-sources.ts`, register it in `LeadCollectorService`, and document its terms of use and cost (it must be free to run).
 
+## Enrichment
+
+`EnrichmentService.enrichLead` asks `enrichTarget` (`leads/enrich-target.ts`) what to read: the lead's own website, or a public Instagram or Facebook page (the "website" itself, or one listed in `enrichment.social` by a source). A website is read page by page (`contact-extract.ts` for contacts, `page-meta.ts` for meta tags and JSON-LD business details); a profile is read from its preview tags (`profile-meta.ts`: name, bio, phone numbers in running text). `save` fills only empty fields, records each field's source in `fieldMeta`, runs the free e-mail check and re-rates the lead. `readDue` (90 days) decides what is read again, before bulk drafting (`refreshIfDue`), for a campaign (`enrichCampaign`) and for the workspace (`enrichStale`). The fetcher is replaceable (`fetchPage`) so checks can use stand-in pages. What a lead says about itself reaches the draft writer through `aboutLine`, inside the `<data_bisnis>` block, clipped, as background only.
+
 ## Data quality
 
 Separate from the score below. `leads/data-quality.ts` (pure, tested) turns a lead's facts into a level and reasons, `leads/dedupe.ts` finds the same business twice, and `leads/validation.ts` holds the free checks (DNS for e-mail domains, parked-page detection) and the bookkeeping for `Lead.fieldMeta` and `Lead.validation`.
@@ -150,6 +154,7 @@ Next.js App Router with route groups `(auth)` and `(dashboard)`, shadcn/ui and T
 | Pure logic (parser, stats, chunker, scoring, send policy, opt-out, spelling, brief, crawler, documents, hostile-input timing) | `pnpm --filter @prospex/api test` |
 | Sender, inbound, your own phone messages, outdated drafts, re-reading the pipeline and referrals against a real database | `apps/api/scripts/pipeline-check.ts` with a fake provider, in a throwaway workspace |
 | Attachments and link previews against a real database and a real page | `apps/api/scripts/attachment-check.ts` |
+| Reading websites and Instagram/Facebook pages, filling gaps with sources, refreshing old readings, against a real database with stand-in pages (and the real public pages with `LIVE=true`) | `apps/api/scripts/enrichment-check.ts` |
 | Lead sources and file import end to end (OpenStreetMap through the queue, CSV preview and import, repeats across sources, running and foreign campaigns) against a running API | `apps/api/scripts/sources-check.ts` (`SKIP_OSM=true` skips the public services) |
 | Data quality: repeats across campaigns and inside a batch, closed listings, quality filter, recompute, WhatsApp and e-mail gates before drafting, against a real database with a fake WhatsApp provider, stub writers and real DNS | `apps/api/scripts/data-quality-check.ts`, in a throwaway workspace |
 | Style quality | `apps/api/scripts/eval-style.ts` |

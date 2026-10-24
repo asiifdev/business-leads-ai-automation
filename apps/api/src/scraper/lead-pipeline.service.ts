@@ -80,6 +80,7 @@ export class LeadPipelineService {
           referenceUrl: lead.referenceUrl,
           source: lead.source,
           fieldSources: lead.fieldSources,
+          social: lead.social,
           lat: lead.lat ?? undefined,
           lng: lead.lng ?? undefined,
           score: lead.score,

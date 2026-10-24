@@ -15,6 +15,7 @@ import { buildDraftMessages, buildOutreachMessages, OUTREACH_VARIANTS, pickVaria
 import type { StyleStats } from "../ai/chat-import/style-stats";
 import { draftRisks } from "./draft-risk";
 import { qualityRiskLabels } from "../leads/data-quality";
+import { aboutLine } from "../leads/enrichment-facts";
 import { neutralGreeting, normalizeDraft } from "../ai/orthography";
 import { briefForDraft, foreignVerticalWords } from "../marketing/brief-use";
 import type { BriefContent } from "../marketing/brief-schema";
@@ -116,7 +117,7 @@ export class MessageWriterService {
       language,
       lead: {
         name: lead.name, category: lead.category, address: lead.address, rating: lead.rating, reviewCount: lead.reviewCount,
-        website: lead.website, hasWebsite: lead.hasWebsite, recommendation: analysis?.recommendation ?? null,
+        website: lead.website, hasWebsite: lead.hasWebsite, recommendation: analysis?.recommendation ?? null, about: aboutLine(lead.enrichment),
       },
       style: stats,
       examples: examples.map((e) => ({ incoming: e.incoming, reply: e.reply, at: new Date() })),

@@ -208,7 +208,8 @@ export function htmlToText(rawHtml: string): { title: string; text: string } {
   return { title, text: parts.slice(0, MAX_TEXT_CHARS) };
 }
 
-async function readLimitedBytes(body: ReadableStream<Uint8Array> | null, maxBytes = MAX_BYTES): Promise<Buffer> {
+/** Reads at most `maxBytes`. Past that it refuses the file, or with `headOnly` stops and returns what it has (enough for a page'\''s head). */
+export async function readLimitedBytes(body: ReadableStream<Uint8Array> | null, maxBytes = MAX_BYTES, headOnly = false): Promise<Buffer> {
   if (!body) return Buffer.alloc(0);
   const reader = body.getReader();
   const chunks: Uint8Array[] = [];
@@ -219,7 +220,9 @@ async function readLimitedBytes(body: ReadableStream<Uint8Array> | null, maxByte
     total += value.byteLength;
     if (total > maxBytes) {
       await reader.cancel();
-      throw new BadRequestException("That file is too large to read");
+      if (!headOnly) throw new BadRequestException("That file is too large to read");
+      chunks.push(value.subarray(0, Math.max(0, value.byteLength - (total - maxBytes))));
+      break;
     }
     chunks.push(value);
   }
@@ -238,7 +241,7 @@ export interface FetchedResource {
  * Fetches one public resource with every safety limit applied (public addresses only, redirects re-validated,
  * size and time caps, content-type allow-list). Returns the raw body.
  */
-export async function fetchResource(rawUrl: string, opts: { types?: RegExp; maxBytes?: number; accept?: string } = {}): Promise<FetchedResource> {
+export async function fetchResource(rawUrl: string, opts: { types?: RegExp; maxBytes?: number; accept?: string; headOnly?: boolean } = {}): Promise<FetchedResource> {
   const types = opts.types ?? ALLOWED_TYPES;
   const maxBytes = opts.maxBytes ?? MAX_BYTES;
   let url = validatePublicUrl(rawUrl);
@@ -263,7 +266,7 @@ export async function fetchResource(rawUrl: string, opts: { types?: RegExp; maxB
     if (!res.ok) throw new BadRequestException(`The page answered with status ${res.status}.`);
     const type = res.headers.get("content-type") ?? "";
     if (!types.test(type)) throw new BadRequestException("Only web pages and plain text are supported. Download other documents as .md or .txt and upload them.");
-    const bytes = await readLimitedBytes(res.body as ReadableStream<Uint8Array> | null, maxBytes);
+    const bytes = await readLimitedBytes(res.body as ReadableStream<Uint8Array> | null, maxBytes, opts.headOnly);
     return { url: url.toString(), type, body: bytes.toString("utf-8"), bytes };
   }
   throw new BadRequestException("Too many redirects");

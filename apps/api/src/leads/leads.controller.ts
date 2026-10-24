@@ -57,6 +57,13 @@ export class LeadsController {
     return this.enrichment.enrichCampaign(workspaceId, campaignId);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post("enrich/stale")
+  @ApiOperation({ summary: "Read again the website or Instagram/Facebook page of leads that were never read or not for 90 days (up to 50 per call; remaining says how many are left)" })
+  enrichStale(@WorkspaceId() workspaceId: string) {
+    return this.enrichment.enrichStale(workspaceId);
+  }
+
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post(":id/enrich")
   @ApiOperation({ summary: "Read one lead's website for contact details" })

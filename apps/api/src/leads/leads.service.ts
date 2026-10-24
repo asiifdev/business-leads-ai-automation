@@ -245,6 +245,8 @@ export class LeadsService {
     source?: string;
     /** Fields that came from a different source than `source` (the same business found twice). */
     fieldSources?: Record<string, string>;
+    /** Public profile pages the source lists (instagram, facebook). They are kept so enrichment can read them. */
+    social?: Record<string, string>;
     category?: string;
     businessStatus?: string | null;
     score?: number;
@@ -275,7 +277,7 @@ export class LeadsService {
         if (index && !dup) index.add({ id, name: l.name, phone: l.phone, phoneE164, website: l.website, lat: l.lat, lng: l.lng });
         const known = { phone: l.phone, email: l.email, phoneE164, businessStatus: l.businessStatus ?? null, duplicateOfId: dup?.match.id ?? null, scrapedAt: now };
         const origin = l.source ?? "google_maps";
-        const { fieldSources, ...columns } = l;
+        const { fieldSources, social, ...columns } = l;
         const meta: FieldMeta = {};
         for (const f of ["name", "address", "phone", "email", "website", "category"]) {
           if ((l as Record<string, unknown>)[f]) Object.assign(meta, withSource(null, [f], fieldSources?.[f] ?? origin, now));
@@ -283,6 +285,7 @@ export class LeadsService {
         return {
           ...columns,
           id,
+          ...(social && Object.keys(social).length ? { enrichment: { status: "from_source", social } } : {}),
           phoneE164,
           businessStatus: l.businessStatus ?? null,
           duplicateOfId: known.duplicateOfId,

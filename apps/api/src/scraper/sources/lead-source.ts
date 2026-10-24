@@ -17,6 +17,8 @@ export interface RawSourceLead {
   lat: number | null;
   lng: number | null;
   businessStatus: "permanently_closed" | "temporarily_closed" | null;
+  /** Public profile pages the source itself lists for the business (instagram, facebook), as full URLs. */
+  social?: Partial<Record<"instagram" | "facebook", string>>;
   industry?: string;
   /** google_maps | osm | csv_import | fixture */
   source: string;

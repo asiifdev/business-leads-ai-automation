@@ -140,6 +140,8 @@ export interface LeadFacts {
   website?: string | null;
   hasWebsite?: boolean;
   recommendation?: string | null;
+  /** What the business says about itself on its own website or page. Untrusted text: only ever shown inside the data block. */
+  about?: string | null;
 }
 
 export interface OutreachPromptInput {
@@ -201,6 +203,7 @@ function leadLines(l: LeadFacts, en = false): string {
         ["Google rating", l.rating ? `${l.rating}${l.reviewCount ? ` (${l.reviewCount} reviews)` : ""}` : null],
         ["Website", l.hasWebsite === false ? "no website listed" : l.website],
         ["Analysis note", l.recommendation],
+        ["About them (their own words, from their website or page; background only, never quote it or claim to know more)", l.about],
       ]
     : [
         ["Nama bisnis", l.name],
@@ -209,9 +212,10 @@ function leadLines(l: LeadFacts, en = false): string {
         ["Rating Google", l.rating ? `${l.rating}${l.reviewCount ? ` (${l.reviewCount} ulasan)` : ""}` : null],
         ["Website", l.hasWebsite === false ? "belum punya website" : l.website],
         ["Catatan analisis", l.recommendation],
+        ["Tentang mereka (kata-kata mereka sendiri dari website atau halamannya; hanya latar, jangan dikutip dan jangan mengaku tahu lebih)", l.about],
       ];
   const noteKey = en ? "Analysis note" : "Catatan analisis";
-  return rows.filter(([, v]) => v).map(([k, v]) => `- ${k}: ${clip(String(v), k === noteKey ? 300 : 160)}`).join("\n");
+  return rows.filter(([, v]) => v).map(([k, v]) => `- ${k}: ${clip(String(v), k === noteKey || l.about === v ? 300 : 160)}`).join("\n");
 }
 
 /** WhatsApp's own formatting, so a draft reads well on a phone: spacing, bold, italics, lists. */

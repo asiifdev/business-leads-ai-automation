@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assessQuality, qualityAllows, draftGate, qualityRiskLabels, lastChecked, websiteReadDue } from "./data-quality";
+import { assessQuality, qualityAllows, draftGate, qualityRiskLabels, lastChecked } from "./data-quality";
 
 const now = new Date("2026-10-21T00:00:00Z");
 const fresh = new Date("2026-10-01T00:00:00Z");
@@ -60,11 +60,4 @@ test("a check of the number or address counts as looking at the lead again", () 
 
 test("qualityRiskLabels also names the problems that block bulk drafting", () => {
   assert.deepEqual(qualityRiskLabels({ phone: "1", businessStatus: "permanently_closed", duplicateOfId: "x", scrapedAt: fresh }, now), ["permanently-closed", "duplicate-lead"]);
-});
-
-test("a website is read again when it was never read or the reading is old", () => {
-  assert.equal(websiteReadDue({ website: null, enrichedAt: null }, now), false);
-  assert.equal(websiteReadDue({ website: "https://example.com", enrichedAt: null }, now), true);
-  assert.equal(websiteReadDue({ website: "https://example.com", enrichedAt: fresh }, now), false);
-  assert.equal(websiteReadDue({ website: "https://example.com", enrichedAt: old }, now), true);
 });

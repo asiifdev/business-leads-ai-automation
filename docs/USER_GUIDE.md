@@ -223,6 +223,13 @@ Masuk ke **Leads** di sidebar untuk melihat semua leads dari semua campaign.
 - **Provinsi, Kabupaten/Kota, dan Kecamatan**: dihitung dari koordinat tiap lead (alamat Google Maps jarang menyebut kota). Tombol **Klasifikasi wilayah N lead** menjalankannya di latar belakang; lead dari scrape baru diproses otomatis. Layanan gratis yang dipakai membatasi satu permintaan per detik, jadi ratusan lead butuh beberapa menit. Atur `GEOCODER_URL` ke Nominatim sendiri agar lebih cepat.
 - Tab **Daftar / Peta**: daftar dibagi per halaman ("Halaman 1 dari 17") dan peta menampilkan **semua** lead yang punya koordinat, bukan hanya halaman pertama.
 
+### Membaca website dan halaman Instagram/Facebook
+
+- **Cari kontak** (halaman lead atau campaign) membaca website bisnis: email, nomor WhatsApp, profil sosial, dan keterangan yang mereka tulis sendiri (deskripsi, jenis usaha, jam buka, alamat). Keterangan itu muncul di kartu "Ditemukan di website atau halaman mereka" dan dipakai penulis draf hanya sebagai latar.
+- Lead **tanpa website** tetap bisa dibaca jika punya halaman Instagram atau Facebook publik (diisi sebagai website, atau tercatat di OpenStreetMap): yang dibaca hanya pratinjau publiknya (nama dan bio), lalu nomor dan email yang tertulis di bio. Halaman yang meminta login dilaporkan tidak bisa dibuka.
+- Data tidak pernah menimpa isian dari Google Maps; hanya mengisi yang kosong, dan asal tiap isian dicatat.
+- **Segarkan data lama** (halaman Leads) membaca ulang lead yang belum pernah dibaca atau lebih dari 90 hari, 50 per tekan. Sebelum draf massal dibuat, data lama juga dibaca ulang otomatis.
+
 ### Sumber lead dan impor file
 
 - Di form campaign, **Cari di mana** memilih sumber: **Google Maps** (ada rating dan ulasan) dan/atau **OpenStreetMap** (gratis, menemukan bisnis yang tidak ada di Maps, hanya yang punya telepon, website atau email, tanpa rating; satu pencarian bisa makan waktu semenit). Sumber dicoba berurutan; yang kedua hanya mengisi sisa target, dan bisnis yang sama dari dua sumber digabung jadi satu lead. Untuk OpenStreetMap, jenis usaha umum (restoran, bengkel, apotek, toko kamera) dikenali; untuk jenis lain tulis tag-nya, misalnya `craft=carpenter`.

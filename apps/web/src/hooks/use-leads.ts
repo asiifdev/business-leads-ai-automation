@@ -30,11 +30,15 @@ export interface Lead {
   duplicateOfId?: string | null;
   validation?: { waRegistered?: boolean | null; emailMx?: boolean | null; websiteLive?: boolean | null; checkedAt?: string } | null;
   enrichment?: {
-    status: "enriched" | "unreachable";
+    status: "enriched" | "unreachable" | "from_source";
     emails?: string[];
     whatsapp?: string[];
     whatsappHandles?: string[];
     social?: Record<string, string>;
+    /** What the business says about itself on its website or page. */
+    about?: { description?: string; type?: string; hours?: string; address?: string; priceRange?: string };
+    /** Set when the details were read from an Instagram or Facebook page instead of a website. */
+    profile?: { platform: string; name: string; url: string };
   } | null;
   hasWebsite: boolean;
   industry?: string;

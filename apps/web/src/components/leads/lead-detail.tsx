@@ -28,6 +28,7 @@ export function LeadDetail({ id }: { id: string }) {
   const { t } = useI18n();
   const crmLabel = (v: string) => (`leads.crm.${v}` in leadsEn ? t(`leads.crm.${v}` as keyof typeof leadsEn) : v);
   const { lead, loading, refresh } = useLead(id);
+  const canRead = !!lead?.website || !!lead?.enrichment?.social?.instagram || !!lead?.enrichment?.social?.facebook;
   const [crmStatus, setCrmStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deal, setDeal] = useState<{ value: string; lost: string; follow: string } | null>(null);
@@ -217,7 +218,7 @@ export function LeadDetail({ id }: { id: string }) {
           <Card>
             <CardHeader className="pb-3 flex-row items-center justify-between space-y-0">
               <CardTitle className="text-base">{t("leads.enrich.title")}</CardTitle>
-              {lead.website && (
+              {canRead && (
                 <Button variant="outline" size="sm" onClick={enrich} disabled={enriching}>
                   {enriching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                   {enriching ? t("leads.enrich.finding") : t("leads.enrich.find")}
@@ -225,7 +226,7 @@ export function LeadDetail({ id }: { id: string }) {
               )}
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              {!lead.website ? (
+              {!canRead ? (
                 <p className="text-muted-foreground">{t("leads.enrich.noWebsite")}</p>
               ) : !lead.enrichedAt ? (
                 <p className="text-muted-foreground">{t("leads.enrich.notYet")}</p>
@@ -239,12 +240,33 @@ export function LeadDetail({ id }: { id: string }) {
                   ...(e.whatsappHandles ?? []).map((h) => ({ label: t("leads.enrich.whatsapp"), value: t("leads.enrich.username", { handle: h }), href: `https://wa.me/${h}` })),
                   ...Object.entries(e.social ?? {}).map(([k, v]) => ({ label: k, value: v.replace(/^https?:\/\/(www\.)?/, ""), href: v })),
                 ];
-                return rows.length === 0 ? <p className="text-muted-foreground">{t("leads.enrich.none")}</p> : rows.map((r) => (
-                  <div key={r.label + r.value} className="flex items-baseline gap-3">
-                    <span className="w-24 flex-shrink-0 text-xs capitalize text-muted-foreground">{r.label}</span>
-                    <a href={r.href} target="_blank" rel="noopener noreferrer" className="break-all text-primary hover:underline">{r.value}</a>
-                  </div>
-                ));
+                const a = e.about ?? {};
+                const facts: [string, string | undefined][] = [
+                  [t("leads.enrich.about"), a.description],
+                  [t("leads.enrich.type"), a.type],
+                  [t("leads.enrich.hours"), a.hours],
+                  [t("leads.enrich.address"), a.address],
+                  [t("leads.enrich.price"), a.priceRange],
+                ];
+                const shownFacts = facts.filter(([, v]) => v);
+                if (rows.length === 0 && shownFacts.length === 0) return <p className="text-muted-foreground">{t("leads.enrich.none")}</p>;
+                return (
+                  <>
+                    {e.profile && <p className="text-xs text-muted-foreground">{t("leads.enrich.fromProfile", { platform: e.profile.platform, name: e.profile.name })}</p>}
+                    {shownFacts.map(([k, v]) => (
+                      <div key={k} className="flex items-baseline gap-3">
+                        <span className="w-24 flex-shrink-0 text-xs text-muted-foreground">{k}</span>
+                        <span className="break-words">{v}</span>
+                      </div>
+                    ))}
+                    {rows.map((r) => (
+                      <div key={r.label + r.value} className="flex items-baseline gap-3">
+                        <span className="w-24 flex-shrink-0 text-xs capitalize text-muted-foreground">{r.label}</span>
+                        <a href={r.href} target="_blank" rel="noopener noreferrer" className="break-all text-primary hover:underline">{r.value}</a>
+                      </div>
+                    ))}
+                  </>
+                );
               })()}
             </CardContent>
           </Card>

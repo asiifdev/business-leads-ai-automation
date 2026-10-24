@@ -31,6 +31,7 @@ pnpm lint                                              # turbo lint (all apps)
 pnpm --filter @prospex/api test                        # unit tests (node:test via tsx): parser, style stats, send policy, opt-out, draft risk
 DATABASE_URL=... WORKSPACE_ID=... pnpm --filter @prospex/api exec tsx scripts/pipeline-check.ts   # sender + inbound against a real DB with a fake WhatsApp provider
 API_URL=http://localhost:3999/api DATABASE_URL=... pnpm --filter @prospex/api exec tsx scripts/sources-check.ts   # sources + file import against a RUNNING API on a scratch database (SKIP_OSM=true skips public services)
+DATABASE_URL=... pnpm --filter @prospex/api exec tsx scripts/enrichment-check.ts   # reading websites and Instagram/Facebook pages against a real DB with stand-in pages (LIVE=true also reads real public pages)
 DATABASE_URL=... pnpm --filter @prospex/api exec tsx scripts/data-quality-check.ts   # repeats, closed listings, WhatsApp/e-mail gates against a real DB (use a scratch database)
 pnpm test:e2e                                          # Playwright e2e against localhost:3000/3001 (servers must already be running)
 pnpm test:e2e:ui                                       # Playwright UI mode
@@ -100,6 +101,11 @@ Read `docs/architecture.md` and `docs/whatsapp-outbox.md` first. Invariants to k
 
 ### Email (`apps/api/src/email`)
 Read `docs/email-channel.md` first. Same rules as WhatsApp: drafts need approval (`MessagingService.approve` branches on `channel`), the sender claims `approved -> sending` atomically, opt-outs (`email_opt_outs`) are checked at draft, approve and send. Extra invariants: every message carries the footer and `List-Unsubscribe` headers; the unsubscribe GET never changes state; the SMTP host goes through `resolvePublic` and only allowed ports; never return `passwordEnc` to a client. WhatsApp code must filter `channel: "whatsapp"` (counts, queue, follow-ups, crash recovery) because both channels share `outbound_messages`.
+
+### Enrichment (`apps/api/src/leads`)
+- **Read only what the business published for the public**, through `marketing/url-fetch.ts` (never `fetch` on a lead's address). A social page is read through its preview tags only: one request, no posts, no followers, no login, no browser; a login wall means "unreachable", never a guess. Add a platform only after checking that its preview is public and its terms allow it.
+- **Fill gaps only, with a source.** A value from the listing is never replaced; every filled field is recorded in `fieldMeta`. Addresses from structured data go through `cleanEmail` like printed ones; a number from structured data fills `phone` only if it is a mobile number.
+- **Text from a lead's own pages is untrusted**: it reaches prompts only through `aboutLine`, inside `<data_bisnis>`, clipped, as background.
 
 ### Data quality (`apps/api/src/leads`)
 Read `docs/architecture.md` ("Data quality"). Invariants to keep:

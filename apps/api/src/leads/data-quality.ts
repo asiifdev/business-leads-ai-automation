@@ -91,9 +91,3 @@ const RISK_LABEL: Record<QualityIssue, string> = {
 export function qualityRiskLabels(lead: QualityInput, now: Date = new Date()): string[] {
   return assessQuality(lead, now).issues.map((i) => RISK_LABEL[i]);
 }
-
-/** Whether the lead's own website should be read again: it has one and it was never read, or not for STALE_DAYS. */
-export function websiteReadDue(lead: { website?: string | null; enrichedAt?: Date | null }, now: Date = new Date()): boolean {
-  if (!lead.website) return false;
-  return !lead.enrichedAt || now.getTime() - lead.enrichedAt.getTime() > STALE_DAYS * DAY_MS;
-}

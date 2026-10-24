@@ -35,7 +35,7 @@ test("nothing typed can break out of the query", () => {
 test("the Overpass query asks for named places in the box, capped", () => {
   const q = buildOverpassQuery([{ tag: ["shop", "camera"] }, { name: "Foto Kita" }], { south: -7.0, west: 107.5, north: -6.8, east: 107.7 }, 30);
   assert.match(q, /^\[out:json\]\[timeout:60\];/);
-  assert.match(q, /nwr\["shop"="camera"\]\["name"\]\[~"\^\(phone\|contact:phone\|mobile.*email\|contact:email\)\$"~"\."\]\(-7,107\.5,-6\.8,107\.7\);/);
+  assert.match(q, /nwr\["shop"="camera"\]\["name"\]\[~"\^\(phone\|contact:phone\|mobile.*contact:facebook\)\$"~"\."\]\(-7,107\.5,-6\.8,107\.7\);/);
   assert.doesNotMatch(buildOverpassQuery([{ tag: ["shop", "camera"] }], { south: 0, west: 0, north: 1, east: 1 }, 5, 60, false), /phone/);
   assert.match(q, /out center tags 30;$/);
   assert.match(buildOverpassQuery([{ tag: ["shop", "camera"] }], { south: 0, west: 0, north: 1, east: 1 }, 99999), /out center tags 1000;$/);
@@ -119,4 +119,19 @@ test("failures say what to do", async () => {
 test("a place with no matches is an empty result, not an error", async () => {
   const { s } = source((url) => (url.includes("/search?") ? json([{ boundingbox: ["-7.1", "-6.8", "107.5", "107.8"] }]) : json({ elements: [] })));
   assert.deepEqual(await s.search(req), []);
+});
+
+test("an Instagram or Facebook page listed on a place is kept as a way to read about it", async () => {
+  const { profileUrl } = await import("./osm-overpass");
+  assert.equal(profileUrl("instagram", "@contoh.kopi"), "https://www.instagram.com/contoh.kopi/");
+  assert.equal(profileUrl("instagram", "https://www.instagram.com/contoh.kopi/"), "https://www.instagram.com/contoh.kopi/");
+  assert.equal(profileUrl("facebook", "ContohBengkel"), "https://www.facebook.com/ContohBengkel");
+  assert.equal(profileUrl("facebook", "https://fb.com/contoh"), "https://fb.com/contoh");
+  for (const bad of ["https://evil.example.com/contoh", "javascript:alert(1)", "a b c", "x".repeat(300), "", undefined]) assert.equal(profileUrl("instagram", bad as string), null);
+  assert.equal(profileUrl("instagram", "https://facebook.com/contoh"), null);
+  const lead = elementToLead({ type: "node", id: 7, lat: 1, lon: 2, tags: { name: "Hanya Instagram", shop: "bakery", "contact:instagram": "roti.contoh" } });
+  assert.ok(lead);
+  assert.equal(lead.phone, "");
+  assert.deepEqual(lead.social, { instagram: "https://www.instagram.com/roti.contoh/" });
+  assert.equal(elementToLead({ type: "node", id: 8, lat: 1, lon: 2, tags: { name: "Instagram Palsu", shop: "bakery", instagram: "https://evil.example.com/x" } }), null);
 });

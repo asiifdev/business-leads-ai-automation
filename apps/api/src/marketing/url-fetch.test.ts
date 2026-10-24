@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { htmlToText, isBlockedAddress, validatePublicUrl } from "./url-fetch";
+import { htmlToText, isBlockedAddress, readLimitedBytes, validatePublicUrl } from "./url-fetch";
 
 test("blocks private, loopback, link-local and metadata addresses", () => {
   for (const ip of ["127.0.0.1", "10.0.0.5", "172.16.3.4", "172.31.255.255", "192.168.1.10", "169.254.169.254", "100.64.0.1", "0.0.0.0", "224.0.0.1", "::1", "fe80::1", "fd12:3456::1", "::ffff:127.0.0.1", "::ffff:10.1.2.3"]) {
@@ -64,4 +64,16 @@ test("isBlockedAddress covers IPv6 forms that embed an IPv4 address", () => {
   for (const ip of blocked) assert.equal(isBlockedAddress(ip), true, ip);
   const open = ["8.8.8.8", "1.1.1.1", "2606:4700::1111", "2001:4860:4860::8888", "64:ff9b::808:808", "2002:808:808::1", "::ffff:8.8.8.8", "::ffff:0:8.8.8.8"];
   for (const ip of open) assert.equal(isBlockedAddress(ip), false, ip);
+});
+
+function streamOf(...parts: string[]) {
+  return new ReadableStream<Uint8Array>({ start(c) { for (const p of parts) c.enqueue(new TextEncoder().encode(p)); c.close(); } });
+}
+
+test("a body over the limit is refused, or with headOnly cut at the limit", async () => {
+  await assert.rejects(readLimitedBytes(streamOf("aaaa", "bbbb"), 6), /too large/);
+  assert.equal((await readLimitedBytes(streamOf("aaaa", "bbbb", "cccc"), 6, true)).toString(), "aaaabb");
+  assert.equal((await readLimitedBytes(streamOf("aaaa"), 6, true)).toString(), "aaaa");
+  assert.equal((await readLimitedBytes(streamOf("aaaa", "bbbb"), 8)).toString(), "aaaabbbb");
+  assert.equal((await readLimitedBytes(null)).length, 0);
 });

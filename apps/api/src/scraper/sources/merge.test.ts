@@ -40,3 +40,11 @@ test("two records inside the incoming list are merged too", () => {
   assert.equal(leads.length, 1);
   assert.equal(leads[0].website, "https://x.example.com");
 });
+
+test("a profile page found by the second source is kept", () => {
+  const a = lead({ phone: "081200001111" });
+  const b = lead({ source: "osm", phone: "+6281200001111", social: { instagram: "https://www.instagram.com/contoh/" } });
+  const { leads } = mergeSourceLeads([a], [b]);
+  assert.deepEqual(leads[0].social, { instagram: "https://www.instagram.com/contoh/" });
+  assert.equal(leads[0].fieldSources?.instagram, "osm");
+});

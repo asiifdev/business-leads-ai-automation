@@ -9,8 +9,8 @@ export interface Bbox { south: number; west: number; north: number; east: number
 /** A tag key or value is only ever letters, digits and underscores, so it can be written into the query as it is. */
 const TOKEN = /^[a-z0-9_:]{1,60}$/;
 const BUSINESS_KEYS = "^(shop|amenity|craft|office|tourism|leisure|healthcare)$";
-/** A place with none of these cannot be contacted or read for more details, so it is not worth a lead. */
-const CONTACT_KEYS = "^(phone|contact:phone|mobile|contact:mobile|contact:whatsapp|website|contact:website|url|email|contact:email)$";
+/** A place with none of these cannot be contacted or read for more details (a profile page can be read), so it is not worth a lead. */
+const CONTACT_KEYS = "^(phone|contact:phone|mobile|contact:mobile|contact:whatsapp|website|contact:website|url|email|contact:email|instagram|contact:instagram|facebook|contact:facebook)$";
 
 /**
  * The Overpass QL for every filter inside the box. Every element must have a name and, unless `contactOnly` is false, some way of
@@ -63,6 +63,23 @@ function website(t: Record<string, string>): string {
   }
 }
 
+/** An Instagram or Facebook page from a tag that holds either a full address or just the account name. Anything else is dropped. */
+export function profileUrl(platform: "instagram" | "facebook", raw: string | undefined): string | null {
+  const v = first(raw).replace(/^@/, "");
+  if (!v || v.length > 200) return null;
+  if (/^https?:\/\//i.test(v)) {
+    try {
+      const u = new URL(v);
+      const host = u.hostname.toLowerCase().replace(/^www\./, "");
+      return (platform === "instagram" ? host === "instagram.com" : host === "facebook.com" || host === "fb.com") && u.pathname.length > 1 ? u.toString() : null;
+    } catch {
+      return null;
+    }
+  }
+  if (platform === "instagram") return /^[A-Za-z0-9._]{1,30}$/.test(v) ? `https://www.instagram.com/${v}/` : null;
+  return /^[A-Za-z0-9.\-]{3,60}$/.test(v) ? `https://www.facebook.com/${v}` : null;
+}
+
 /** One OpenStreetMap element as a lead, or null when it is not a usable business (no name, closed down, no position). */
 export function elementToLead(el: OsmElement, industry = ""): RawSourceLead | null {
   const t = el.tags ?? {};
@@ -78,7 +95,12 @@ export function elementToLead(el: OsmElement, industry = ""): RawSourceLead | nu
   const site = website(t);
   const key = ["shop", "amenity", "craft", "office", "tourism", "leisure", "healthcare"].find((k) => t[k]);
   // The query asks for places with contact tags, but a tag can hold something unusable ("-", a social link): then there is nothing to reach.
-  if (!phone && !site && !isValidEmail(emailRaw)) return null;
+  const social: NonNullable<RawSourceLead["social"]> = {};
+  const ig = profileUrl("instagram", t["contact:instagram"] || t.instagram);
+  const fb = profileUrl("facebook", t["contact:facebook"] || t.facebook);
+  if (ig) social.instagram = ig;
+  if (fb) social.facebook = fb;
+  if (!phone && !site && !isValidEmail(emailRaw) && !ig && !fb) return null;
   return {
     name,
     address: address(t),
@@ -93,6 +115,7 @@ export function elementToLead(el: OsmElement, industry = ""): RawSourceLead | nu
     lat: typeof lat === "number" && Number.isFinite(lat) ? lat : null,
     lng: typeof lng === "number" && Number.isFinite(lng) ? lng : null,
     businessStatus: null,
+    ...(Object.keys(social).length ? { social } : {}),
     industry,
     source: "osm",
   };

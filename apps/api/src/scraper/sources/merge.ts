@@ -33,6 +33,12 @@ export function mergeSourceLeads(leads: RawSourceLead[], incoming: RawSourceLead
       target.hasWebsite = true;
       target.fieldSources = { ...(target.fieldSources ?? {}), website: lead.source };
     }
+    for (const k of ["instagram", "facebook"] as const) {
+      if (!target.social?.[k] && lead.social?.[k]) {
+        target.social = { ...(target.social ?? {}), [k]: lead.social[k] };
+        target.fieldSources = { ...(target.fieldSources ?? {}), [k]: lead.source };
+      }
+    }
     // A listing that says closed outweighs one that says nothing.
     if (!target.businessStatus && lead.businessStatus) {
       target.businessStatus = lead.businessStatus;

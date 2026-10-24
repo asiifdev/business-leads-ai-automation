@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Download, ShieldCheck, Loader2 } from "lucide-react";
+import { Search, Download, ShieldCheck, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useLeads, useLeadMap, useRegions } from "@/hooks/use-leads";
 import { Pager, LEADS_PAGE_SIZE as PAGE_SIZE } from "./pager";
@@ -24,6 +24,7 @@ export function LeadsList() {
   const [crmStatus, setCrmStatus] = useState("all");
   const [quality, setQuality] = useState("all");
   const [rechecking, setRechecking] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [debouncedQ, setDebouncedQ] = useState("");
 
   const [page, setPage] = useState(1);
@@ -53,6 +54,20 @@ export function LeadsList() {
       toast.error(t("leads.quality.recheckFailed"));
     } finally {
       setRechecking(false);
+    }
+  };
+
+  const refreshOld = async () => {
+    setRefreshing(true);
+    try {
+      const r = await api.post<{ processed: number; enriched: number; remaining: number }>("/leads/enrich/stale", {});
+      if (r.processed === 0) toast.info(t("leads.enrich.refreshNothing"));
+      else toast.success(t(r.remaining > 0 ? "leads.enrich.refreshed" : "leads.enrich.refreshedDone", { n: r.processed, ok: r.enriched, left: r.remaining }));
+      void refresh();
+    } catch {
+      toast.error(t("leads.enrich.refreshFailed"));
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -112,6 +127,10 @@ export function LeadsList() {
         <Button variant="outline" size="sm" onClick={() => void recheck()} disabled={rechecking}>
           {rechecking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
           {rechecking ? t("leads.quality.rechecking") : t("leads.quality.recheck")}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => void refreshOld()} disabled={refreshing}>
+          {refreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+          {refreshing ? t("leads.enrich.refreshing") : t("leads.enrich.refreshOld")}
         </Button>
         <RegionFilter regions={regions} geo={geo} value={region} onChange={setRegion} onClassify={() => void classify()} />
         <Tabs value={view} onValueChange={(v) => setView(v as "list" | "map")}>
