@@ -50,7 +50,7 @@ export class OsmSource implements LeadSource {
     const errors: string[] = [];
     for (let i = 0; i < areas.length && found.length < req.maxResults; i++) {
       try {
-        const box = await this.boxFor(areas[i]);
+        const box = await this.boxFor(areas[i], req.country);
         if (!box) { errors.push(`could not find "${areas[i]}" on the map`); continue; }
         const want = req.maxResults - found.length;
         const t0 = Date.now();
@@ -72,8 +72,8 @@ export class OsmSource implements LeadSource {
     return found;
   }
 
-  private boxFor(place: string): Promise<Bbox | null> {
-    return placeBox(place, this.config, this.fetchFn);
+  private boxFor(place: string, country?: string): Promise<Bbox | null> {
+    return placeBox(place, this.config, this.fetchFn, country);
   }
 
   private async overpass(query: string): Promise<unknown> {

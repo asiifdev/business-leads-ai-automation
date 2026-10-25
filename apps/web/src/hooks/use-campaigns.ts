@@ -7,6 +7,8 @@ export interface Campaign {
   name: string;
   industry: string;
   location: string;
+  /** ISO 3166-1 alpha-2 code */
+  country?: string;
   searchQuery?: string;
   searchQueries?: string[];
   yourService: string;

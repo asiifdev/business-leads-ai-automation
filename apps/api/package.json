@@ -30,6 +30,7 @@
     "fflate": "^0.8.3",
     "helmet": "^8.2.0",
     "joi": "^18.2.3",
+    "libphonenumber-js": "^1.13.15",
     "multer": "^2.4.0",
     "nodemailer": "^10.1.0",
     "openai": "^4.67.3",

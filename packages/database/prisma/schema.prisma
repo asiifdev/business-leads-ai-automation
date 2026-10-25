@@ -127,6 +127,8 @@ model Campaign {
   description   String?
   industry      String
   location      String
+  // ISO 3166-1 alpha-2 country the campaign searches in; one campaign, one country
+  country       String    @default("ID")
   searchQueries String[]
   // Where leads are looked for, in order; later sources fill what earlier ones left of maxResults. google_maps | osm
   sources       String[]  @default(["google_maps"])

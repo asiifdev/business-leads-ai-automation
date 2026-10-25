@@ -4,7 +4,12 @@
  * (a phone that is not a number, an e-mail without a domain) is dropped and counted, never stored.
  */
 import { isValidEmail } from "../../messaging/email-address";
-import { normalizePhone } from "../../messaging/phone";
+import { internationalFor, phoneDigitsFor } from "../../messaging/phone-intl";
+
+/** A number from another country is stored with its code so nothing downstream reads it as Indonesian; Indonesian ones stay as typed. */
+function internationalOrAsTyped(phone: string, country: string): string {
+  return country === "ID" ? phone : internationalFor(phone, country);
+}
 import { mergeSourceLeads } from "../../scraper/sources/merge";
 import type { RawSourceLead } from "../../scraper/sources/lead-source";
 import { ImportError, MAX_IMPORT_COLUMNS, MAX_IMPORT_ROWS } from "./csv";
@@ -93,7 +98,7 @@ const coord = (raw: string, limit: number) => {
 };
 
 /** `rows` includes the heading row. */
-export function rowsToLeads(rows: string[][], mapping: ColumnMapping, industry: string): { leads: RawSourceLead[]; report: ImportReport } {
+export function rowsToLeads(rows: string[][], mapping: ColumnMapping, industry: string, country = "ID"): { leads: RawSourceLead[]; report: ImportReport } {
   if (mapping.name === null) throw new ImportError("There is no column for the business name. Choose which column holds it.");
   const body = rows.slice(1);
   if (body.length > MAX_IMPORT_ROWS) throw new ImportError(`The file has more than ${MAX_IMPORT_ROWS} rows. Split it and import the parts one by one.`);
@@ -104,8 +109,8 @@ export function rowsToLeads(rows: string[][], mapping: ColumnMapping, industry: 
     const name = cell(row, "name").slice(0, 200);
     if (!name) { report.noName++; continue; }
     let phone = cell(row, "phone");
-    if (phone && !normalizePhone(phone.split(/[;,/]/)[0].trim())) { report.badPhone++; phone = ""; }
-    else if (phone) phone = phone.split(/[;,/]/)[0].trim();
+    if (phone && !phoneDigitsFor(phone.split(/[;,/]/)[0].trim(), country)) { report.badPhone++; phone = ""; }
+    else if (phone) phone = internationalOrAsTyped(phone.split(/[;,/]/)[0].trim(), country);
     let email = cell(row, "email").split(/[;, ]/)[0].toLowerCase();
     if (email && !isValidEmail(email)) { report.badEmail++; email = ""; }
     let site = "";

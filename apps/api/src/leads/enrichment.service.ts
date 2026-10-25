@@ -3,6 +3,7 @@ import type { Lead } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { fetchResource, pageTextFromHtml } from "../marketing/url-fetch";
 import { normalizePhone } from "../messaging/phone";
+import { isMobileDigits } from "../messaging/phone-intl";
 import { PageRenderer } from "../marketing/page-renderer";
 import { STALE_DAYS } from "./data-quality";
 import { enrichTarget, readDue, type EnrichTarget } from "./enrich-target";
@@ -57,9 +58,11 @@ export class EnrichmentService {
     const found: ExtractedContacts[] = [];
     const details: BusinessInfo[] = [];
     let parked = false;
+    // A number a site writes without its country code is read in the campaign's country.
+    const country = lead.campaignId ? (await this.prisma.campaign.findUnique({ where: { id: lead.campaignId }, select: { country: true } }))?.country ?? "ID" : "ID";
     const read = (html: string, url: string) => {
       found.push(extractContacts(html, url));
-      details.push(extractBusinessInfo(readPageMeta(html)));
+      details.push(extractBusinessInfo(readPageMeta(html), country));
     };
     try {
       const home = await this.fetchPage(target.url, { types: /html/i });
@@ -103,7 +106,7 @@ export class EnrichmentService {
     }
     const about = mergeBusinessInfo(details);
     // A number the site states in its structured data counts only when it is a mobile number: a landline is not on WhatsApp.
-    const statedMobile = about.phones.find((n) => n.startsWith("628"));
+    const statedMobile = about.phones.find((n) => isMobileDigits(n));
     return this.save(lead, {
       enrichment: { status: "enriched", ...c, social: { ...previousSocial(lead.enrichment), ...c.social }, whatsappResolved: resolved, about, pages },
       source: "website",

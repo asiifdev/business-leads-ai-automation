@@ -2,7 +2,7 @@
  * What a page says about itself in its head: meta and Open Graph tags, and schema.org JSON-LD. Plain index searches over a bounded
  * window, so no input can make it slow. Only text the business (or its platform) published for link previews and search engines.
  */
-import { normalizePhone } from "../messaging/phone";
+import { phoneDigitsFor } from "../messaging/phone-intl";
 
 const HEAD_WINDOW = 200_000;
 const MAX_TAGS = 300;
@@ -157,7 +157,7 @@ function* nodes(root: unknown): Generator<Record<string, unknown>> {
 }
 
 /** Business details a site states about itself. Nothing is inferred: a field is present only when the page says it. */
-export function extractBusinessInfo(meta: PageMeta): BusinessInfo {
+export function extractBusinessInfo(meta: PageMeta, country = "ID"): BusinessInfo {
   const info: BusinessInfo = { phones: [], emails: [], sameAs: [] };
   for (const root of meta.jsonld) {
     for (const o of nodes(root)) {
@@ -170,7 +170,7 @@ export function extractBusinessInfo(meta: PageMeta): BusinessInfo {
       info.hours ??= hoursText(o) || undefined;
       info.priceRange ??= text(o.priceRange, 40) || undefined;
       for (const p of [o.telephone].flat()) {
-        const n = typeof p === "string" ? normalizePhone(p.split(/[;,/]/)[0].trim()) : null;
+        const n = typeof p === "string" ? phoneDigitsFor(p.split(/[;,/]/)[0].trim(), country) : null;
         if (n && !info.phones.includes(n) && info.phones.length < 3) info.phones.push(n);
       }
       for (const e of [o.email].flat()) {

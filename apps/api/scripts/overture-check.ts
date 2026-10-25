@@ -15,7 +15,7 @@ async function main() {
   const s = new OvertureSource(new ConfigService(env));
   try {
     let t = Date.now();
-    const a = await s.search({ searchQueries: ["restoran"], location: "Bandung", industry: "restoran", maxResults: 10 });
+    const a = await s.search({ searchQueries: ["restoran"], location: "Bandung", country: "ID", industry: "restoran", maxResults: 10 });
     const first = Date.now() - t;
     console.log(`first search: ${Math.round(first / 1000)} s, ${a.length} leads`);
     check("a first search returns places", a.length > 0 && a.length <= 10);
@@ -25,13 +25,13 @@ async function main() {
     for (const l of a.slice(0, 3)) console.log("  ", JSON.stringify({ n: l.name, c: l.category, p: l.phone, w: l.website, fb: l.social?.facebook, a: l.address }));
 
     t = Date.now();
-    const b = await s.search({ searchQueries: ["toko kamera", "category=beauty_salon"], location: "Bandung", industry: "x", maxResults: 10 });
+    const b = await s.search({ searchQueries: ["toko kamera", "category=beauty_salon"], location: "Bandung", country: "ID", industry: "x", maxResults: 10 });
     const second = Date.now() - t;
     console.log(`second search: ${Math.round(second / 1000)} s, ${b.length} leads`);
     check("a second search with other terms works in the same process", b.length > 0, `${b.length} leads, categories: ${[...new Set(b.map((l) => l.category))].slice(0, 4).join(", ")}`);
     check("and is much faster than the first", second < first / 2 || second < 20_000, `${Math.round(second / 1000)} s vs ${Math.round(first / 1000)} s`);
 
-    const c = await s.search({ searchQueries: ["jasa konsultan drone pertanian"], location: "Bandung", industry: "x", maxResults: 5 });
+    const c = await s.search({ searchQueries: ["jasa konsultan drone pertanian"], location: "Bandung", country: "ID", industry: "x", maxResults: 5 });
     check("a type that is not known is searched by name and may find nothing", Array.isArray(c), `${c.length} leads`);
   } finally {
     s.onModuleDestroy();

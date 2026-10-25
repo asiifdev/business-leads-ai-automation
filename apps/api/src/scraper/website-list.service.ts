@@ -6,6 +6,7 @@ import { extractBusinessInfo, readPageMeta } from "../leads/page-meta";
 import { phonesFromText, platformOf, profileFromMeta } from "../leads/profile-meta";
 import { looksParked } from "../leads/validation";
 import { normalizePhone } from "../messaging/phone";
+import { isMobileDigits } from "../messaging/phone-intl";
 import type { RawSourceLead } from "./sources/lead-source";
 
 const CONCURRENCY = 5;
@@ -67,7 +68,7 @@ export class WebsiteListService {
     const meta = readPageMeta(r.body);
     const info = extractBusinessInfo(meta);
     const c = extractContacts(r.body, r.url);
-    const mobile = c.whatsapp[0] ?? info.phones.find((n) => n.startsWith("628"));
+    const mobile = c.whatsapp[0] ?? info.phones.find((n) => isMobileDigits(n));
     return this.lead({
       name: businessNameFromPage({ jsonldName: info.name, siteName: meta.og.site_name, title: meta.title }, r.url),
       website: r.url, phone: mobile ? "+" + mobile : "", email: c.emails[0] ?? info.emails[0], address: info.address, category: info.type, industry,

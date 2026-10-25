@@ -83,7 +83,7 @@ function source(env: Record<string, string>, run: (sql: string, values: (string 
   }) as typeof fetch;
   return s;
 }
-const req = { searchQueries: ["restoran"], location: "Bandung", industry: "x", maxResults: 5 };
+const req = { searchQueries: ["restoran"], location: "Bandung", country: "ID", industry: "x", maxResults: 5 };
 
 test("the source finds the box, queries the latest release once and returns leads", async () => {
   const ran: { sql: string; values: (string | number)[] }[] = [];

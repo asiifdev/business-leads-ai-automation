@@ -91,7 +91,7 @@ function source(handler: (url: string, init?: RequestInit) => Response | Promise
   return { s, calls };
 }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-const req = { searchQueries: ["toko kamera"], location: "Bandung", industry: "x", maxResults: 5 };
+const req = { searchQueries: ["toko kamera"], location: "Bandung", country: "ID", industry: "x", maxResults: 5 };
 
 test("the source finds the place, then asks Overpass once and returns the leads", async () => {
   const { s, calls } = source((url, init) => {

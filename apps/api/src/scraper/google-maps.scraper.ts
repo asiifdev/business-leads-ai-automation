@@ -1,7 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { chromium, Browser, BrowserContext, Page } from "playwright";
-import { businessStatusFrom, normalizeRating, pickCategory } from "./maps-parse";
+import { businessStatusFrom, normalizeRating, pickAddress, pickCategory, pickPhone } from "./maps-parse";
+import { internationalFor } from "../messaging/phone-intl";
 import { DEFAULT_RADIUS_KM, inArea, type LatLng } from "./areas";
+import { DEFAULT_COUNTRY, countryName } from "../common/country";
 
 export interface ScrapedBusiness {
   name: string;
@@ -23,12 +25,43 @@ export interface ScrapedBusiness {
 
 // Google Maps place URLs embed coordinates either as a precise place marker
 // (!3d<lat>!4d<lng>) or as the viewport anchor (@lat,lng,zoom) — prefer the former.
+/**
+ * A card's phone number for the campaign's country. Indonesia keeps the national "08…" form it always had; elsewhere the number
+ * is read by that country's numbering plan and written "+<code>…", and one that is not valid there is left out.
+ */
+export function cardPhone(raw: string, country: string): string {
+  if (!raw) return "";
+  if (country === DEFAULT_COUNTRY) return raw.replace(/\D/g, "").replace(/^62/, "0").replace(/^0+/, "0");
+  return internationalFor(raw, country);
+}
+
+/** Maps opened a single place (not a list, not the searcher's own view), so its coordinates describe what was typed. */
+export function isPlacePage(url: string): boolean {
+  return url.includes("/maps/place/") && extractLatLng(url).lat != null;
+}
+
 function extractLatLng(url: string): { lat: number | null; lng: number | null } {
   const precise = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
   if (precise) return { lat: parseFloat(precise[1]), lng: parseFloat(precise[2]) };
   const viewport = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
   if (viewport) return { lat: parseFloat(viewport[1]), lng: parseFloat(viewport[2]) };
   return { lat: null, lng: null };
+}
+
+/** Indonesian campaigns keep the Indonesian browser (listings come back in Indonesian); every other country reads Maps in English. */
+function contextOptions(country: string) {
+  const indonesia = country === DEFAULT_COUNTRY;
+  return {
+    locale: indonesia ? "id-ID" : "en-US",
+    ...(indonesia ? { timezoneId: "Asia/Jakarta" } : {}),
+    viewport: { width: 1280, height: 800 },
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  };
+}
+
+/** Language and region for Maps' own pages. */
+function mapsParams(country: string): string {
+  return `hl=${country === DEFAULT_COUNTRY ? "id" : "en"}&gl=${country.toLowerCase()}`;
 }
 
 @Injectable()
@@ -54,17 +87,24 @@ export class GoogleMapsScraperService {
   /** Where an area is, found once through Google Maps itself and remembered. Null when Maps does not say. */
   private readonly centers = new Map<string, LatLng | null>();
 
-  private async locate(context: BrowserContext, area: string): Promise<LatLng | null> {
-    const key = area.trim().toLowerCase();
+  /**
+   * Indonesian places are looked up as "<place>, Indonesia" and any position Maps shows is accepted (the long-standing
+   * behaviour). Elsewhere the lookup is "<place>, <country name>" and only a page for one place counts: when Maps cannot
+   * find the name it shows the searcher's own viewport, and that must never become the area's centre.
+   */
+  private async locate(context: BrowserContext, area: string, country: string): Promise<LatLng | null> {
+    const key = `${country}|${area.trim().toLowerCase()}`;
     if (this.centers.has(key)) return this.centers.get(key) ?? null;
+    const lenient = country === DEFAULT_COUNTRY;
     const page = await context.newPage();
     let found: LatLng | null = null;
     try {
-      await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(`${area}, Indonesia`)}?hl=id`, { waitUntil: "domcontentloaded", timeout: 45000 });
+      await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(`${area}, ${countryName(country) ?? country}`)}?${mapsParams(country)}`, { waitUntil: "domcontentloaded", timeout: 45000 });
       for (let i = 0; i < 18 && !found; i++) {
         await page.waitForTimeout(500);
-        const c = extractLatLng(page.url());
-        if (c.lat != null && c.lng != null) found = { lat: c.lat, lng: c.lng };
+        const url = page.url();
+        const c = extractLatLng(url);
+        if (c.lat != null && c.lng != null && (lenient || isPlacePage(url))) found = { lat: c.lat, lng: c.lng };
       }
     } catch (e) {
       this.logger.warn(`Could not locate "${area}": ${(e as Error).message}`);
@@ -72,23 +112,29 @@ export class GoogleMapsScraperService {
       await page.close().catch(() => undefined);
     }
     this.centers.set(key, found);
-    if (!found) this.logger.warn(`Maps did not give a position for "${area}": results will not be checked against its location`);
+    if (!found) this.logger.warn(`Maps did not find "${area}" as a place in ${countryName(country) ?? country}, so the search is not anchored and results will not be checked against its location`);
     return found;
+  }
+
+  /** True when the whole text (for example "Austin, Texas") is one place Maps knows, so a comma in it is not a list. */
+  async isSinglePlace(text: string, country: string): Promise<boolean> {
+    const browser = await this.getBrowser();
+    const context = await browser.newContext(contextOptions(country));
+    try {
+      return (await this.locate(context, text, country)) !== null;
+    } finally {
+      await context.close().catch(() => undefined);
+    }
   }
 
   /**
    * One Google Maps search. With `opts.area` the search is anchored on that place's coordinates, so the answer does not
    * depend on where the server (or the person running it) is, and results that turn out to be outside the area are dropped.
    */
-  async scrape(searchQuery: string, maxResults = 20, opts: { area?: string; radiusKm?: number } = {}): Promise<ScrapedBusiness[]> {
+  async scrape(searchQuery: string, maxResults = 20, opts: { area?: string; radiusKm?: number; country?: string } = {}): Promise<ScrapedBusiness[]> {
     const browser = await this.getBrowser();
-    // Indonesian locale and timezone, so listings come back in Indonesian whatever the server's own locale is.
-    const context = await browser.newContext({
-      locale: "id-ID",
-      timezoneId: "Asia/Jakarta",
-      viewport: { width: 1280, height: 800 },
-      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    });
+    const country = opts.country ?? DEFAULT_COUNTRY;
+    const context = await browser.newContext(contextOptions(country));
     const page = await context.newPage();
 
     try {
@@ -96,12 +142,12 @@ export class GoogleMapsScraperService {
       const safeQuery = String(searchQuery)
         .replace(/[\x00-\x1f<>"'`]/g, "")
         .substring(0, 200);
-      const center = opts.area ? await this.locate(context, opts.area) : null;
+      const center = opts.area ? await this.locate(context, opts.area, country) : null;
 
       this.logger.log(`Searching Google Maps: "${safeQuery}"${center ? ` anchored at ${center.lat.toFixed(3)},${center.lng.toFixed(3)}` : ""}`);
 
       if (center) {
-        await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(safeQuery)}/@${center.lat},${center.lng},13z?hl=id`, { waitUntil: "domcontentloaded", timeout: 60000 });
+        await page.goto(`https://www.google.com/maps/search/${encodeURIComponent(safeQuery)}/@${center.lat},${center.lng},13z?${mapsParams(country)}`, { waitUntil: "domcontentloaded", timeout: 60000 });
         await page.waitForSelector('[role="feed"]', { timeout: 15000 }).catch(() => undefined);
         await page.waitForTimeout(1500);
       } else {
@@ -118,7 +164,7 @@ export class GoogleMapsScraperService {
 
       await this.scrollResultsList(page, maxResults);
 
-      let businesses = await this.extractBusinessCards(page);
+      let businesses = await this.extractBusinessCards(page, country);
       if (center && opts.area) {
         const { kept, dropped } = inArea(businesses, opts.area, center, opts.radiusKm ?? DEFAULT_RADIUS_KM);
         if (dropped > 0) this.logger.warn(`"${safeQuery}": dropped ${dropped} of ${businesses.length} results outside ${opts.area}`);
@@ -164,7 +210,7 @@ export class GoogleMapsScraperService {
     }
   }
 
-  private async extractBusinessCards(page: Page): Promise<ScrapedBusiness[]> {
+  private async extractBusinessCards(page: Page, country: string): Promise<ScrapedBusiness[]> {
     // $$eval is Playwright's scoped DOM query — the callback is a static inline
     // function serialized and run in the browser context. No user-supplied data
     // flows into the function body, so there is no injection risk here.
@@ -204,11 +250,9 @@ export class GoogleMapsScraperService {
             for (const span of card.querySelectorAll("span")) {
               const t = span.textContent?.trim() ?? "";
               if (!t || t.length < 3) continue;
-              if (!phone && /^[+\d]/.test(t) && t.replace(/\D/g, "").length >= 7) {
-                if (t.includes("+62") || t.includes("08") || /^\d{3}[\s-]\d/.test(t)) {
-                  phone = t;
-                  continue;
-                }
+              if (!phone && /^\+?[\d\s().-]{7,24}$/.test(t) && t.replace(/\D/g, "").length >= 7 && t.replace(/\D/g, "").length <= 15) {
+                phone = t;
+                continue;
               }
               if (!address && /\bJl\.|\bJalan\b|\bStreet\b|\bSt\.|\bRd\.|\bNo\.\s*\d/i.test(t)) {
                 address = t.replace(/^[·•–]\s*/, "").trim();
@@ -231,7 +275,7 @@ export class GoogleMapsScraperService {
             return {
               name,
               address,
-              phone: phone.replace(/\D/g, "").replace(/^62/, "0").replace(/^0+/, "0"),
+              phone, // as written; made into a number for the campaign's country below
               rating: rating || "N/A",
               reviewCount,
               rows: [...card.querySelectorAll(".W4Efsd")].map((r) => r.textContent?.trim() ?? ""),
@@ -245,13 +289,18 @@ export class GoogleMapsScraperService {
       )
       .catch(() => []);
 
-    return (cards as Array<Omit<ScrapedBusiness, "category" | "lat" | "lng" | "businessStatus"> & { rows: string[] }>).map(({ rows, ...card }) => ({
+    return (cards as Array<Omit<ScrapedBusiness, "category" | "lat" | "lng" | "businessStatus"> & { rows: string[] }>).map(({ rows, ...card }) => {
+      const category = pickCategory(rows);
+      return {
       ...card,
+      address: card.address || pickAddress(rows, category),
+      phone: cardPhone(card.phone || pickPhone(rows), country),
       rating: card.rating === "N/A" ? "N/A" : normalizeRating(card.rating) || "N/A",
-      category: pickCategory(rows),
+      category,
       businessStatus: businessStatusFrom(rows),
       ...extractLatLng(card.referenceLink),
-    }));
+      };
+    });
   }
 
   async close(): Promise<void> {

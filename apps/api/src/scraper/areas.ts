@@ -109,7 +109,7 @@ export const DEFAULT_RADIUS_KM = 50;
  * fooled. A result with no coordinates is kept only if its address names the area.
  */
 export function inArea<T extends { lat: number | null; lng: number | null; address: string }>(results: T[], area: string, center: LatLng, radiusKm = DEFAULT_RADIUS_KM): { kept: T[]; dropped: number } {
-  const name = area.toLowerCase();
+  const name = area.split(",")[0].trim().toLowerCase(); // "Austin, Texas": an address names the city
   const kept = results.filter((b) => {
     if (b.lat != null && b.lng != null) return haversineKm(center, { lat: b.lat, lng: b.lng }) <= radiusKm;
     return (b.address ?? "").toLowerCase().includes(name);

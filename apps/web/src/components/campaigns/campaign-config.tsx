@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useI18n } from "@/lib/i18n";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { countryLabel } from "@/lib/countries";
 import type { Campaign } from "@/hooks/use-campaigns";
 
 const IND = ["restaurant", "cafe", "retail", "automotive", "healthcare", "beauty", "education", "realestate", "event", "tech", "professional"];
@@ -21,6 +22,7 @@ export function CampaignConfig({ campaign }: { campaign: Campaign & { maxResults
 
   const rows: [string, string][] = [
     [t("camp.cfg.industry"), label("camp.ind", IND, campaign.industry)],
+    [t("camp.cfg.country"), countryLabel(campaign.country ?? "ID", lang)],
     [t("camp.cfg.location"), campaign.location],
     [t("camp.cfg.sources"), (campaign.sources?.length ? campaign.sources : ["google_maps"]).map((s) => (s === "google_maps" || s === "osm" || s === "overture" ? t(`camp.src.${s}` as MessageKey) : s)).join(", ")],
     [t("camp.cfg.maxResults"), campaign.maxResults ? t("camp.form.leadsCount", { n: campaign.maxResults }) : "—"],

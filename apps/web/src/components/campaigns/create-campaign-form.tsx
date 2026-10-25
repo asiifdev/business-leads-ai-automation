@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { countryOptions } from "@/lib/countries";
 import { useI18n } from "@/lib/i18n";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { SourceMaterial } from "@/components/marketing/source-material";
@@ -17,7 +18,8 @@ import { Loader2, Plus, Sparkles, X } from "lucide-react";
 import { briefIsRunning, generateBrief, waitForBrief } from "@/lib/generate-brief";
 
 export function CreateCampaignForm() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const countries = useMemo(() => countryOptions(lang), [lang]);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [queries, setQueries] = useState<string[]>([""]);
@@ -36,6 +38,7 @@ export function CreateCampaignForm() {
     name: "",
     industry: "",
     location: "",
+    country: "ID",
     yourService: "",
     maxResults: "20",
     contentStyle: "balanced",
@@ -119,6 +122,7 @@ export function CreateCampaignForm() {
         name: form.name,
         industry: form.industry,
         location: form.location,
+        country: form.country,
         searchQueries: queries.filter(Boolean),
         sources,
         yourService: form.yourService,
@@ -202,6 +206,13 @@ export function CreateCampaignForm() {
                   ))}
                 </div>
               )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="country">{t("camp.form.country")}</Label>
+              <select id="country" value={form.country} onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))} className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
+                {countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+              </select>
+              <p className="text-xs text-muted-foreground">{t("camp.form.countryHint")}</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="location">{t("camp.form.location")}{badge("location")}</Label>

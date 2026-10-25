@@ -5,6 +5,7 @@ import { CampaignsService } from "../campaigns/campaigns.service";
 import { LeadCollectorService } from "./lead-collector.service";
 import { LeadPipelineService } from "./lead-pipeline.service";
 import type { ImportJobData, WebsiteJobData } from "./lead-import.service";
+import { DEFAULT_COUNTRY } from "../common/country";
 import { WebsiteListService } from "./website-list.service";
 
 export { leadKey } from "./lead-key";
@@ -17,6 +18,8 @@ export interface ScraperJobData {
   sources?: string[];
   industry: string;
   location: string;
+  /** ISO country code; jobs queued before it existed are Indonesian. */
+  country?: string;
   maxResults: number;
   yourService: string;
   contentStyle: string;
@@ -51,6 +54,7 @@ export class ScraperProcessor extends WorkerHost {
         sources: data.sources ?? ["google_maps"],
         searchQueries: data.searchQueries,
         location: data.location,
+        country: data.country ?? DEFAULT_COUNTRY,
         industry: data.industry,
         maxResults: data.maxResults,
         onProgress: (pct) => this.campaigns.updateStatus(campaignId, "running", Math.min(28, Math.round(pct * 0.28))).then(() => undefined),

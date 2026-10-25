@@ -1,6 +1,7 @@
 /** The DuckDB query for Overture Maps places and the reading of its rows. Pure, so it is tested without the network or DuckDB. */
 import { isValidEmail } from "../../messaging/email-address";
 import { normalizePhone } from "../../messaging/phone";
+import { isMobileDigits } from "../../messaging/phone-intl";
 import type { RawSourceLead } from "./lead-source";
 import type { Bbox } from "./osm-overpass";
 import { profileUrl } from "./osm-overpass";
@@ -62,7 +63,7 @@ export function overtureRowToLead(row: OvertureRow, industry = ""): RawSourceLea
   if (!name) return null;
   // A mobile number first: those are on WhatsApp. Anything that is not a number is dropped.
   const phones = strings(row.phones).filter((p) => normalizePhone(p));
-  const phone = phones.find((p) => normalizePhone(p)?.startsWith("628")) ?? phones[0] ?? "";
+  const phone = phones.find((p) => isMobileDigits(normalizePhone(p) ?? "")) ?? phones[0] ?? "";
   const website = strings(row.websites).map((w) => w.trim()).find((w) => {
     try { const u = new URL(w); return (u.protocol === "http:" || u.protocol === "https:") && u.hostname.includes(".") && w.length <= 300; } catch { return false; }
   }) ?? "";

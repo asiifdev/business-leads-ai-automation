@@ -29,6 +29,8 @@ export interface RawSourceLead {
 export interface SourceRequest {
   searchQueries: string[];
   location: string;
+  /** ISO 3166-1 alpha-2 code of the country the location is in. */
+  country: string;
   industry: string;
   /** How many more leads are wanted from this source. */
   maxResults: number;

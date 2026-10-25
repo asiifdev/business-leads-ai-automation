@@ -12,7 +12,7 @@ function fake(id: string, make: (req: SourceRequest) => RawSourceLead[] | Error)
   return s;
 }
 
-const base = { searchQueries: ["toko kamera"], location: "Bandung", industry: "x" };
+const base = { searchQueries: ["toko kamera"], location: "Bandung", country: "ID", industry: "x" };
 
 function collector(...sources: LeadSource[]) {
   const c = new LeadCollectorService(fake("google_maps", () => []) as never);

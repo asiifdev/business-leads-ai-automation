@@ -48,6 +48,7 @@ export class ScraperController {
         sources: campaign.sources,
         industry: campaign.industry,
         location: campaign.location,
+        country: campaign.country,
         maxResults: campaign.maxResults,
         yourService: campaign.yourService,
         contentStyle: campaign.contentStyle,

@@ -88,7 +88,7 @@ export class LeadImportService {
       throw e;
     }
     let result: ReturnType<typeof rowsToLeads>;
-    try { result = rowsToLeads(rows, mapping, campaign.industry); } catch (e) { if (e instanceof ImportError) throw new BadRequestException(e.message); throw e; }
+    try { result = rowsToLeads(rows, mapping, campaign.industry, campaign.country); } catch (e) { if (e instanceof ImportError) throw new BadRequestException(e.message); throw e; }
     if (result.leads.length === 0) throw new BadRequestException("There is nothing to import: no row has a business name.");
     const fileName = (file.originalname ?? "file").replace(/[^\w.\- ]+/g, "_").slice(0, 80);
     await this.campaigns.updateStatus(campaignId, "running", 0);

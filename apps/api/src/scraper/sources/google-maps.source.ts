@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { planAreas, stripPlaces } from "../areas";
+import { planAreas, splitAreas, stripPlaces } from "../areas";
+import { DEFAULT_COUNTRY } from "../../common/country";
 import { GoogleMapsScraperService } from "../google-maps.scraper";
 import { leadKey } from "../lead-key";
 import type { LeadSource, RawSourceLead, SourceRequest } from "./lead-source";
@@ -20,9 +21,26 @@ export class GoogleMapsSource implements LeadSource {
 
   constructor(private readonly maps: GoogleMapsScraperService) {}
 
+  /**
+   * Outside Indonesia a comma is as likely to be "Austin, Texas" as a list of cities, and no list of states can cover the
+   * world. So when the text has a separator, Maps is asked first whether the whole text is one place; only if it is not
+   * is it split. Indonesian campaigns split as always.
+   */
+  private async plan(req: SourceRequest) {
+    const typed = req.location.trim();
+    if (req.country !== DEFAULT_COUNTRY && process.env.SCRAPER_MODE !== "fixture" && splitAreas(typed).length > 1) {
+      try {
+        if (await this.maps.isSinglePlace(typed, req.country)) return { areas: [typed], perSearch: Math.max(1, Math.ceil(req.maxResults / Math.max(1, req.searchQueries.length))), nationwide: false };
+      } catch (e) {
+        this.logger.warn(`Could not check whether "${typed}" is one place, splitting it: ${(e as Error).message}`);
+      }
+    }
+    return planAreas(typed, req.searchQueries.length, req.maxResults);
+  }
+
   async search(req: SourceRequest): Promise<RawSourceLead[]> {
     // "Seluruh Indonesia" becomes one search per city: Google ranks a country-wide search by where the searcher is.
-    const plan = planAreas(req.location, req.searchQueries.length, req.maxResults);
+    const plan = await this.plan(req);
     // City by city across all queries, so a stop part-way still covers the biggest markets for every query.
     const combos = plan.areas.flatMap((area) => req.searchQueries.map((query) => ({ query: `${stripPlaces(query, plan.areas)} ${area}`.trim(), area })));
     const perQuery = plan.perSearch;
@@ -47,7 +65,7 @@ export class GoogleMapsSource implements LeadSource {
         results.push(...this.fixtureLeads(req, combo.query, combo.area, perQuery));
       } else {
         try {
-          const raw = await this.maps.scrape(combo.query, perQuery, { area: combo.area });
+          const raw = await this.maps.scrape(combo.query, perQuery, { area: combo.area, country: req.country });
           results.push(...raw.map((b) => this.normalize(b, req.industry)));
           this.logger.log(`Query "${combo.query}": ${raw.length} results`);
           // A short random pause between searches: hundreds of searches in a row from one address look like a robot.

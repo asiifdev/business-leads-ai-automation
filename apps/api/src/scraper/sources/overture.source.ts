@@ -117,7 +117,7 @@ export class OvertureSource implements LeadSource, OnModuleDestroy {
     const errors: string[] = [];
     for (let i = 0; i < areas.length && found.length < req.maxResults; i++) {
       try {
-        const box = await placeBox(areas[i], this.config, this.fetchFn);
+        const box = await placeBox(areas[i], this.config, this.fetchFn, req.country);
         if (!box) { errors.push(`could not find "${areas[i]}" on the map`); continue; }
         const want = req.maxResults - found.length;
         const t0 = Date.now();

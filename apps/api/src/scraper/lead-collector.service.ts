@@ -56,6 +56,7 @@ export class LeadCollectorService {
         const found = await source.search({
           searchQueries: req.searchQueries,
           location: req.location,
+          country: req.country,
           industry: req.industry,
           maxResults: remaining,
           onProgress: (pct) => req.onProgress?.(Math.round(((i + pct / 100) / ids.length) * 100)),
