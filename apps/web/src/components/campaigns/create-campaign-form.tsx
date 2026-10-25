@@ -250,7 +250,7 @@ export function CreateCampaignForm() {
 
         <fieldset className="space-y-3 border-b pb-8">
           <legend className="mb-1 text-sm font-semibold">{t("camp.src.title")}</legend>
-          {(["google_maps", "osm"] as const).map((s) => (
+          {(["google_maps", "osm", "overture"] as const).map((s) => (
             <label key={s} className="flex items-start gap-3 text-sm">
               <input
                 type="checkbox"
@@ -260,11 +260,12 @@ export function CreateCampaignForm() {
               />
               <span>
                 <span className="font-medium">{t(`camp.src.${s}` as MessageKey)}</span>
-                <span className="block text-xs text-muted-foreground">{t(`camp.src.${s === "osm" ? "osmDesc" : "google_mapsDesc"}` as MessageKey)}</span>
+                <span className="block text-xs text-muted-foreground">{t(`camp.src.${s === "osm" ? "osmDesc" : s === "overture" ? "overtureDesc" : "google_mapsDesc"}` as MessageKey)}</span>
               </span>
             </label>
           ))}
           {sources.includes("osm") && <p className="text-xs text-muted-foreground">{t("camp.src.osmHint")}</p>}
+          {sources.includes("overture") && <p className="text-xs text-muted-foreground">{t("camp.src.overtureHint")}</p>}
           {sources.length === 0 && <p role="alert" className="text-xs text-destructive">{t("camp.src.atLeastOne")}</p>}
         </fieldset>
 

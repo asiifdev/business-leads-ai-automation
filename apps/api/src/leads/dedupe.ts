@@ -65,13 +65,13 @@ export type DuplicateReason = "phone" | "website" | "name_place";
  */
 export function createDuplicateIndex<T extends DedupeCandidate>(existing: T[]) {
   const byPhone = new Map<string, T>();
-  const byDomain = new Map<string, T>();
+  const byDomain = new Map<string, T[]>();
   const byName = new Map<string, T[]>();
   const add = (e: T) => {
     const phone = e.phoneE164 || normalizePhone(e.phone);
     if (phone && !byPhone.has(phone)) byPhone.set(phone, e);
     const domain = websiteDomain(e.website);
-    if (domain && !byDomain.has(domain)) byDomain.set(domain, e);
+    if (domain) byDomain.set(domain, [...(byDomain.get(domain) ?? []), e]);
     const key = nameKey(e.name);
     if (key.length >= 4) byName.set(key, [...(byName.get(key) ?? []), e]);
   };
@@ -84,7 +84,11 @@ export function createDuplicateIndex<T extends DedupeCandidate>(existing: T[]) {
       const byNumber = phone ? byPhone.get(phone) : undefined;
       if (byNumber) return { match: byNumber, reason: "phone" };
       const domain = websiteDomain(lead.website);
-      const bySite = domain ? byDomain.get(domain) : undefined;
+      // A chain's branches share one website but each has its own number: two different numbers mean two outlets, not one business.
+      const bySite = domain ? (byDomain.get(domain) ?? []).find((e) => {
+        const ePhone = e.phoneE164 || normalizePhone(e.phone);
+        return !(phone && ePhone && phone !== ePhone);
+      }) : undefined;
       if (bySite) return { match: bySite, reason: "website" };
       const key = nameKey(lead.name);
       if (key.length < 4 || typeof lead.lat !== "number" || typeof lead.lng !== "number") return null;

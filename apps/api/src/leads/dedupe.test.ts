@@ -27,6 +27,17 @@ test("findDuplicate matches on phone first, in any written form", () => {
 test("findDuplicate matches on website domain", () => {
   const r = findDuplicate({ name: "Contoh Studio Cabang", website: "https://www.contoh.example.com/" }, [{ id: "a", name: "Contoh Studio", website: "http://contoh.example.com" }]);
   assert.equal(r?.reason, "website");
+  assert.equal(findDuplicate({ name: "X", phone: "081200001111", website: "https://contoh.example.com" }, [{ id: "a", name: "Contoh Studio", website: "http://contoh.example.com" }])?.reason, "website");
+});
+
+test("branches of a chain share a website but each has its own number: they are not repeats", () => {
+  const branches = [
+    { id: "a", name: "KFC Cibabat", phone: "+62226645586", website: "http://www.kfcku.com/" },
+    { id: "b", name: "KFC Sukawangi", phone: "+628117157173", website: "http://www.kfcku.com/" },
+  ];
+  assert.equal(findDuplicate({ name: "KFC Pasar Baru", phone: "+628117157188", website: "http://www.kfcku.com/" }, branches), null);
+  assert.equal(findDuplicate({ name: "KFC Sukawangi (Maps)", phone: "08117157173", website: "http://www.kfcku.com/" }, branches)?.match.id, "b");
+  assert.equal(findDuplicate({ name: "KFC lain", website: "http://www.kfcku.com/" }, branches)?.reason, "website");
 });
 
 test("findDuplicate: same name needs the same place, and different numbers mean separate branches", () => {

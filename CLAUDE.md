@@ -62,7 +62,9 @@ Read `docs/architecture.md` ("Lead sources"). Invariants to keep:
 - **Public services are used lightly**: identified by `User-Agent`, few requests, size-capped answers, a pause between places. Operator-set URLs (`OVERPASS_URL`, `GEOCODER_URL`) are not user input; anything a user types never becomes a URL or is written into a query unescaped (`osm-overpass.ts` only writes `[a-z0-9_:]` tokens and `[A-Za-z0-9 '&-]` phrases).
 - **A later source fills only what an earlier one left**; merging goes through `mergeSourceLeads`, and the order of sources decides whose details win.
 - **Imported files are untrusted**: size and row caps, linear parsers with hostile-input tests, a file's type is decided from its bytes. Bad values are dropped and counted, never stored.
-- New sources need their terms of use stated in `docs/features.md`.
+- **Check a site's terms and robots.txt before writing a scraper, and record the result in `docs/lead-sources.md`.** Directories and marketplaces reviewed there are closed; reopen only with written permission, an open licence or an API.
+- New sources need their terms of use stated in `docs/features.md` and `docs/lead-sources.md`.
+- **Overture/DuckDB:** values reach the query only as bound parameters (the dataset address is checked by `assertSafeDataset`); never select `bbox.<field>` in a query that filters on it; DuckDB stays a lazy import so a machine that cannot run it loses one source, not the app.
 
 ### Campaign → scrape → score pipeline
 1. `POST /api/scraper/campaigns/:id/start` (`apps/api/src/scraper/scraper.controller.ts`) enqueues a BullMQ job on the `scraper` queue (Redis-backed, `scraper.module.ts`).

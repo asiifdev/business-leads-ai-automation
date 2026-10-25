@@ -101,6 +101,8 @@ export function readPageMeta(html: string): PageMeta {
 }
 
 export interface BusinessInfo {
+  /** The business name the page states in its structured data. */
+  name?: string;
   description?: string;
   /** schema.org type, e.g. Restaurant, HairSalon. */
   type?: string;
@@ -162,6 +164,7 @@ export function extractBusinessInfo(meta: PageMeta): BusinessInfo {
       const t = [o["@type"]].flat().map((x) => text(x, 40)).find((x) => BUSINESS_TYPE.test(x));
       if (!t) continue;
       info.type ??= t;
+      info.name ??= text(o.name, 120) || undefined;
       info.description ??= text(o.description) || undefined;
       info.address ??= addressText(o.address) || undefined;
       info.hours ??= hoursText(o) || undefined;
@@ -183,17 +186,17 @@ export function extractBusinessInfo(meta: PageMeta): BusinessInfo {
   const description = info.description || meta.description;
   if (description) info.description = description.slice(0, 300);
   else delete info.description;
-  for (const k of ["description", "type", "hours", "address", "priceRange"] as const) if (!info[k]) delete info[k];
+  for (const k of ["name", "description", "type", "hours", "address", "priceRange"] as const) if (!info[k]) delete info[k];
   return info;
 }
 
-const empty = (i: Partial<BusinessInfo>) => !(i.description || i.type || i.hours || i.address || i.priceRange || i.phones?.length || i.emails?.length || i.sameAs?.length);
+const empty = (i: Partial<BusinessInfo>) => !(i.name || i.description || i.type || i.hours || i.address || i.priceRange || i.phones?.length || i.emails?.length || i.sameAs?.length);
 
 /** The first page's value wins for each field; lists are joined. */
 export function mergeBusinessInfo(list: Partial<BusinessInfo>[]): BusinessInfo {
   const out: BusinessInfo = { phones: [], emails: [], sameAs: [] };
   for (const i of list) {
-    for (const k of ["description", "type", "hours", "address", "priceRange"] as const) if (!out[k] && i[k]) out[k] = i[k];
+    for (const k of ["name", "description", "type", "hours", "address", "priceRange"] as const) if (!out[k] && i[k]) out[k] = i[k];
     for (const k of ["phones", "emails", "sameAs"] as const) for (const v of i[k] ?? []) if (!out[k].includes(v) && out[k].length < 8) out[k].push(v);
   }
   return empty(out) ? ({ phones: [], emails: [], sameAs: [] }) : out;

@@ -2,11 +2,11 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { planAreas } from "../areas";
 import type { LeadSource, RawSourceLead, SourceRequest } from "./lead-source";
-import { bboxFromNominatim, buildOverpassQuery, leadsFromOverpass, type Bbox } from "./osm-overpass";
+import { placeBox } from "./place-box";
+import { buildOverpassQuery, leadsFromOverpass, type Bbox } from "./osm-overpass";
 import { parseOsmQuery, type OsmFilter } from "./osm-tags";
 
 const DEFAULT_OVERPASS = "https://overpass-api.de/api/interpreter";
-const DEFAULT_NOMINATIM = "https://nominatim.openstreetmap.org";
 const MAX_AREAS = 12;
 const MAX_ANSWER_BYTES = 25_000_000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -72,15 +72,8 @@ export class OsmSource implements LeadSource {
     return found;
   }
 
-  private async boxFor(place: string): Promise<Bbox | null> {
-    const base = (this.config.get<string>("GEOCODER_URL") || DEFAULT_NOMINATIM).replace(/\/+$/, "");
-    const res = await this.fetchFn(`${base}/search?format=jsonv2&limit=1&q=${encodeURIComponent(place.slice(0, 120))}`, {
-      headers: { "User-Agent": this.userAgent },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (res.status === 429 || res.status === 403) throw new Error("the place lookup is rate-limited, try again in a minute");
-    if (!res.ok) throw new Error(`the place lookup answered ${res.status}`);
-    return bboxFromNominatim(await res.json());
+  private boxFor(place: string): Promise<Bbox | null> {
+    return placeBox(place, this.config, this.fetchFn);
   }
 
   private async overpass(query: string): Promise<unknown> {

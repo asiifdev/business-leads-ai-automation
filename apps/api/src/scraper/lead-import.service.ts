@@ -4,6 +4,7 @@ import { Queue } from "bullmq";
 import { CampaignsService } from "../campaigns/campaigns.service";
 import { ImportError, parseCsv } from "../leads/import/csv";
 import { xlsxToRows } from "../leads/import/xlsx";
+import { parseWebsiteList } from "../leads/import/website-list";
 import { detectMapping, parseMapping, rowsToLeads, type ColumnMapping, type ImportReport } from "../leads/import/lead-import";
 import type { RawSourceLead } from "./sources/lead-source";
 import type { ScraperJobData } from "./scraper.processor";
@@ -15,7 +16,13 @@ export interface ImportJobData {
   leads: RawSourceLead[];
 }
 
-export type ScraperJob = ScraperJobData | ImportJobData;
+export interface WebsiteJobData {
+  campaignId: string;
+  workspaceId: string;
+  urls: string[];
+}
+
+export type ScraperJob = ScraperJobData | ImportJobData | WebsiteJobData;
 
 export interface ImportPreview {
   format: "csv" | "xlsx";
@@ -87,5 +94,16 @@ export class LeadImportService {
     await this.campaigns.updateStatus(campaignId, "running", 0);
     await this.queue.add("import", { campaignId, workspaceId, fileName, leads: result.leads }, { attempts: 1, removeOnComplete: 50, removeOnFail: 50 });
     return { message: "Import queued", campaignId, report: result.report };
+  }
+
+  /** A pasted list of websites: the addresses are checked here, the pages are read by the worker (it can take a while). */
+  async startWebsites(workspaceId: string, campaignId: string, text: string) {
+    const campaign = await this.campaigns.findOne(campaignId, workspaceId);
+    if (campaign.status === "running") throw new ConflictException("This campaign is running right now. Import when it has finished.");
+    const parsed = parseWebsiteList(text);
+    if (parsed.urls.length === 0) throw new BadRequestException("There is no website address in what you pasted.");
+    await this.campaigns.updateStatus(campaignId, "running", 0);
+    await this.queue.add("import-websites", { campaignId, workspaceId, urls: parsed.urls }, { attempts: 1, removeOnComplete: 50, removeOnFail: 50 });
+    return { message: "Websites queued", campaignId, accepted: parsed.urls.length, invalid: parsed.invalid, duplicates: parsed.duplicates, unsupported: parsed.unsupported, truncated: parsed.truncated };
   }
 }

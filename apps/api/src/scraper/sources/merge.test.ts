@@ -48,3 +48,10 @@ test("a profile page found by the second source is kept", () => {
   assert.deepEqual(leads[0].social, { instagram: "https://www.instagram.com/contoh/" });
   assert.equal(leads[0].fieldSources?.instagram, "osm");
 });
+
+test("branches that share a website but have their own numbers stay separate leads", () => {
+  const branch = (name: string, phone: string): RawSourceLead => lead({ name, phone, website: "http://www.kfcku.com/", source: "overture" });
+  const { leads, merged } = mergeSourceLeads([], [branch("KFC A", "+62226645586"), branch("KFC B", "+628117157173"), branch("KFC C", "+628117157188")]);
+  assert.equal(leads.length, 3);
+  assert.equal(merged, 0);
+});

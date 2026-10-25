@@ -11,6 +11,11 @@ import { WorkspaceId } from "../auth/current-workspace.decorator";
 import { ScraperJobData } from "./scraper.processor";
 import { LeadImportService, type ScraperJob } from "./lead-import.service";
 import { MAX_IMPORT_BYTES } from "../leads/import/csv";
+import { IsString, MaxLength, MinLength } from "class-validator";
+
+class WebsiteListDto {
+  @IsString() @MinLength(3) @MaxLength(40_000) text!: string;
+}
 
 @ApiTags("Scraper")
 @ApiBearerAuth()
@@ -81,5 +86,13 @@ export class ScraperController {
   ) {
     if (!file) throw new BadRequestException("Choose a CSV or .xlsx file");
     return this.imports.start(workspaceId, id, file, mapping);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post("campaigns/:id/import/websites")
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: "Add the businesses behind a pasted list of websites (or Instagram/Facebook pages) to a campaign: up to 200, each page is read for the name and details" })
+  async importWebsites(@Param("id") id: string, @WorkspaceId() workspaceId: string, @Body() body: WebsiteListDto) {
+    return this.imports.startWebsites(workspaceId, id, body.text);
   }
 }

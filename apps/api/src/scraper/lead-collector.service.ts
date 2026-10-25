@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { GoogleMapsSource } from "./sources/google-maps.source";
 import { OsmSource } from "./sources/osm.source";
+import { OvertureSource } from "./sources/overture.source";
 import { mergeSourceLeads } from "./sources/merge";
 import type { LeadSource, RawSourceLead, SourceRequest } from "./sources/lead-source";
 
@@ -28,9 +29,10 @@ export class LeadCollectorService {
   private readonly logger = new Logger(LeadCollectorService.name);
   private readonly byId = new Map<string, LeadSource>();
 
-  constructor(maps: GoogleMapsSource, osm?: OsmSource) {
+  constructor(maps: GoogleMapsSource, osm?: OsmSource, overture?: OvertureSource) {
     this.register(maps);
     if (osm) this.register(osm);
+    if (overture) this.register(overture);
   }
 
   register(source: LeadSource) {

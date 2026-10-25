@@ -7,6 +7,8 @@ import { useI18n } from "@/lib/i18n";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -28,8 +30,10 @@ export function ImportLeadsDialog({ campaignId, open, onOpenChange, onDone }: { 
   const [mapping, setMapping] = useState<Mapping | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<"file" | "websites">("file");
+  const [sites, setSites] = useState("");
 
-  const reset = () => { setFile(null); setPreview(null); setMapping(null); setError(null); setBusy(false); if (input.current) input.current.value = ""; };
+  const reset = () => { setSites(""); setFile(null); setPreview(null); setMapping(null); setError(null); setBusy(false); if (input.current) input.current.value = ""; };
   const form = (f: File, m?: Mapping) => { const d = new FormData(); d.append("file", f); if (m) d.append("mapping", JSON.stringify(m)); return d; };
 
   const read = async (f: File, m?: Mapping) => {
@@ -52,6 +56,23 @@ export function ImportLeadsDialog({ campaignId, open, onOpenChange, onDone }: { 
     setMapping(null);
     setPreview(null);
     if (f) void read(f);
+  };
+
+  const submitSites = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.post<{ accepted: number; duplicates: number; unsupported: number; invalid: string[]; truncated: boolean }>(`/scraper/campaigns/${campaignId}/import/websites`, { text: sites });
+      toast.success(t("camp.import.web.queued", { n: r.accepted }));
+      const left = [r.duplicates ? t("camp.import.web.dups", { n: r.duplicates }) : "", r.unsupported ? t("camp.import.web.unsupported", { n: r.unsupported }) : "", r.invalid.length ? t("camp.import.web.invalid", { n: r.invalid.length }) : "", r.truncated ? t("camp.import.web.truncated") : ""].filter(Boolean);
+      if (left.length) toast.info(left.join(" "));
+      onDone();
+      onOpenChange(false);
+      reset();
+    } catch (e) {
+      setError((e as Error).message);
+      setBusy(false);
+    }
   };
 
   const pick = (field: Field, v: string) => setMapping((m) => ({ ...(m ?? preview!.mapping), [field]: v === NONE ? null : Number(v) }));
@@ -85,10 +106,26 @@ export function ImportLeadsDialog({ campaignId, open, onOpenChange, onDone }: { 
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t("camp.import.title")}</DialogTitle>
-          <DialogDescription>{t("camp.import.desc")}</DialogDescription>
+          <DialogDescription>{t(mode === "file" ? "camp.import.desc" : "camp.import.web.desc")}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <Tabs value={mode} onValueChange={(v) => { setMode(v as "file" | "websites"); setError(null); }}>
+          <TabsList>
+            <TabsTrigger value="file" className="text-xs">{t("camp.import.tab.file")}</TabsTrigger>
+            <TabsTrigger value="websites" className="text-xs">{t("camp.import.tab.websites")}</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {mode === "websites" && (
+          <div className="space-y-2">
+            <Label htmlFor="import-sites" className="text-xs">{t("camp.import.web.label")}</Label>
+            <Textarea id="import-sites" rows={8} value={sites} onChange={(e) => setSites(e.target.value)} placeholder={"contoh.co.id\nhttps://bengkel-maju.example.com\ninstagram.com/kopi.contoh"} className="font-mono text-xs" />
+            <p className="text-xs text-muted-foreground">{t("camp.import.web.help")}</p>
+            {error && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+          </div>
+        )}
+
+        <div className={`space-y-4 ${mode === "file" ? "" : "hidden"}`}>
           <div className="flex items-center gap-3">
             <input ref={input} type="file" accept=".csv,.txt,.xlsx,text/csv" className="sr-only" id="import-file" onChange={(e) => choose(e.target.files?.[0] ?? null)} />
             <Button type="button" variant="outline" size="sm" onClick={() => input.current?.click()} disabled={busy}>
@@ -144,9 +181,15 @@ export function ImportLeadsDialog({ campaignId, open, onOpenChange, onDone }: { 
 
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>{t("camp.form.cancel")}</Button>
-          <Button type="button" onClick={() => void submit()} disabled={busy || !preview || !mapping || mapping.name === null || !r || r.leads === 0}>
-            {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{t("camp.import.submit")}
-          </Button>
+          {mode === "file" ? (
+            <Button type="button" onClick={() => void submit()} disabled={busy || !preview || !mapping || mapping.name === null || !r || r.leads === 0}>
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{t("camp.import.submit")}
+            </Button>
+          ) : (
+            <Button type="button" onClick={() => void submitSites()} disabled={busy || sites.trim().length < 3}>
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{t("camp.import.web.submit")}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

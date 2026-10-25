@@ -187,6 +187,7 @@ export function LeadDetail({ id }: { id: string }) {
                     <> · <a href={lead.referenceUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{t("leads.source.open")}</a></>
                   )}
                   {lead.source === "osm" && <> · {t("leads.source.attribution")}</>}
+                  {lead.source === "overture" && <> · {t("leads.source.overtureAttribution")}</>}
                 </p>
               )}
             </CardContent>

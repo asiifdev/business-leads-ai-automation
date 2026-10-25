@@ -10,6 +10,7 @@
     "test": "node --import tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
+    "@duckdb/node-api": "2.0.0-r.1",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^10.4.7",
     "@nestjs/config": "^3.3.0",

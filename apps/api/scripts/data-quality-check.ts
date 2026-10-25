@@ -63,7 +63,8 @@ async function main() {
     ]);
     await leads.createMany([
       { ...base, campaignId: c2.id, name: "Nama Lain Sama Sekali", phone: "+62 812 0000 1111" },
-      { ...base, campaignId: c2.id, name: "Cabang Web", phone: "0812-0000-4444", website: "http://www.contoh-studio.example.com/kontak" },
+      { ...base, campaignId: c2.id, name: "Cabang Web", website: "http://www.contoh-studio.example.com/kontak" },
+      { ...base, campaignId: c2.id, name: "Outlet Lain", phone: "0812-0000-4445", website: "http://www.contoh-studio.example.com/outlet" },
       { ...base, campaignId: c2.id, name: "Akun Instagram A", phone: "0812-0000-5555", website: "https://instagram.com/a" },
       { ...base, campaignId: c2.id, name: "Akun Instagram B", phone: "0812-0000-6666", website: "https://instagram.com/b" },
     ]);
@@ -73,6 +74,7 @@ async function main() {
     const dupSite = await byName("Cabang Web");
     check("same phone in another campaign is marked as a repeat", dupPhone.duplicateOfId === original.id && dupPhone.dataQuality === "low" && dupPhone.qualityIssues.includes("duplicate"));
     check("same website domain is marked as a repeat", dupSite.duplicateOfId === original.id);
+    check("an outlet with its own number on the same website is a separate lead", (await byName("Outlet Lain")).duplicateOfId === null);
     check("shared profile pages are not repeats", !(await byName("Akun Instagram A")).duplicateOfId && !(await byName("Akun Instagram B")).duplicateOfId);
     check("the original is clean and high", original.duplicateOfId === null && original.dataQuality === "high");
     const closed = await byName("Toko Tutup");

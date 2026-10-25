@@ -88,6 +88,24 @@ async function main() {
       }
     }
 
+    // 2b. Overture Maps through the queue, worker and DuckDB (slow: the first search reads the files' index, several minutes)
+    if (process.env.RUN_OVERTURE !== "true") skip("Overture Maps run", "set RUN_OVERTURE=true (it takes several minutes)");
+    else {
+      const ov = await mk({ sources: ["overture"], maxResults: 5 });
+      check("a campaign can use Overture Maps only", ov.sources?.join() === "overture");
+      await call("POST", `/scraper/campaigns/${ov.id}/start`);
+      const done = await finished(ov.id, 20 * 60_000);
+      const external = done.status === "failed" && /Overture Maps: .*(rate-limited|answered|S3|catalogue|DuckDB package)/i.test(done.error ?? "");
+      if (external) skip("Overture Maps run", `service unavailable: ${done.error}`);
+      else {
+        const got = await prisma.lead.findMany({ where: { campaignId: ov.id } });
+        check("the Overture Maps run completes with the number of leads asked for", done.status === "completed" && got.length === 5, `${done.status} ${done.error ?? ""} ${got.length} leads`);
+        check("branches of a chain that share a website are separate leads", new Set(got.map((l) => l.phone)).size === got.length && got.filter((l) => l.duplicateOfId).length === 0);
+        check("they are marked as Overture, with a way to reach them", got.every((l) => l.source === "overture" && (l.phone || l.email || l.website || (l.enrichment as { social?: unknown } | null)?.social)));
+        check("a Facebook page listed by the source is kept for reading", got.some((l) => (l.enrichment as { social?: { facebook?: string } } | null)?.social?.facebook) || got.every((l) => !!l.phone));
+      }
+    }
+
     // 3. a file import: preview, then import, into a campaign
     const target = await mk({ sources: ["google_maps"] });
     const reuse = osmLeads.find((l) => l.phone);
@@ -126,6 +144,20 @@ async function main() {
     const after = await finished(target.id, 60_000);
     const total = await prisma.lead.count({ where: { campaignId: target.id } });
     check("it adds to the leads already there", total === rows.length + 1 && after.totalLeads === total, `${total} leads, totals say ${after.totalLeads}`);
+
+    // 4b. a pasted list of websites (reads real pages, so it needs the network)
+    if (process.env.SKIP_OSM === "true") skip("website list", "SKIP_OSM=true");
+    else {
+      const sites = await mk({ sources: ["google_maps"] });
+      const none = await call("POST", `/scraper/campaigns/${sites.id}/import/websites`, { text: "  " });
+      check("an empty list is refused", none.status === 400);
+      const list = await call<{ accepted: number; duplicates: number; unsupported: number; invalid: string[] }>("POST", `/scraper/campaigns/${sites.id}/import/websites`, { text: "example.com, https://www.example.com/about, linktr.ee/contoh, tidak-ada-prospex-check.invalid, bukan alamat" });
+      check("the list is accepted and its parts are counted", list.status === 202 && list.body.accepted === 2 && list.body.duplicates === 1 && list.body.unsupported === 1 && list.body.invalid.length === 2, JSON.stringify(list.body));
+      const read = await finished(sites.id, 120_000);
+      const got = await prisma.lead.findMany({ where: { campaignId: sites.id } });
+      check("the page that opens becomes a lead, named from the page", got.length === 1 && got[0].source === "website_list" && /example/i.test(got[0].name) && got[0].website?.includes("example.com") === true, got.map((l) => l.name).join(", "));
+      check("the one that cannot be opened is named in the note, not invented", read.status === "completed" && /Read 1 of 2 websites/.test(read.error ?? "") && /tidak-ada-prospex-check\.invalid/.test(read.error ?? ""), read.error ?? "");
+    }
 
     // 5. a campaign that is running cannot be imported into
     await prisma.campaign.update({ where: { id: target.id }, data: { status: "running" } });
