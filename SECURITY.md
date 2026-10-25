@@ -18,7 +18,7 @@ Also in scope: WhatsApp linked-device sessions (`WA_AUTH_DIR`). Anyone who can r
 - **Unwanted messaging.** Every message needs human approval; STOP is honoured permanently; sending is paced and pauses itself after repeated failures.
 - **Browser sandbox.** Chromium's sandbox is on unless `PLAYWRIGHT_NO_SANDBOX=true`, which is meant for containers only.
 
-Known limits: linked-device WhatsApp is unofficial (see DISCLAIMER.md); the AI features read the server `.env` rather than per-workspace keys; there is no multi-user access control inside a workspace yet.
+Known limits: linked-device WhatsApp is unofficial (see DISCLAIMER.md); there is no multi-user access control inside a workspace yet.
 
 ## Supported versions
 
