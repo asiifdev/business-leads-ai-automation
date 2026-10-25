@@ -3,6 +3,7 @@
 ## Unreleased (2026-10-14)
 
 ### Added
+- **English user guide** (`docs/USER_GUIDE_EN.md`): the 13 sections of the Indonesian walkthrough in English, with button names taken from the English interface and the numbers (score points, sending limits, follow-up days) checked against the code. The Indonesian guide now lists the campaign's country and language, and no longer carries a leftover scoring table and list of industry and city weights that the code stopped using.
 - **Knowledge base page** (`/knowledge`, in the sidebar): add facts, pricing, FAQs and policies as sources (title, category, text), see whether each is indexed (ready, indexing, error) and how many chunks it made, delete one, and try a **test search** to see what the AI would find. Drafts only mention what is here.
 - **Lead page shows more:** an "AI score breakdown" (good, possible or poor fit with the reason, the score factors and a recommendation), review counts, the region, the LinkedIn note and cold-call opening next to the e-mail note, and notes on the lead that can be saved.
 - **Pipeline lists show how long ago and what the reply was about:** each lead in "Needs a reply", "Waiting on them" and the stale list carries an intent badge and a relative time ("2 hours ago", "3 days ago") in the interface language.

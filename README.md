@@ -160,7 +160,7 @@ Your first outreach, step by step:
 3. **Outbox**: click **Connect WhatsApp** and scan the code with the phone (WhatsApp, Linked devices). Use a dedicated number.
 4. **Outbox, Review**: choose the campaign, click **Write drafts**, then approve what you like.
 
-The full walkthrough is in [docs/USER_GUIDE.md](docs/USER_GUIDE.md) (Indonesian).
+The full walkthrough is in [docs/USER_GUIDE_EN.md](docs/USER_GUIDE_EN.md) (English) and [docs/USER_GUIDE.md](docs/USER_GUIDE.md) (Indonesian).
 
 ### Choosing an AI provider
 

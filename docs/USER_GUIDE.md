@@ -163,12 +163,13 @@ Anda tetap bisa mengisi form tanpa sumber:
 |-------|--------|------------|
 | Nama kampanye | "Rental kamera Solo Q4 2026" | Nama untuk identifikasi |
 | Jenis bisnis target | rental kamera | **Jenis bisnis yang ingin Anda temukan**, bukan bidang usaha Anda sendiri. Teks bebas; tidak ada daftar tetap karena kategori Google Maps sangat beragam. |
-| Lokasi | Solo | Kota/area target. Beberapa area dipisah koma, titik koma, `/`, `&`, `+`, "dan", atau baris baru. Kota yang Anda ketik dicari di kota itu sendiri (hasil lebih dari sekitar 50 km dari pusat kota dibuang). Ketik **Seluruh Indonesia** untuk satu pencarian per kota, dimulai dari kota terbesar. |
+| Negara | Mesir | Negara tempat kampanye mencari. Satu kampanye untuk satu negara; buat kampanye lain untuk negara berikutnya. Bawaannya Indonesia. |
+| Lokasi | Solo | Kota/area target. Beberapa area dipisah koma, titik koma, `/`, `&`, `+`, "dan", atau baris baru. Kota yang Anda ketik dicari di kota itu sendiri (hasil lebih dari sekitar 50 km dari pusat kota dibuang). Di luar Indonesia, teks seperti "Austin, Texas" dicek dulu di Maps sebagai satu tempat dan baru dipecah bila bukan. Khusus Indonesia, ketik **Seluruh Indonesia** untuk satu pencarian per kota, dimulai dari kota terbesar. |
 | Kata kunci pencarian | "sewa kamera" | Seperti yang Anda ketik di Google Maps. Boleh lebih dari satu. |
 | Layanan / produk Anda | "Sistem manajemen sewa untuk rental kamera" | Apa yang Anda tawarkan kepada lead ini |
 | Hasil maksimum | 20 | Jumlah lead target (10 sampai 1.500 di form; API menerima sampai 2.000). Untuk target besar pakai "Seluruh Indonesia" dan beberapa kata kunci. Kampanye berhenti begitu target tercapai. |
 | Gaya konten | Seimbang | Profesional / Ramah / Seimbang / Santai |
-| Bahasa | Indonesia | Bahasa draf pesan |
+| Bahasa | Indonesia | Bahasa draf pesan: Indonesia, Inggris, atau bahasa lain. Mengikuti negara (Indonesia: Indonesia, Mesir: Arab, Amerika Serikat: Inggris) sampai Anda memilih sendiri. |
 
 Klik **Mulai kampanye**: sistem langsung mulai mencari di Google Maps dan menilai hasilnya.
 
@@ -261,19 +262,6 @@ Hanya dari data nyata hasil scraping, ditambah satu penilaian AI. Tidak ada bobo
 Alasan penilaian kecocokan ditampilkan di detail lead. Nama ikut dinilai: bisnis bernama "Rental Kamera X" dianggap relevan untuk sistem sewa walau kategori Maps-nya hanya "Toko Kamera". Penilaian ini butuh penyedia AI; model lokal kecil bisa keliru, karena itu alasannya selalu ditampilkan. Lead tanpa nomor telepon diberi catatan karena tidak bisa dihubungi lewat WhatsApp.
 
 Kategori yang tampil di tiap lead adalah **kategori asli dari Google Maps** (bahasanya mengikuti bahasa antarmuka Maps).
-
--------|----------|---------|
-| 75–100 | HIGH | Segera hubungi — potensi tinggi |
-| 55–74 | MEDIUM | Masuk sequence standar |
-| 0–54 | LOW | Hubungi kalau kapasitas ada |
-
-### Faktor yang mempengaruhi skor
-
-- Kelengkapan data (nomor HP, website, alamat)
-- Rating Google Maps (4.5+ = bonus besar)
-- Industri target (cafe, tech, healthcare = skor lebih tinggi)
-- Lokasi (Jakarta, Bali = bonus)
-- Tidak punya website = peluang digital (bonus kecil)
 
 ---
 
