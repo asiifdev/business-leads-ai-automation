@@ -1,3 +1,4 @@
+import { languageName } from "../common/language";
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { AiClientService } from "./ai-client.service";
@@ -13,8 +14,8 @@ export interface FitCandidate {
 }
 
 /** One line per lead: the business name and its real Google Maps category are both evidence. */
-export function buildFitMessages(input: { offer: string; targets: string; language: "indonesian" | "english"; leads: FitCandidate[] }) {
-  const lang = input.language === "english" ? "English" : "Bahasa Indonesia";
+export function buildFitMessages(input: { offer: string; targets: string; language: string; leads: FitCandidate[] }) {
+  const lang = languageName(input.language);
   return [
     {
       role: "system" as const,
@@ -69,7 +70,7 @@ export class FitService {
 
   constructor(private readonly prisma: PrismaService, private readonly ai: AiClientService) {}
 
-  async assess(workspaceId: string, leads: FitCandidate[], offer: string, language: "indonesian" | "english"): Promise<(FitVerdict | undefined)[]> {
+  async assess(workspaceId: string, leads: FitCandidate[], offer: string, language: string): Promise<(FitVerdict | undefined)[]> {
     const none = leads.map(() => undefined);
     const ai = await this.ai.forWorkspace(workspaceId);
     if (!ai.enabled || leads.length === 0 || !offer.trim()) return none;

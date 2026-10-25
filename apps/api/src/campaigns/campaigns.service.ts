@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { defaultLanguageFor } from "../common/language";
 import { CreateCampaignDto } from "./dto/create-campaign.dto";
 import { UpdateCampaignDto } from "./dto/update-campaign.dto";
 
@@ -37,7 +38,7 @@ export class CampaignsService {
         ...dto,
         maxResults: dto.maxResults ?? 20,
         contentStyle: dto.contentStyle ?? "balanced",
-        language: dto.language ?? "indonesian",
+        language: dto.language ?? defaultLanguageFor(dto.country),
         workspaceId,
       },
     });

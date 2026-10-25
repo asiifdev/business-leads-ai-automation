@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useI18n } from "@/lib/i18n";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { countryLabel } from "@/lib/countries";
+import { languageLabel } from "@/lib/languages";
 import type { Campaign } from "@/hooks/use-campaigns";
 
 const IND = ["restaurant", "cafe", "retail", "automotive", "healthcare", "beauty", "education", "realestate", "event", "tech", "professional"];
 const STYLES = ["professional", "friendly", "balanced", "casual"];
-const LANGS = ["indonesian", "english"];
 
 /** What this campaign was set up to do: the offer, where it looks, how it writes. */
 export function CampaignConfig({ campaign }: { campaign: Campaign & { maxResults?: number } }) {
@@ -27,7 +27,7 @@ export function CampaignConfig({ campaign }: { campaign: Campaign & { maxResults
     [t("camp.cfg.sources"), (campaign.sources?.length ? campaign.sources : ["google_maps"]).map((s) => (s === "google_maps" || s === "osm" || s === "overture" ? t(`camp.src.${s}` as MessageKey) : s)).join(", ")],
     [t("camp.cfg.maxResults"), campaign.maxResults ? t("camp.form.leadsCount", { n: campaign.maxResults }) : "—"],
     [t("camp.cfg.style"), label("camp.style", STYLES, campaign.contentStyle)],
-    [t("camp.cfg.language"), label("camp.lang", LANGS, campaign.language)],
+    [t("camp.cfg.language"), languageLabel(campaign.language, lang)],
     [t("camp.cfg.created"), date(campaign.createdAt)],
     [t("camp.cfg.completed"), date(campaign.completedAt)],
   ];

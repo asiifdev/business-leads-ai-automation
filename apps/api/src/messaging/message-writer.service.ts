@@ -1,3 +1,4 @@
+import { promptLanguage, writeInLanguage } from "../common/language";
 import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
 import type { Campaign, Lead } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -87,7 +88,8 @@ export class MessageWriterService {
     const ai = await this.ai.forWorkspace(workspaceId);
     if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
     const started = Date.now();
-    const language = lead.campaign.language === "english" ? "english" : "indonesian";
+    const language = promptLanguage(lead.campaign.language);
+    const writeIn = writeInLanguage(lead.campaign.language);
     const profile = await this.prisma.styleProfile.findUnique({ where: { workspaceId } });
     const stats = profile ? (profile.stats as unknown as StyleStats) : undefined;
 
@@ -115,6 +117,7 @@ export class MessageWriterService {
       businessDescription: business,
       offer: lead.campaign.yourService,
       language,
+      writeIn,
       lead: {
         name: lead.name, category: lead.category, address: lead.address, rating: lead.rating, reviewCount: lead.reviewCount,
         website: lead.website, hasWebsite: lead.hasWebsite, recommendation: analysis?.recommendation ?? null, about: aboutLine(lead.enrichment),
@@ -230,7 +233,7 @@ export class MessageWriterService {
   /** Reply to a known lead. Same allowance rule as `outreach`. */
   async reply(workspaceId: string, lead: LeadWithCampaign | null, incoming: string, history: string, action: ReplyAction = "answer"): Promise<WrittenMessage | null> {
     if (action === "none") return null;
-    const language = lead?.campaign.language === "english" ? "english" : "indonesian";
+    const language = promptLanguage(lead?.campaign.language);
     // fixed wording for thanks and goodbyes: no model, no allowance used, nothing to go wrong
     const fixed = templateReply(action, language);
     if (fixed) return { text: fixed, risks: [], trace: { styled: false, examples: 0, knowledge: "none", model: "template", latencyMs: 0 } };

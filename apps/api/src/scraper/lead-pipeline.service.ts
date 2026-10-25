@@ -43,7 +43,7 @@ export class LeadPipelineService {
     await this.campaigns.updateStatus(campaignId, "running", from);
 
     // Fit is judged per business from its name and real category, against the offer and the Marketing Brief (needs an AI provider).
-    const fits = await this.fit.assess(workspaceId, raw.map((l) => ({ name: l.name, category: l.category })), job.yourService, job.language === "english" ? "english" : "indonesian");
+    const fits = await this.fit.assess(workspaceId, raw.map((l) => ({ name: l.name, category: l.category })), job.yourService, job.language);
     const scored = this.leadIntelligence.scoreLeads(raw, fits);
     await this.campaigns.updateStatus(campaignId, "running", Math.max(from, 60));
 

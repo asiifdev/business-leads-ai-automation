@@ -1,5 +1,6 @@
 import { IsString, IsArray, IsOptional, IsInt, IsIn, ArrayMinSize, ArrayUnique, Min, Max } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
+import { IsLanguage } from "../../common/language-validator";
 import { IsCountryCode } from "../../common/country-validator";
 import { SOURCE_IDS } from "../../common/lead-sources";
 
@@ -16,5 +17,6 @@ export class CreateCampaignDto {
   @ApiProperty({ required: false }) @IsOptional() @IsString() description?: string;
   @ApiProperty({ default: 20 }) @IsOptional() @IsInt() @Min(1) @Max(2000) maxResults?: number;
   @ApiProperty({ default: "balanced" }) @IsOptional() @IsString() contentStyle?: string;
-  @ApiProperty({ default: "indonesian" }) @IsOptional() @IsString() language?: string;
+  @ApiProperty({ required: false, description: "Language the outreach is written in: \"indonesian\", \"english\" or a two-letter language code. Defaults to the country's main language." })
+  @IsOptional() @IsLanguage() language?: string;
 }

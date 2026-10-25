@@ -149,6 +149,8 @@ export interface OutreachPromptInput {
   /** What the owner offers to this lead. */
   offer: string;
   language: "indonesian" | "english";
+  /** The language to write in when it is neither: the wording of this prompt stays English and the model is told to answer in it. */
+  writeIn?: string | null;
   lead: LeadFacts;
   /** Absent when the owner has not trained a style: the draft is then plain and neutral. */
   style?: StyleStats;
@@ -486,6 +488,7 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
     id
       ? `Tulis HANYA isi ${email ? "email" : "pesan"}, tanpa penjelasan, tanpa tanda kutip, tanpa label.`
       : `Write ONLY the ${email ? "email body" : "message"}, without explanation, without quotation marks, without labels.`,
+    input.writeIn ? `LANGUAGE: write the whole message, including the greeting and the closing, in ${input.writeIn}, the way a native speaker writes to a local business. The example wording above is English only to show the structure; do not copy it, and do not mix in English.` : "",
   ].filter((x) => x !== "").join("\n");
   return [
     { role: "system", content: system },

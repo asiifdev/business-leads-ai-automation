@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { countryOptions } from "@/lib/countries";
+import { defaultLanguageFor, languageOptions } from "@/lib/languages";
 import { useI18n } from "@/lib/i18n";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { SourceMaterial } from "@/components/marketing/source-material";
@@ -20,6 +21,7 @@ import { briefIsRunning, generateBrief, waitForBrief } from "@/lib/generate-brie
 export function CreateCampaignForm() {
   const { t, lang } = useI18n();
   const countries = useMemo(() => countryOptions(lang), [lang]);
+  const languages = useMemo(() => languageOptions(lang), [lang]);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [queries, setQueries] = useState<string[]>([""]);
@@ -87,7 +89,7 @@ export function CreateCampaignForm() {
         notes: [notes, !touched.has("yourService") ? "" : form.yourService].filter(Boolean).join("\n\n") || undefined,
         industry: touched.has("industry") ? form.industry || undefined : undefined,
         location: touched.has("location") ? form.location || undefined : undefined,
-        language: form.language === "english" ? "english" : "indonesian",
+        language: form.language === "indonesian" ? "indonesian" : "english", // the brief is written in one of these two
       }, setPass);
       applyBrief(b);
       toast.success(t("mkt.gen.done"));
@@ -209,7 +211,11 @@ export function CreateCampaignForm() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="country">{t("camp.form.country")}</Label>
-              <select id="country" value={form.country} onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))} className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
+              <select id="country" value={form.country} onChange={(e) => {
+                  // the language follows the country until the person (or the AI) has chosen one
+                  const country = e.target.value;
+                  setForm((f) => ({ ...f, country, language: touched.has("language") || aiFilled.has("language") ? f.language : defaultLanguageFor(country) }));
+                }} className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
                 {countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
               </select>
               <p className="text-xs text-muted-foreground">{t("camp.form.countryHint")}</p>
@@ -311,8 +317,7 @@ export function CreateCampaignForm() {
               <Select value={form.language} onValueChange={pick("language")}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="indonesian">{t("camp.lang.indonesian")}</SelectItem>
-                  <SelectItem value="english">{t("camp.lang.english")}</SelectItem>
+                  {languages.map((l) => <SelectItem key={l.value} value={l.value}>{l.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

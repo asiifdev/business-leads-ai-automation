@@ -35,3 +35,21 @@ test("sloppy chat habits are never described as something to imitate", () => {
   assert.doesNotMatch(m[0].content, /huruf kecil di|tanpa tanda baca pada|diawali huruf kecil/);
   assert.match(m[0].content, /ejaan baku \(PUEBI\)/);
 });
+
+import { buildOutreachMessages } from "./style-prompt";
+import { buildFitMessages } from "../fit.service";
+
+test("a campaign in another language asks the model to write in it, in the same prompt wording as English", () => {
+  const base = { businessDescription: "Example Digital Agency", offer: "website design", language: "english" as const, lead: { name: "Cafe Corniche" } };
+  const ar = buildOutreachMessages({ ...base, writeIn: "Arabic" })[0].content;
+  assert.match(ar, /LANGUAGE: write the whole message.* in Arabic/);
+  assert.doesNotMatch(buildOutreachMessages(base)[0].content, /LANGUAGE: write the whole message/);
+  assert.doesNotMatch(buildOutreachMessages({ ...base, language: "indonesian" })[0].content, /LANGUAGE: write the whole message/);
+});
+
+test("the fit reason is asked for in the campaign's language", () => {
+  const sys = (language: string) => buildFitMessages({ offer: "o", targets: "", language, leads: [{ name: "x" }] })[0].content;
+  assert.match(sys("ar"), /dalam Arabic/);
+  assert.match(sys("indonesian"), /dalam Bahasa Indonesia/);
+  assert.match(sys("english"), /dalam English/);
+});
