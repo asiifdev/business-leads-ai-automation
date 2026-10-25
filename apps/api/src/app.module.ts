@@ -35,7 +35,7 @@ import { EntitlementsModule } from "./entitlements/entitlements.module";
         OPENAI_BASE_URL: Joi.string().allow("").default(""),
         OPENAI_REASONING_EFFORT: Joi.string().allow("").default(""),
         EMBEDDING_MODEL: Joi.string().default("text-embedding-3-small"),
-        PUBLIC_API_URL: Joi.string().uri().optional(),
+        PUBLIC_API_URL: Joi.string().uri().allow("").optional(), // .env.example ships it empty
         EMAIL_DISABLED: Joi.string().valid("true", "false").optional(),
         ALLOW_LOCAL_UNSUBSCRIBE: Joi.string().valid("true", "false").optional(),
   EMAIL_ALLOW_PRIVATE_SMTP: Joi.string().valid("true", "false").optional(),
