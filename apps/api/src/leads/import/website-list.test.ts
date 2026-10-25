@@ -34,6 +34,21 @@ test("the list is capped and hostile text stays fast", () => {
   parseWebsiteList("http://".repeat(50_000));
   parseWebsiteList("a.b ".repeat(10_000));
   assert.ok(Date.now() - t < 1500, `took ${Date.now() - t} ms`);
+  // A long run of punctuation followed by a letter used to take quadratic time.
+  for (const run of [")", ".", "]", '"', "(", "<"]) {
+    const t2 = Date.now();
+    const r = parseWebsiteList(run.repeat(39_999) + "x");
+    assert.ok(Date.now() - t2 < 200, `${run} run took ${Date.now() - t2} ms`);
+    assert.equal(r.urls.length, 0);
+  }
+});
+
+test("punctuation around an address is stripped, and an over-long token is refused whole", () => {
+  assert.deepEqual(parseWebsiteList("(<\"contoh.co.id\">),").urls, ["https://contoh.co.id/"]);
+  assert.deepEqual(parseWebsiteList("'[contoh.co.id].'").urls, ["https://contoh.co.id/"]);
+  const long = parseWebsiteList(`contoh.co.id/${"a".repeat(400)}`);
+  assert.equal(long.urls.length, 0);
+  assert.equal(long.invalid.length, 1);
 });
 
 test("the business name is the page's own, else the real part of the title, else the domain", () => {

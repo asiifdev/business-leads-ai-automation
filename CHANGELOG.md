@@ -46,6 +46,7 @@
 - Drafts no longer name another kind of business (the brief's list of examples, such as "kebaya", counts as foreign to a costume-hire shop).
 
 ### Fixed
+- Pasting a list of websites with a very long run of punctuation followed by a letter blocked the server for seconds (a trailing-punctuation pattern was quadratic). Addresses are now trimmed in one pass and tokens over 300 characters are refused first.
 - **A stage the classifier gave by mistake could never be corrected.** An old reading took "jadwal" or "CALL" for a meeting, and because stages only move forward the lead stayed in "Meeting". Re-reading the pipeline now works out the highest stage a conversation honestly reached (each of their bubbles read against what we had just asked) and lowers a stage that was given automatically; a stage the owner set by hand is never lowered.
 - **Polite closings were counted as "waiting for your answer"** ("Ok kk", "makasih ka", "baik, sama-sama kak"). They are now their own kind of reply ("ack"): the lead has replied, nobody has to answer, nothing is drafted.
 - **A conversation that went on with answers Prospex never saw** (typed on the phone before they were recorded) is left exactly as it is and reported as "incomplete", instead of being guessed at from half of it. Each row in "Waiting for your answer" has an "I answered" button for those.

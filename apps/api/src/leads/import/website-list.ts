@@ -18,11 +18,25 @@ export interface WebsiteListParse {
   truncated: boolean;
 }
 
+const LEADING = new Set(["<", "(", '"', "'", "["]);
+const TRAILING = new Set([">", ")", '"', "'", "]", ".", ","]);
+
+/** Strips wrapping punctuation ("<https://x>.") in one pass from each end: no pattern that could backtrack on a long run. */
+function trimToken(raw: string): string {
+  let a = 0;
+  let b = raw.length;
+  while (a < b && LEADING.has(raw[a])) a++;
+  while (b > a && TRAILING.has(raw[b - 1])) b--;
+  return raw.slice(a, b);
+}
+
 export function parseWebsiteList(input: string): WebsiteListParse {
   const out: WebsiteListParse = { urls: [], invalid: [], duplicates: 0, unsupported: 0, truncated: false };
   const seen = new Set<string>();
   for (const raw of input.slice(0, MAX_TEXT).split(/[\s,;|]+/)) {
-    const token = raw.replace(/^[<("'\[]+|[>)"'\].,]+$/g, "");
+    // A real address is short: anything longer is refused before any further work is done on it.
+    if (raw.length > 300) { if (out.invalid.length < 5) out.invalid.push(raw.slice(0, 60)); continue; }
+    const token = trimToken(raw);
     if (!token) continue;
     let url: URL;
     try {
