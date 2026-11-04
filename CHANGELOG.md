@@ -3,6 +3,12 @@
 ## Unreleased (2026-10-14)
 
 ### Added
+- **`pnpm start` runs production through Turborepo.** A `start` task in `turbo.json` depends on `build` and runs each app's `start` script (API :3001, web :3000, marketing :3002); `NEXT_PUBLIC_*` values are baked in at build time, so set them before `pnpm start`.
+
+### Fixed
+- **`Cannot GET /api//analytics`:** a `NEXT_PUBLIC_API_URL` ending in `/` produced a double slash in every request; trailing slashes are now stripped in `lib/api.ts` and `use-auth.ts`.
+
+### Added (other)
 - **English user guide** (`docs/USER_GUIDE_EN.md`): the 13 sections of the Indonesian walkthrough in English, with button names taken from the English interface and the numbers (score points, sending limits, follow-up days) checked against the code. The Indonesian guide now lists the campaign's country and language, and no longer carries a leftover scoring table and list of industry and city weights that the code stopped using.
 - **Knowledge base page** (`/knowledge`, in the sidebar): add facts, pricing, FAQs and policies as sources (title, category, text), see whether each is indexed (ready, indexing, error) and how many chunks it made, delete one, and try a **test search** to see what the AI would find. Drafts only mention what is here.
 - **Lead page shows more:** an "AI score breakdown" (good, possible or poor fit with the reason, the score factors and a recommendation), review counts, the region, the LinkedIn note and cold-call opening next to the e-mail note, and notes on the lead that can be saved.

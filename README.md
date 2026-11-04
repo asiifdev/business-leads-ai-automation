@@ -149,6 +149,7 @@ pnpm --filter @prospex/api exec playwright install chromium   # the browser that
 
 pnpm --filter @prospex/api dev             # API on :3001
 pnpm --filter @prospex/web dev             # dashboard on :3000
+pnpm start                                  # production: turbo builds, then runs API (:3001), web (:3000) and marketing (:3002)
 ```
 
 Open [http://localhost:3000](http://localhost:3000), register, and create your first campaign. Swagger lives at [http://localhost:3001/api/docs](http://localhost:3001/api/docs).
