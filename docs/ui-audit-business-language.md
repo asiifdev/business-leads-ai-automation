@@ -38,7 +38,14 @@ Rule used: a business owner should understand every label without knowing what a
 - **Brief pemasaran**, **Kampanye**, **Draf**: used across the product and the guides.
 - **Overture Maps**, **Zapier**, **n8n**, **Ollama**, **OpenRouter**: product names the user must recognise to choose them.
 
+## Follow-up (done)
+
+- Messages from the server that reach the screen (business owners and admins, "business not found", access key not found, AI search model changed, source could not be read, email port) now use business wording.
+- `docs/USER_GUIDE.md` and `docs/USER_GUIDE_EN.md` use the same names as the interface (business, access keys, sales flow, reports, search) outside code and settings names; the table of contents links were regenerated.
+- The business name fallback in the switcher no longer shows a fixed English "My Workspace".
+
 ## Open items
 
-- Text that comes from the server (error messages such as "Galat pertama: ...", AI test errors) can still contain technical words.
-- `docs/USER_GUIDE*.md` still uses "workspace" and "pipeline"; update them to match.
+- Layouts were not checked in a logged-in browser (leads table on narrow screens, campaign form on phones, long business names in the sidebar).
+- Errors returned by an AI provider or a website are passed on as they are and can still contain technical words.
+- Names of server settings (`OPENAI_API_KEY`, `PUBLIC_API_URL`) stay in the installation part of the guides, which is written for whoever runs the server.

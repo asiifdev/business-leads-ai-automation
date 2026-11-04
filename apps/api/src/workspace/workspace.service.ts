@@ -30,10 +30,10 @@ export class WorkspaceService {
   /** A new business under the same login. The caller becomes its owner and a token for it is returned. */
   async create(userId: string, name: string) {
     const clean = name.trim().replace(/\s+/g, " ");
-    if (clean.length < 2 || clean.length > 80) throw new BadRequestException("Give the workspace a name of 2 to 80 characters");
+    if (clean.length < 2 || clean.length > 80) throw new BadRequestException("Give the business a name of 2 to 80 characters");
     await this.limits.assertCanCreateWorkspace(userId);
     const owned = await this.prisma.workspaceMember.count({ where: { userId } });
-    if (owned >= MAX_WORKSPACES_PER_USER) throw new BadRequestException(`A login can have at most ${MAX_WORKSPACES_PER_USER} workspaces`);
+    if (owned >= MAX_WORKSPACES_PER_USER) throw new BadRequestException(`A login can have at most ${MAX_WORKSPACES_PER_USER} businesses`);
     const workspace = await this.prisma.workspace.create({
       data: { name: clean, slug: makeWorkspaceSlug(clean), members: { create: { userId, role: "owner" } } },
     });
@@ -46,7 +46,7 @@ export class WorkspaceService {
       where: { workspaceId_userId: { workspaceId, userId } },
       include: { workspace: true },
     });
-    if (!m) throw new ForbiddenException("You are not a member of that workspace");
+    if (!m) throw new ForbiddenException("You are not a member of that business");
     return this.session(userId, m.workspace);
   }
 
@@ -59,7 +59,7 @@ export class WorkspaceService {
 
   async getWorkspace(workspaceId: string) {
     const workspace = await this.prisma.workspace.findUnique({ where: { id: workspaceId } });
-    if (!workspace) throw new NotFoundException("Workspace not found");
+    if (!workspace) throw new NotFoundException("Business not found");
     return workspace;
   }
 
@@ -73,7 +73,7 @@ export class WorkspaceService {
     if (data.slug) {
       const existing = await this.prisma.workspace.findUnique({ where: { slug: data.slug } });
       if (existing && existing.id !== workspaceId) {
-        throw new ConflictException("Slug is already taken");
+        throw new ConflictException("That address name is already taken");
       }
     }
 
@@ -103,7 +103,7 @@ export class WorkspaceService {
     const existing = await this.prisma.workspaceMember.findUnique({
       where: { workspaceId_userId: { workspaceId, userId: user.id } },
     });
-    if (existing) throw new ConflictException("User is already a member of this workspace");
+    if (existing) throw new ConflictException("User is already a member of this business");
     await this.limits.assertCanAddMember(workspaceId);
 
     return this.prisma.workspaceMember.create({
@@ -135,7 +135,7 @@ export class WorkspaceService {
       where: { id: memberId, workspaceId },
     });
     if (!member) throw new NotFoundException("Member not found");
-    if (member.role === "owner") throw new ForbiddenException("Cannot remove the workspace owner");
+    if (member.role === "owner") throw new ForbiddenException("Cannot remove the business owner");
 
     return this.prisma.workspaceMember.delete({ where: { id: memberId } });
   }
@@ -145,7 +145,7 @@ export class WorkspaceService {
       where: { workspaceId_userId: { workspaceId, userId } },
     });
     if (!membership || !["owner", "admin"].includes(membership.role)) {
-      throw new ForbiddenException("Only workspace owners and admins can manage members");
+      throw new ForbiddenException("Only business owners and admins can manage members");
     }
   }
 }

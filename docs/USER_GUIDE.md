@@ -9,15 +9,15 @@ Panduan lengkap penggunaan Prospex dari instalasi hingga close deals pertama.
 1. [Instalasi & Setup](#1-instalasi--setup)
 2. [Konfigurasi AI Provider](#2-konfigurasi-ai-provider)
 3. [Membuat Campaign](#3-membuat-campaign)
-4. [Memantau Progress Scraping](#4-memantau-progress-scraping)
+4. [Memantau Progress Pencarian](#4-memantau-progress-pencarian)
 5. [Mengelola Leads](#5-mengelola-leads)
 6. [Brief Pemasaran](#6-brief-pemasaran)
 7. [Gaya AI: pesan dengan suara Anda](#7-gaya-ai-pesan-dengan-suara-anda)
 8. [Kotak Keluar dan WhatsApp](#8-kotak-keluar-dan-whatsapp)
-9. [CRM Pipeline](#9-crm-pipeline)
+9. [CRM Alur Penjualan](#9-crm-alur-penjualan)
 10. [Analytics](#10-analytics)
 11. [Export Leads](#11-export-leads)
-12. [Settings & API Keys](#12-settings--api-keys)
+12. [Settings & Kunci akses](#12-settings--kunci-akses)
 13. [Troubleshooting](#13-troubleshooting)
 
 ---
@@ -88,9 +88,9 @@ Buka browser: **http://localhost:3000**
 
 ## 2. Konfigurasi AI Provider
 
-Prospex mendukung penyedia AI mana pun yang kompatibel dengan API OpenAI. Draf pesan membutuhkan **model chat**, sedangkan Gaya AI dan basis pengetahuan juga membutuhkan **model embedding** (`EMBEDDING_MODEL`).
+Prospex mendukung penyedia AI mana pun yang kompatibel dengan API OpenAI. Draf pesan membutuhkan **model chat**, sedangkan Gaya AI dan basis pengetahuan juga membutuhkan **model pencari** (`EMBEDDING_MODEL`).
 
-> **Dua tempat mengatur AI.** File `.env` server (`OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `EMBEDDING_MODEL`) berlaku untuk semua workspace dan butuh restart API. Di **Settings → AI Configuration** tiap workspace bisa menyimpan kunci, model, model embedding, dan base URL sendiri; ini menggantikan `.env` untuk workspace itu saja dan berlaku tanpa restart. Workspace tanpa kunci sendiri memakai `.env`.
+> **Dua tempat mengatur AI.** File `.env` server (`OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `EMBEDDING_MODEL`) berlaku untuk semua bisnis dan butuh restart API. Di **Settings → AI Configuration** tiap bisnis bisa menyimpan kunci, model, model pencari, dan base URL sendiri; ini menggantikan `.env` untuk bisnis itu saja dan berlaku tanpa restart. Bisnis tanpa kunci sendiri memakai `.env`.
 
 ### OpenAI
 
@@ -108,7 +108,7 @@ OPENAI_BASE_URL=https://openrouter.ai/api/v1
 OPENAI_MODEL=anthropic/claude-haiku-4-5
 ```
 
-OpenRouter tidak menyediakan embedding yang cocok untuk semua model, jadi periksa apakah `EMBEDDING_MODEL` yang Anda pilih tersedia.
+OpenRouter tidak menyediakan model pencari yang cocok untuk semua model, jadi periksa apakah `EMBEDDING_MODEL` yang Anda pilih tersedia.
 
 ### Ollama (lokal, gratis, offline)
 
@@ -126,7 +126,7 @@ EMBEDDING_MODEL=qwen3-embedding
 
 Model lokal butuh sekitar 40 detik per draf (tergantung perangkat). Chat Anda tidak keluar dari mesin Anda.
 
-> **Tanpa AI key:** scraping, scoring (berbasis aturan), CRM, analytics, dan export tetap berfungsi penuh. Fitur AI (draf pesan, Gaya AI, basis pengetahuan) tidak aktif. Prospex tidak mengisinya dengan teks template.
+> **Tanpa AI key:** pencarian, scoring (berbasis aturan), CRM, analytics, dan export tetap berfungsi penuh. Fitur AI (draf pesan, Gaya AI, basis pengetahuan) tidak aktif. Prospex tidak mengisinya dengan teks template.
 
 ---
 
@@ -180,13 +180,13 @@ Klik **Mulai kampanye**: sistem langsung mulai mencari di Google Maps dan menila
 - Tambahkan beberapa kata kunci untuk jangkauan lebih luas.
 - Spesifik lokasi: `"salon kecantikan menteng"` lebih baik dari `"salon"`.
 
-### Syarat scraping
+### Syarat pencarian
 
-Scraping memakai browser Chromium di server. Pasang sekali dengan `pnpm --filter @prospex/api exec playwright install chromium`. Bila browser tidak ada atau pencarian gagal, campaign berstatus **Gagal** dengan pesan yang jelas. Prospex tidak pernah mengisi daftar lead dengan bisnis karangan.
+Pencarian memakai browser Chromium di server. Pasang sekali dengan `pnpm --filter @prospex/api exec playwright install chromium`. Bila browser tidak ada atau pencarian gagal, campaign berstatus **Gagal** dengan pesan yang jelas. Prospex tidak pernah mengisi daftar lead dengan bisnis karangan.
 
 ---
 
-## 4. Memantau Progress Scraping
+## 4. Memantau Progress Pencarian
 
 Setelah campaign dibuat, halaman detail campaign menampilkan progress secara real-time.
 
@@ -195,7 +195,7 @@ Setelah campaign dibuat, halaman detail campaign menampilkan progress secara rea
 | Status | Warna | Arti |
 |--------|-------|------|
 | `draft` | Abu-abu | Belum dimulai |
-| `running` | Biru + spinner | Sedang scraping & scoring |
+| `running` | Biru + spinner | Sedang pencarian & scoring |
 | `completed` | Hijau | Selesai, leads tersedia |
 | `failed` | Merah | Gagal. Penyebabnya ditampilkan (mis. browser belum terpasang); lihat juga log API |
 
@@ -203,7 +203,7 @@ Setelah campaign dibuat, halaman detail campaign menampilkan progress secara rea
 
 Progress diupdate otomatis setiap 2 detik:
 
-- **0–30%** — Inisialisasi & scraping
+- **0–30%** — Inisialisasi & pencarian
 - **30–60%** — AI scoring semua leads
 - **60–95%** — Menilai kecocokan tiap bisnis dengan penawaran Anda (butuh penyedia AI) dan menyiapkan catatan email dan telepon untuk lead prioritas HIGH
 - **100%** — Selesai
@@ -248,7 +248,7 @@ Skor (0–100) adalah **indeks urutan**, bukan prediksi penjualan. Ia membantu m
 
 ### Dari mana skor berasal
 
-Hanya dari data nyata hasil scraping, ditambah satu penilaian AI. Tidak ada bobot industri atau kota yang ditulis tangan.
+Hanya dari data nyata hasil pencarian, ditambah satu penilaian AI. Tidak ada bobot industri atau kota yang ditulis tangan.
 
 | Sinyal | Poin |
 |--------|------|
@@ -315,11 +315,11 @@ Di WhatsApp: buka sebuah chat, lalu **Lainnya → Ekspor chat → Tanpa media**.
 
 Statistik cara menulis Anda dan pasangan "pesan pelanggan → balasan Anda" yang sudah dianonimkan (nomor, email, dan tautan diganti). **Chat asli tidak disimpan.** Tombol **Hapus** menghapus semuanya. Detail dan hasil uji ada di [ai-style.md](ai-style.md) (bahasa Inggris).
 
-Butuh minimal 30 pesan Anda sendiri. Kalau Anda mengganti model embedding di pengaturan server, impor ulang chat Anda.
+Butuh minimal 30 pesan Anda sendiri. Kalau Anda mengganti model pencari di pengaturan server, impor ulang chat Anda.
 
 ### Draf WhatsApp dan pesan lain
 
-Pesan WhatsApp tidak lagi dibuat otomatis saat scraping. Draf dibuat dari menu **Kotak Keluar** (bagian 8), memakai data nyata lead (rating, jumlah ulasan, belum punya website), gaya Anda, dan basis pengetahuan Anda. Di halaman detail lead tetap ada catatan email, LinkedIn, dan telepon yang dibuat AI untuk lead prioritas HIGH, kalau penyedia AI sudah diatur. Tanpa penyedia AI, Prospex tidak menampilkan teks bawaan.
+Pesan WhatsApp tidak lagi dibuat otomatis saat pencarian. Draf dibuat dari menu **Kotak Keluar** (bagian 8), memakai data nyata lead (rating, jumlah ulasan, belum punya website), gaya Anda, dan basis pengetahuan Anda. Di halaman detail lead tetap ada catatan email, LinkedIn, dan telepon yang dibuat AI untuk lead prioritas HIGH, kalau penyedia AI sudah diatur. Tanpa penyedia AI, Prospex tidak menampilkan teks bawaan.
 
 ---
 
@@ -388,7 +388,7 @@ Prospex otomatis menjeda pengiriman setelah 3 kegagalan berturut-turut. Tombol *
 - **Sapaan otomatis toko** ("Terima kasih telah menghubungi…", "mohon menunggu", jam buka, menu panjang) dikenali dan hanya dicatat: status tidak berubah dan tidak dibuatkan draf.
 - **Pelanggan menulis STOP** (atau "berhenti", "unsubscribe", dan sejenisnya, termasuk di dalam kalimat pendek seperti "Maaf kak belum ya STOP"): nomornya diblokir permanen, semua pesan yang menunggu dibatalkan, dan lead ditutup sebagai Gagal dengan alasan "Meminta berhenti (STOP)".
 - **Lead diam**: Prospex membuat draf tindak lanjut setelah 3 hari, dan satu lagi 5 hari kemudian. Maksimal dua. Tombol **Cek tindak lanjut** menjalankannya sekarang.
-- Pesan dari nomor yang tidak dikenal disimpan tapi tidak dijawab. WhatsApp kadang menyembunyikan nomor pengirim; pesan itu tampil di halaman **Pipeline** di kartu "Pesan dari pengirim tak dikenal" dan tidak bisa dicocokkan dengan lead, jadi kalau isinya STOP, keluarkan bisnis itu dari daftar Anda secara manual.
+- Pesan dari nomor yang tidak dikenal disimpan tapi tidak dijawab. WhatsApp kadang menyembunyikan nomor pengirim; pesan itu tampil di halaman **Alur Penjualan** di kartu "Pesan dari pengirim tak dikenal" dan tidak bisa dicocokkan dengan lead, jadi kalau isinya STOP, keluarkan bisnis itu dari daftar Anda secara manual.
 
 ### Tab "Perlu perhatian"
 
@@ -409,11 +409,11 @@ Di Kotak Keluar, pilih **Email** di atas daftar pesan. Alurnya sama dengan Whats
 
 Setiap email memuat tautan berhenti berlangganan. Orang yang berhenti tidak akan dikirimi lagi. Agar tautan itu bisa dibuka penerima, isi `PUBLIC_API_URL` di server dengan alamat https publik (mis. `https://api.contoh.com/api`). **Selama belum diisi, pengiriman email dihentikan dan persetujuan draf email ditolak**, dengan peringatan merah di panel Email. Email berformat: "Halo,", paragraf pendek, ajakan, "Salam,". Di panel Email Anda bisa mengisi **Tautan di email pertama** (opsional); sistem menambahkannya sebagai satu baris "Selengkapnya: …" sebelum "Salam,". Balasan masuk ke kotak masuk email Anda sendiri; Prospex belum membacanya. Atur SPF, DKIM dan DMARC pada domain pengirim, dan mulai dengan jumlah kecil. Rincian dan batasan: [email-channel.md](email-channel.md).
 
-## 9. CRM Pipeline
+## 9. CRM Alur Penjualan
 
-### Halaman Pipeline: pantau sampai closing
+### Halaman Alur Penjualan: pantau sampai closing
 
-Menu **Pipeline** menunjukkan seluruh perjalanan lead:
+Menu **Alur Penjualan** menunjukkan seluruh perjalanan lead:
 
 - **Empat angka**: tingkat balasan, tingkat menang, nilai deal berjalan, nilai deal menang. Tingkat balasan hanya menghitung balasan manusia, bukan sapaan otomatis toko.
 - **Tahap** dari Baru sampai Berhasil atau Gagal, dengan jumlah dan nilai deal.
@@ -504,21 +504,21 @@ File `.vcf` bisa langsung dibuka di HP untuk save kontak:
 
 ---
 
-## 12. Settings & API Keys
+## 12. Settings & Kunci akses
 
 ### AI Configuration
 
-**Settings → AI Configuration** — kunci, model chat, model embedding, dan base URL untuk workspace yang sedang aktif. Disimpan terenkripsi di database, berlaku tanpa restart, dan kunci tidak pernah ditampilkan lagi setelah disimpan (kosongkan kolomnya untuk tetap memakai kunci yang ada). Tombol **Uji koneksi** membuat satu panggilan chat dan satu panggilan embedding dengan pengaturan yang benar-benar dipakai. Bila model embedding diganti, sumber pengetahuan perlu **Indeks ulang** dan AI Style perlu diimpor ulang.
+**Settings → AI Configuration** — kunci, model chat, model pencari, dan base URL untuk bisnis yang sedang aktif. Disimpan terenkripsi di database, berlaku tanpa restart, dan kunci tidak pernah ditampilkan lagi setelah disimpan (kosongkan kolomnya untuk tetap memakai kunci yang ada). Tombol **Uji koneksi** membuat satu panggilan chat dan satu panggilan model pencari dengan pengaturan yang benar-benar dipakai. Bila model pencari diganti, sumber pengetahuan perlu **Indeks ulang** dan AI Style perlu diimpor ulang.
 
-### Beberapa bisnis (workspace)
+### Beberapa bisnis (bisnis)
 
-Satu login bisa memegang banyak bisnis. Klik nama workspace di kiri atas, pilih bisnis lain, atau **Workspace baru**. Tiap workspace punya brief pemasaran, AI Style, knowledge base, nomor WhatsApp, akun email, kunci AI, kampanye, lead, dan kunci API sendiri; tidak ada yang tercampur.
+Satu login bisa memegang banyak bisnis. Klik nama bisnis di kiri atas, pilih bisnis lain, atau **Bisnis baru**. Tiap bisnis punya brief pemasaran, AI Style, knowledge base, nomor WhatsApp, akun email, kunci AI, kampanye, lead, dan kunci API sendiri; tidak ada yang tercampur.
 
-### Prospex API Keys
+### Kunci akses Prospex
 
 Untuk mengakses Prospex API dari tools eksternal (Zapier, n8n, custom scripts):
 
-1. Settings → **Prospex API Keys**
+1. Settings → **Kunci akses Prospex**
 2. Isi nama key (misal: "Zapier", "Production")
 3. Klik **+**
 4. **Salin key yang muncul sekarang** — tidak akan ditampilkan lagi
@@ -594,7 +594,7 @@ kill -9 <PID>
 
 ### Campaign gagal dengan pesan tentang browser
 
-"The scraping browser is not installed on the server": jalankan `pnpm --filter @prospex/api exec playwright install chromium` di server API, lalu jalankan ulang campaign. Pesan lain berarti Google Maps gagal dimuat atau berubah; coba lagi nanti atau kurangi jumlah kata kunci. Prospex tidak akan mengisi hasil dengan bisnis karangan.
+"The pencarian browser is not installed on the server": jalankan `pnpm --filter @prospex/api exec playwright install chromium` di server API, lalu jalankan ulang campaign. Pesan lain berarti Google Maps gagal dimuat atau berubah; coba lagi nanti atau kurangi jumlah kata kunci. Prospex tidak akan mengisi hasil dengan bisnis karangan.
 
 ### Situs tidak terbaca di Materi sumber
 

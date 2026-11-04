@@ -78,7 +78,7 @@ export function WorkspaceSwitcher() {
             <div className="w-5 h-5 bg-gradient-brand rounded flex items-center justify-center flex-shrink-0">
               <Building2 className="w-3 h-3 text-white" />
             </div>
-            <span className="flex-1 text-left font-medium truncate">{workspace?.name ?? "My Workspace"}</span>
+            <span className="flex-1 text-left font-medium truncate">{workspace?.name ?? t("ws.switcher.heading")}</span>
             <ChevronDown className="w-3.5 h-3.5 text-sidebar-foreground/50 flex-shrink-0" />
           </button>
         </DropdownMenuTrigger>

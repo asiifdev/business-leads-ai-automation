@@ -9,15 +9,15 @@ A complete guide to using Prospex, from installation to your first closed deal. 
 1. [Installation and setup](#1-installation-and-setup)
 2. [Configuring an AI provider](#2-configuring-an-ai-provider)
 3. [Creating a campaign](#3-creating-a-campaign)
-4. [Following a scrape's progress](#4-following-a-scrapes-progress)
+4. [Following a search's progress](#4-following-a-searchs-progress)
 5. [Managing leads](#5-managing-leads)
 6. [Marketing Brief](#6-marketing-brief)
 7. [AI Style: messages in your own voice](#7-ai-style-messages-in-your-own-voice)
 8. [Outbox and WhatsApp](#8-outbox-and-whatsapp)
-9. [CRM pipeline](#9-crm-pipeline)
-10. [Analytics](#10-analytics)
+9. [CRM sales flow](#9-crm-sales-flow)
+10. [Reports](#10-reports)
 11. [Exporting leads](#11-exporting-leads)
-12. [Settings and API keys](#12-settings-and-api-keys)
+12. [Settings and access keys](#12-settings-and-access-keys)
 13. [Troubleshooting](#13-troubleshooting)
 
 ---
@@ -90,9 +90,9 @@ Open your browser at **http://localhost:3000**. The interface is available in En
 
 ## 2. Configuring an AI provider
 
-Prospex works with any provider that is compatible with the OpenAI API. Message drafts need a **chat model**; AI Style and the knowledge base also need an **embedding model** (`EMBEDDING_MODEL`).
+Prospex works with any provider that is compatible with the OpenAI API. Message drafts need a **chat model**; AI Style and the knowledge base also need an **search model** (`EMBEDDING_MODEL`).
 
-> **Two places to configure the AI.** The server's `.env` file (`OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `EMBEDDING_MODEL`) applies to every workspace and needs an API restart. Under **Settings → AI Configuration**, each workspace can save its own key, models and base URL; this replaces `.env` for that workspace only and takes effect without a restart. A workspace without its own key uses `.env`.
+> **Two places to configure the AI.** The server's `.env` file (`OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `EMBEDDING_MODEL`) applies to every business and needs an API restart. Under **Settings → AI Configuration**, each business can save its own key, models and base URL; this replaces `.env` for that business only and takes effect without a restart. A business without its own key uses `.env`.
 
 ### OpenAI
 
@@ -110,7 +110,7 @@ OPENAI_BASE_URL=https://openrouter.ai/api/v1
 OPENAI_MODEL=anthropic/claude-haiku-4-5
 ```
 
-OpenRouter does not offer an embedding model that suits every chat model, so check that the `EMBEDDING_MODEL` you choose is available.
+OpenRouter does not offer an search model that suits every chat model, so check that the `EMBEDDING_MODEL` you choose is available.
 
 ### Ollama (local, free, offline)
 
@@ -128,7 +128,7 @@ EMBEDDING_MODEL=qwen3-embedding
 
 A local model takes about 40 seconds per draft (depending on your hardware). Your chats never leave your machine.
 
-> **Without an AI key:** scraping, rule-based scoring, the CRM, analytics and export keep working in full. The AI features (message drafts, AI Style, the knowledge base) are off. Prospex does not fill the gap with template text.
+> **Without an AI key:** searching, rule-based scoring, the CRM, analytics and export keep working in full. The AI features (message drafts, AI Style, the knowledge base) are off. Prospex does not fill the gap with template text.
 
 ---
 
@@ -182,13 +182,13 @@ Press **Start campaign**: the system starts searching Google Maps straight away 
 - Add several keywords for wider coverage.
 - Be specific about the place: `"beauty salon zamalek"` beats `"salon"`.
 
-### Scraping requirements
+### Searching requirements
 
-Scraping uses a Chromium browser on the server. Install it once with `pnpm --filter @prospex/api exec playwright install chromium`. If the browser is missing or a search fails, the campaign ends as **Failed** with a clear message. Prospex never fills the lead list with invented businesses.
+Searching uses a Chromium browser on the server. Install it once with `pnpm --filter @prospex/api exec playwright install chromium`. If the browser is missing or a search fails, the campaign ends as **Failed** with a clear message. Prospex never fills the lead list with invented businesses.
 
 ---
 
-## 4. Following a scrape's progress
+## 4. Following a search's progress
 
 After a campaign is created, its detail page shows progress in real time.
 
@@ -197,7 +197,7 @@ After a campaign is created, its detail page shows progress in real time.
 | Status | Colour | Meaning |
 |--------|--------|---------|
 | `draft` | Grey | Not started |
-| `running` | Blue + spinner | Scraping and scoring |
+| `running` | Blue + spinner | Searching and scoring |
 | `completed` | Green | Done, leads available |
 | `failed` | Red | Failed. The cause is shown (for example, the browser is not installed); see the API log too |
 
@@ -205,7 +205,7 @@ After a campaign is created, its detail page shows progress in real time.
 
 Progress updates automatically every 2 seconds:
 
-- **0–30%** — start-up and scraping
+- **0–30%** — start-up and searching
 - **30–60%** — scoring all leads
 - **60–95%** — judging how well each business fits your offer (needs an AI provider) and preparing the e-mail and phone notes for HIGH-priority leads
 - **100%** — done
@@ -318,11 +318,11 @@ In WhatsApp: open a chat, then **More → Export chat → Without media**. The r
 
 Statistics about how you write, and anonymised "customer message → your reply" pairs (numbers, e-mails and links are replaced). **The original chats are not stored.** The **Delete** button removes everything. Details and test results: [ai-style.md](ai-style.md).
 
-You need at least 30 messages of your own. If you change the embedding model in the server settings, import your chats again.
+You need at least 30 messages of your own. If you change the search model in the server settings, import your chats again.
 
 ### WhatsApp drafts and other messages
 
-WhatsApp messages are no longer made automatically during scraping. Drafts are made from the **Outbox** menu (section 8), using the lead's real data (rating, number of reviews, no website yet), your style and your knowledge base. On a lead's detail page there are still e-mail, LinkedIn and phone notes written by the AI for HIGH-priority leads, once an AI provider is set up. Without an AI provider, Prospex shows no default text.
+WhatsApp messages are no longer made automatically during searching. Drafts are made from the **Outbox** menu (section 8), using the lead's real data (rating, number of reviews, no website yet), your style and your knowledge base. On a lead's detail page there are still e-mail, LinkedIn and phone notes written by the AI for HIGH-priority leads, once an AI provider is set up. Without an AI provider, Prospex shows no default text.
 
 ### Language of the outreach
 
@@ -395,7 +395,7 @@ Prospex pauses sending automatically after 3 failures in a row. There is also a 
 - **A shop's automatic greeting** ("Thank you for contacting…", "please wait", opening hours, a long menu) is recognised and only recorded: the status does not change and no draft is made.
 - **A customer writes STOP** (or "stop", "unsubscribe" and similar, including inside a short sentence such as "Sorry not now STOP"): the number is blocked permanently, all waiting messages are cancelled, and the lead is closed as Lost with the reason "Asked to stop (STOP)".
 - **A quiet lead**: Prospex creates a follow-up draft after 3 days, and another 5 days later. At most two. The **Check follow-ups** button runs it now.
-- A message from an unknown number is saved but not answered. WhatsApp sometimes hides the sender's number; such a message appears on the **Pipeline** page in the "Messages from unknown senders" card and cannot be matched to a lead, so if it says STOP, remove that business from your list by hand.
+- A message from an unknown number is saved but not answered. WhatsApp sometimes hides the sender's number; such a message appears on the **Sales flow** page in the "Messages from unknown senders" card and cannot be matched to a lead, so if it says STOP, remove that business from your list by hand.
 
 ### The "Needs attention" tab
 
@@ -416,11 +416,11 @@ In the Outbox, choose **Email** above the message list. The flow is the same as 
 
 Every e-mail carries an unsubscribe link. A person who unsubscribes is never e-mailed again. For recipients to be able to open that link, set `PUBLIC_API_URL` on the server to a public https address (for example `https://api.example.com/api`). **Until it is set, e-mail sending is stopped and approving e-mail drafts is refused**, with a red warning in the Email panel. E-mails are formatted as: "Hello,", short paragraphs, an invitation, "Regards,". In the Email panel you can fill in an optional **Link in the first e-mail**; the system adds it as one "More details: …" line before the closing. Replies arrive in your own mailbox; Prospex does not read them yet. Set up SPF, DKIM and DMARC on the sending domain, and start with small numbers. Details and limits: [email-channel.md](email-channel.md).
 
-## 9. CRM pipeline
+## 9. CRM sales flow
 
-### The Pipeline page: follow a lead to closing
+### The Sales flow page: follow a lead to closing
 
-The **Pipeline** menu shows the whole journey of a lead:
+The **Sales flow** menu shows the whole journey of a lead:
 
 - **Four numbers**: reply rate, win rate, value of open deals, value of won deals. The reply rate counts only human replies, not a shop's automatic greetings.
 - **Stages** from New to Won or Lost, with the count and deal value.
@@ -465,9 +465,9 @@ Every status change is recorded automatically in the **Activity Log** in the rig
 
 ---
 
-## 10. Analytics
+## 10. Reports
 
-Open **Analytics** in the sidebar.
+Open **Reports** in the sidebar.
 
 ### Main metrics
 
@@ -511,27 +511,27 @@ A `.vcf` file can be opened directly on a phone to save contacts:
 
 ---
 
-## 12. Settings and API keys
+## 12. Settings and access keys
 
 ### AI Configuration
 
-**Settings → AI Configuration** — the key, chat model, embedding model and base URL for the active workspace. They are stored encrypted in the database, take effect without a restart, and the key is never shown again after it is saved (leave the field empty to keep the existing key). The **Test connection** button makes one chat call and one embedding call with the settings actually in use. If the embedding model is changed, knowledge sources need to be **re-indexed** and AI Style needs to be imported again.
+**Settings → AI Configuration** — the key, chat model, search model and base URL for the active business. They are stored encrypted in the database, take effect without a restart, and the key is never shown again after it is saved (leave the field empty to keep the existing key). The **Test connection** button makes one chat call and one embedding call with the settings actually in use. If the search model is changed, knowledge sources need to be **re-indexed** and AI Style needs to be imported again.
 
-### Several businesses (workspaces)
+### Several businesses (businesses)
 
-One login can hold many businesses. Click the workspace name at the top left, pick another business, or **New workspace**. Each workspace has its own marketing brief, AI Style, knowledge base, WhatsApp number, e-mail account, AI key, campaigns, leads and API keys; nothing is mixed.
+One login can hold many businesses. Click the business name at the top left, pick another business, or **New business**. Each business has its own marketing brief, AI Style, knowledge base, WhatsApp number, e-mail account, AI key, campaigns, leads and access keys; nothing is mixed.
 
-### Prospex API keys
+### Prospex access keys
 
 To access the Prospex API from external tools (Zapier, n8n, custom scripts):
 
-1. Settings → **Prospex API Keys**
+1. Settings → **Prospex access keys**
 2. Enter a key name (for example "Zapier", "Production")
 3. Click **+**
 4. **Copy the key that appears now** — it is not shown again
 5. Use it as a Bearer token: `Authorization: Bearer px_...`
 
-### Deleting an API key
+### Deleting an access key
 
 Click the trash icon to the right of the key you want to delete. The key stops working immediately.
 
@@ -609,7 +609,7 @@ kill -9 <PID>
 
 ### A campaign fails with a message about the browser
 
-"The scraping browser is not installed on the server": run `pnpm --filter @prospex/api exec playwright install chromium` on the API server, then run the campaign again. Any other message means Google Maps failed to load or changed; try again later or reduce the number of keywords. Prospex will not fill the results with invented businesses.
+"The searching browser is not installed on the server": run `pnpm --filter @prospex/api exec playwright install chromium` on the API server, then run the campaign again. Any other message means Google Maps failed to load or changed; try again later or reduce the number of keywords. Prospex will not fill the results with invented businesses.
 
 ### A site cannot be read in Source material
 
@@ -655,4 +655,4 @@ pnpm --filter @prospex/database exec prisma migrate reset   # deletes the data a
 
 ## What has and has not been verified
 
-This guide follows the code on `main`. Behaviour that was checked by running it: scraping and scoring, the campaign country and language (campaigns for Egypt and the United States against live Google Maps), and the numbers in the scoring and sending-limits tables (read from the code). Behaviour that was only tested with a stand-in, and not described from experience, is listed as "Simulated" in [features.md](features.md); read that file for the status of each feature. Parts of this guide describing features that were not run again while writing it (WhatsApp sending, e-mail, the pipeline page) are translated from the Indonesian guide and follow the code at the time of writing.
+This guide follows the code on `main`. Behaviour that was checked by running it: searching and scoring, the campaign country and language (campaigns for Egypt and the United States against live Google Maps), and the numbers in the scoring and sending-limits tables (read from the code). Behaviour that was only tested with a stand-in, and not described from experience, is listed as "Simulated" in [features.md](features.md); read that file for the status of each feature. Parts of this guide describing features that were not run again while writing it (WhatsApp sending, e-mail, the pipeline page) are translated from the Indonesian guide and follow the code at the time of writing.

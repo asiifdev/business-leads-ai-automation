@@ -97,7 +97,7 @@ export class SettingsService {
 
   async deleteApiKey(id: string, workspaceId = DEFAULT_WORKSPACE_ID) {
     const key = await this.prisma.apiKey.findFirst({ where: { id, workspaceId } });
-    if (!key) throw new NotFoundException("API key not found");
+    if (!key) throw new NotFoundException("Access key not found");
     return this.prisma.apiKey.delete({ where: { id } });
   }
 

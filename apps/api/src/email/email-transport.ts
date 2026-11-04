@@ -12,7 +12,7 @@ import { ALLOWED_SMTP_PORTS } from "./email-utils";
  * still checked against the original name, so the name cannot change between the check and the connection.
  */
 export async function createTransport(a: Pick<EmailAccount, "host" | "port" | "secure" | "username">, password: string): Promise<Transporter> {
-  if (!ALLOWED_SMTP_PORTS.includes(a.port)) throw new BadRequestException(`Port ${a.port} is not allowed. Use one of ${ALLOWED_SMTP_PORTS.join(", ")}.`);
+  if (!ALLOWED_SMTP_PORTS.includes(a.port)) throw new BadRequestException(`Port ${a.port} is not allowed for email. Use one of ${ALLOWED_SMTP_PORTS.join(", ")}.`);
   const allowPrivate = process.env.EMAIL_ALLOW_PRIVATE_SMTP === "true";
   const target = allowPrivate ? a.host : await resolvePublic(a.host);
   if (!target) throw new BadRequestException("That mail server address is not allowed: it must be a public host name.");

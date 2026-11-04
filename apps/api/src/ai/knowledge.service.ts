@@ -55,7 +55,7 @@ export class KnowledgeService {
   async addText(workspaceId: string, input: { title: string; content: string; kind?: string; url?: string }) {
     const ai = await this.ai.forWorkspace(workspaceId);
     if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
-    if (chunkText(input.content).length === 0) throw new NotFoundException("No text to index");
+    if (chunkText(input.content).length === 0) throw new NotFoundException("There is no text to read");
     const source = await this.prisma.knowledgeSource.create({
       data: { workspaceId, title: input.title, kind: input.kind ?? "text", url: input.url ?? null, text: input.content.slice(0, 400_000), status: "processing" },
     });
@@ -90,9 +90,9 @@ export class KnowledgeService {
       // updateMany: the source may have been deleted while it was being indexed
       await this.prisma.knowledgeSource.updateMany({
         where: { id: source.id },
-        data: { status: "failed", error: "Indexing failed. Check the AI provider settings and try again." },
+        data: { status: "failed", error: "Could not read this source. Check the AI settings and try again." },
       });
-      throw new ServiceUnavailableException("Indexing failed. Check the AI provider settings and try again.");
+      throw new ServiceUnavailableException("Could not read this source. Check the AI settings and try again.");
     }
   }
 

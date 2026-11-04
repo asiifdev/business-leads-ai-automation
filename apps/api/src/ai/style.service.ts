@@ -125,7 +125,7 @@ export class StyleService {
     const ai = await this.ai.forWorkspace(workspaceId);
     const [qv] = await ai.embed([text]);
     if (qv.length !== profile.dimensions || ai.embeddingModel !== profile.embeddingModel) {
-      throw new BadRequestException("The embedding model changed since training; re-import your chats");
+      throw new BadRequestException("The AI search model changed since your style was learned; import your chats again");
     }
     const dims = Number(profile.dimensions);
     const rows = await this.prisma.$queryRaw<{ incoming: string; reply: string; distance: number }[]>`
