@@ -45,7 +45,9 @@ export function isCustomerBusinessTerm(term: string): boolean {
   const t = term.trim();
   return t.length >= 3 && t.length <= 40 && t.split(/\s+/).length <= 4 && !NOT_A_CUSTOMER_BUSINESS.test(t) && !/[.!?:;]/.test(t);
 }
-const str = (v: unknown, max = 600): string => (typeof v === "string" ? clip(v, max) : typeof v === "number" ? String(v) : "");
+/** Some models leak tool-call markers into their text ("tool_call|```json/code.json}..."); cut the text where one starts. */
+const stripModelDebris = (v: string): string => v.replace(/(?:tool_call|```json\/code\.json\})[\s\S]*$/i, "").trim();
+const str = (v: unknown, max = 600): string => (typeof v === "string" ? clip(stripModelDebris(v), max) : typeof v === "number" ? String(v) : "");
 const list = (v: unknown, n: number, max = 300): string[] =>
   (Array.isArray(v) ? v : typeof v === "string" && v.trim() ? [v] : []).map((x) => str(x, max)).filter(Boolean).slice(0, n);
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});

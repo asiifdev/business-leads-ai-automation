@@ -7,11 +7,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <AuthGuard>
       <div className="flex h-dvh bg-background overflow-hidden">
         <AppSidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Header />
           {/* "relative" makes this the containing block for absolutely positioned descendants (sr-only file inputs, popovers):
               without it they escape the scroll area and make the whole document scrollable, so the app slides under the wheel */}
-          <main className="relative flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">{children}</main>
+          <main className="relative flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 sm:p-6">{children}</main>
         </div>
       </div>
     </AuthGuard>

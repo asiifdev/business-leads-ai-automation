@@ -16,7 +16,7 @@ export const marketingId: Record<keyof typeof marketingEn, string> = {
   "mkt.src.choose": "Pilih berkas",
   "mkt.src.empty": "Belum ada sumber.",
   "mkt.src.state.reading": "Membaca situs…",
-  "mkt.src.state.indexing": "Terbaca {pages} dari {found} halaman, sedang diindeks…",
+  "mkt.src.state.indexing": "Terbaca {pages} dari {found} halaman, sedang dipelajari…",
   "mkt.src.state.pages": "{pages} halaman terbaca",
   "mkt.src.state.ready": "Siap",
   "mkt.src.state.failed": "Gagal",

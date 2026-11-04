@@ -33,7 +33,7 @@ function Field({ label, value, edit, onValue }: { label: MessageKey; value: stri
   return (
     <div className="min-w-0">
       <dt className="text-xs text-muted-foreground">{t(label)}</dt>
-      <dd className="mt-0.5 text-sm leading-relaxed">
+      <dd className="mt-0.5 break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
         {empty ? <span className="text-muted-foreground">{t("mkt.brief.notFound")}</span>
           : list ? <ul className="list-disc space-y-0.5 pl-4">{list.map((v) => <li key={v}>{v}</li>)}</ul>
           : <p className="whitespace-pre-wrap">{value}</p>}

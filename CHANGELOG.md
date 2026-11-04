@@ -5,7 +5,12 @@
 ### Added
 - **`pnpm start` runs production through Turborepo.** A `start` task in `turbo.json` depends on `build` and runs each app's `start` script (API :3001, web :3000, marketing :3002); `NEXT_PUBLIC_*` values are baked in at build time, so set them before `pnpm start`.
 
+### Changed
+- **Business language in the interface** (Indonesian and English): "workspace" is now "bisnis"/"business", API keys are "kunci akses", and terms such as embedding, index, SMTP, base URL, scraping and environment variable names no longer appear in labels or hints. Details in `docs/ui-audit-business-language.md`.
+
 ### Fixed
+- **Page slid under the sidebar** when a brief held a very long line: the dashboard content no longer scrolls sideways and long words wrap.
+- **Leaked model text in briefs:** text from a `tool_call` / `code.json` marker onward is dropped before a brief is saved.
 - **`pnpm start` for the dashboard:** `next start` does not work with `output: "standalone"`; the web `start` script now copies `.next/static` and `public` next to the standalone server and runs `node .next/standalone/apps/web/server.js` (`PORT` default 3000).
 - **`Cannot GET /api//analytics`:** a `NEXT_PUBLIC_API_URL` ending in `/` produced a double slash in every request; trailing slashes are now stripped in `lib/api.ts` and `use-auth.ts`.
 

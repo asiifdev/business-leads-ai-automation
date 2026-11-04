@@ -1,5 +1,5 @@
 export const pipelineEn = {
-  "nav.pipeline": "Pipeline",
+  "nav.pipeline": "Sales flow",
   "pipeline.title": "Pipeline",
   "pipeline.subtitle": "Follow every lead from first message to a closed deal.",
   "pipeline.needsReply": "Waiting for your answer",

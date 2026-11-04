@@ -1,7 +1,7 @@
 import type { pipelineEn } from "./features-pipeline.en";
 
 export const pipelineId: Record<keyof typeof pipelineEn, string> = {
-  "nav.pipeline": "Pipeline",
+  "nav.pipeline": "Alur penjualan",
   "pipeline.title": "Pipeline",
   "pipeline.subtitle": "Pantau setiap lead dari pesan pertama sampai deal tertutup.",
   "pipeline.needsReply": "Menunggu jawaban Anda",
