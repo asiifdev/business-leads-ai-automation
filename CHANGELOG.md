@@ -6,6 +6,7 @@
 - **`pnpm start` runs production through Turborepo.** A `start` task in `turbo.json` depends on `build` and runs each app's `start` script (API :3001, web :3000, marketing :3002); `NEXT_PUBLIC_*` values are baked in at build time, so set them before `pnpm start`.
 
 ### Fixed
+- **`pnpm start` for the dashboard:** `next start` does not work with `output: "standalone"`; the web `start` script now copies `.next/static` and `public` next to the standalone server and runs `node .next/standalone/apps/web/server.js` (`PORT` default 3000).
 - **`Cannot GET /api//analytics`:** a `NEXT_PUBLIC_API_URL` ending in `/` produced a double slash in every request; trailing slashes are now stripped in `lib/api.ts` and `use-auth.ts`.
 
 ### Added (other)
