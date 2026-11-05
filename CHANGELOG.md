@@ -2,6 +2,22 @@
 
 ## Unreleased (2026-10-14)
 
+### Added (agent writer)
+- **First messages are written by a tool-using agent** (always on). It reads the brief by section, searches the knowledge base several times, reads the recipient's facts, drafts, tests with `check_message` and submits with `finish(message, claims)`. Each claim must cite a retrieved source and share words with it, every number must appear in a source, and an auditor model lists statements the sources do not support; failures go back to the writer with reasons. The prompt contains no industry words. If the provider has no tool calling or the agent cannot produce a passing message, the single-prompt writer runs as before. New `AiClientService.chatWithTools`, `scripts/outreach-agent-eval.ts` (invented offers across many kinds of recipient, real model).
+- **Knowledge search falls back to keywords** over sources that have text but no vectors, so a failed index no longer leaves the AI with nothing.
+
+### Fixed (brief and knowledge)
+- **A site that was read but not indexed showed "ready" with 0 chunks and no error**, so knowledge search silently found nothing. Indexing is retried three times and, if it still fails, the source carries a visible message to re-index.
+- **Menus and buttons ended up in the brief** (for example button labels as the "call to action"). Short lines repeated on three or more pages are dropped before the text is stored.
+- **Brief quality:** `offer.callToAction` must be one invitation, not a button label; `offer.pricing` is a short summary; angles are written as whole sentences in the customer's language; a final editor pass checks the draft against the sources and a marketing checklist and rewrites it (the draft stands if the pass fails).
+
+### Changed (first messages)
+- **The first message is no longer a script.** The prompt gives the model a goal and the principles of a message that sells (start from the recipient's world, one or two benefits from the brief, clear who is writing, one small next step) and lets it choose angle, content and order. The numbered steps, example messages, per-variant shapes, the agency-only branch and the "exactly one fact" rule are gone; the opening variants are suggestions. The brief and the owner's style now apply to service offers too. Guardrails stay: nothing invented, prices/demos/clients only from the brief, data kept inside delimiters, no length limit beyond the 8,000 / 20,000 character ceilings.
+- **Checks only protect the owner.** `outreach-check.ts` no longer polices question words, slang, jargon or a "Perkenalkan" intro; it still rejects stubs, a demo offered for a custom service, and clients from the brief named to an unrelated business.
+
+### Added (links)
+- **The owner's link in first messages (WhatsApp and e-mail).** The link comes from the e-mail setting (`ctaUrl`, e-mail only) or else from a web page among the brief's knowledge sources. The model may place it once; `keepOnlyLink` removes any other address it writes. Before this, WhatsApp drafts had no link at all.
+
 ### Added
 - **`pnpm start` runs production through Turborepo.** A `start` task in `turbo.json` depends on `build` and runs each app's `start` script (API :3001, web :3000, marketing :3002); `NEXT_PUBLIC_*` values are baked in at build time, so set them before `pnpm start`.
 

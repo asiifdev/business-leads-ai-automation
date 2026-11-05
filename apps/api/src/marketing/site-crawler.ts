@@ -249,6 +249,19 @@ export async function crawlSite(inputUrl: string, opts: CrawlOptions = {}): Prom
 }
 
 /** One text block for a whole site, with a header per page, ready to be stored as a source. */
+/**
+ * Short lines that repeat on many pages (menus, buttons, footers: "Mulai dengan Pemula", "Kebijakan privasi") are not what the business
+ * says about itself; left in, they end up in the brief as if they were claims or calls to action. One pass to count, one to drop; linear.
+ */
+export function dropRepeatedChrome(texts: string[], minPages = 3, maxLen = 80): string[] {
+  if (texts.length < minPages + 1) return texts;
+  const seen = new Map<string, number>();
+  const lines = texts.map((t) => t.split("\n"));
+  for (const ls of lines) for (const l of new Set(ls.map((x) => x.trim()))) if (l && l.length <= maxLen) seen.set(l, (seen.get(l) ?? 0) + 1);
+  return lines.map((ls) => ls.filter((l) => { const t = l.trim(); return t.startsWith("#") || !t || (seen.get(t) ?? 0) < minPages; }).join("\n").replace(/\n{3,}/g, "\n\n").trim());
+}
+
 export function siteToText(result: CrawlResult): string {
-  return result.pages.map((p) => `## Halaman: ${p.title} (${p.url})\n${p.text}`).join("\n\n");
+  const texts = dropRepeatedChrome(result.pages.map((p) => p.text));
+  return result.pages.map((p, i) => `## Halaman: ${p.title} (${p.url})\n${texts[i]}`).join("\n\n");
 }

@@ -55,3 +55,20 @@ test("link parsers stay fast on hostile input", () => {
     assert.ok(Date.now() - t0 < 2000, `took ${Date.now() - t0} ms`);
   }
 });
+
+import { dropRepeatedChrome } from "./site-crawler";
+import test2 from "node:test";
+import assert2 from "node:assert/strict";
+
+test2("menu and button lines repeated across pages are dropped, real content and headings stay", () => {
+  const nav = "Beranda\nMulai dengan Pemula\nKebijakan privasi";
+  const pages = ["# Fitur\nKasir cepat untuk toko.\n" + nav, "# Harga\nPaket mulai dari nol.\n" + nav, "# Tentang\nKami membantu pedagang.\n" + nav, "# Kontak\nHubungi kami.\n" + nav];
+  const out = dropRepeatedChrome(pages);
+  assert2.ok(out.every((t) => !t.includes("Mulai dengan Pemula") && !t.includes("Kebijakan privasi")));
+  assert2.ok(out[0].includes("# Fitur") && out[0].includes("Kasir cepat untuk toko."));
+});
+
+test2("with only a few pages nothing is dropped", () => {
+  const pages = ["a\nMenu", "b\nMenu"];
+  assert2.deepEqual(dropRepeatedChrome(pages), pages);
+});

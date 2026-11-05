@@ -4,7 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AiClientService } from "../ai/ai-client.service";
 import { KnowledgeService } from "../ai/knowledge.service";
-import { buildBriefMessages, type BriefPass, type BriefSource } from "./brief-prompt";
+import { buildBriefMessages, buildBriefReviewMessages, type BriefPass, type BriefSource } from "./brief-prompt";
 import { coerceBrief, extractJson, groundBrief, mergeRaw, type BriefContent, type CampaignSuggestion } from "./brief-schema";
 import { extractDocumentText } from "./document-text";
 import { PageRenderer } from "./page-renderer";
@@ -100,7 +100,14 @@ export class BriefService {
       await this.prisma.knowledgeSource.update({ where: { id: sourceId }, data: { text: text.slice(0, 400_000), title: new URL(url).hostname } });
       this.progress.set(sourceId, { stage: "indexing", pages: result.pages.length, discovered: result.discovered });
       this.logger.log(`Read ${result.pages.length}/${result.discovered} pages of ${new URL(url).hostname} (${result.notes.join("; ")})`);
-      await this.knowledge.index(workspaceId, sourceId, text);
+      let indexError: unknown;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try { await this.knowledge.index(workspaceId, sourceId, text); indexError = undefined; break; } catch (e) { indexError = e; await new Promise((r) => setTimeout(r, 1500 * (attempt + 1))); }
+      }
+      if (indexError) {
+        // the text is kept (the brief can still use it) but the failure must be visible: knowledge search cannot find an unindexed source
+        await this.prisma.knowledgeSource.update({ where: { id: sourceId }, data: { status: "ready", chunkCount: 0, error: "The site was read but could not be indexed, so the AI cannot search it yet. Check the AI settings and press Re-index." } }).catch(() => undefined);
+      }
     } catch (e) {
       const message = (e as Error).message;
       this.logger.warn(`Source ${sourceId} failed: ${message}`);
@@ -215,7 +222,21 @@ export class BriefService {
     }
     let parsed;
     try {
-      const merged = mergeRaw(raws);
+      let merged = mergeRaw(raws);
+      if (failedPasses.length === 0) {
+        // a strict editor reads the draft against the sources; if it fails or answers badly the draft stands
+        try {
+          onPass?.("review");
+          const reply = await ai.chat(buildBriefReviewMessages(base, JSON.stringify(merged)), { json: true, temperature: 0.2 });
+          replies.push(reply);
+          const reviewed = extractJson(reply) as Record<string, unknown>;
+          coerceBrief(reviewed, language);
+          const { gaps: reviewedGaps, ...rest } = reviewed;
+          merged = { ...merged, ...rest, ...(Array.isArray(reviewedGaps) ? { gaps: reviewedGaps } : {}) };
+        } catch (e) {
+          this.logger.warn(`Brief review skipped: ${(e as Error).message}`);
+        }
+      }
       merged.gaps = [...(merged.gaps as unknown[]), ...failedPasses.map((p) => `[NEED: bagian "${p}" gagal dibuat, jalankan generate ulang]`)];
       parsed = groundBrief(coerceBrief(merged, language), [...sources.map((s) => s.text), notes].join("\n"));
     } catch (e) {

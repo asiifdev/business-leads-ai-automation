@@ -52,3 +52,17 @@ export function chunkText(input: string, { maxChars = 900, overlap = 120 }: Chun
     return `${tail} ${chunk}`.trim();
   });
 }
+
+const kw = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length >= 4);
+
+/** Keyword ranking for sources that have text but no vectors (embeddings unavailable or indexing failed): better than finding nothing. */
+export function rankByKeywords(query: string, passages: { id: string; label: string; text: string }[], limit = 4): { id: string; label: string; text: string }[] {
+  const q = new Set(kw(query));
+  if (!q.size) return [];
+  return passages
+    .map((p) => { const w = kw(p.text); const hit = new Set(w.filter((x) => q.has(x) || [...q].some((y) => y.length >= 5 && x.length >= 5 && x.startsWith(y.slice(0, 5))))); return { p, score: hit.size }; })
+    .filter((x) => x.score >= 1)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((x) => x.p);
+}

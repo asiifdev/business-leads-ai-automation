@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AiClientService } from "./ai-client.service";
 import { assertOwnerOrAdmin } from "../auth/roles";
-import { chunkText } from "./text-chunker";
+import { chunkText, rankByKeywords } from "./text-chunker";
 
 export type Confidence = "high" | "low" | "none";
 export interface KnowledgeHit {
@@ -94,6 +94,13 @@ export class KnowledgeService {
       });
       throw new ServiceUnavailableException("Could not read this source. Check the AI settings and try again.");
     }
+  }
+
+  /** Keyword search over the text of sources that have no chunks, so a failed or unavailable index does not leave the AI with nothing. */
+  async searchUnindexed(workspaceId: string, query: string): Promise<{ id: string; label: string; text: string }[]> {
+    const rows = await this.prisma.knowledgeSource.findMany({ where: { workspaceId, chunkCount: 0, text: { not: null } }, orderBy: { createdAt: "desc" }, take: 5, select: { id: true, title: true, text: true } });
+    const passages = rows.flatMap((r) => chunkText(r.text ?? "").map((t, i) => ({ id: `${r.id}-${i}`, label: r.title, text: t })));
+    return rankByKeywords(query, passages);
   }
 
   /** Semantic search limited to one workspace and to chunks made by the current embedding model. */

@@ -23,3 +23,13 @@ test("overlap repeats the tail of the previous chunk", () => {
   assert.equal(chunks.length, 2);
   assert.ok(chunks[1].startsWith("A".repeat(20)));
 });
+
+import { rankByKeywords } from "./text-chunker";
+import test3 from "node:test";
+import assert3 from "node:assert/strict";
+
+test3("keyword ranking finds the passage about the query and nothing for unrelated words", () => {
+  const ps = [{ id: "a", label: "x", text: "Pesanan online menahan stok secara otomatis." }, { id: "b", label: "x", text: "Tim kami berada di kota besar." }];
+  assert3.equal(rankByKeywords("bagaimana stok pesanan online", ps)[0]?.id, "a");
+  assert3.deepEqual(rankByKeywords("garansi", ps), []);
+});

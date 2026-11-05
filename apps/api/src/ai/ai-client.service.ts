@@ -14,6 +14,21 @@ export interface ChatMessage {
   content: string;
 }
 
+/** A function the model may call. `parameters` is a JSON Schema object. */
+export interface ToolDef {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+export interface ToolCall { id: string; name: string; arguments: string }
+
+/** A conversation that includes tool calls: the assistant asks, a `tool` message answers. */
+export type ToolChatMessage =
+  | { role: "system" | "user"; content: string }
+  | { role: "assistant"; content: string | null; toolCalls?: ToolCall[] }
+  | { role: "tool"; toolCallId: string; content: string };
+
 /** Where a workspace's AI calls go. `server` = the operator's `.env`; `workspace` = the key saved in Settings. */
 export type AiSource = "workspace" | "server" | "none";
 
@@ -194,6 +209,40 @@ export class WorkspaceAi {
     );
     this.report({ kind: "ai_chat", model: this.settings.chatModel, promptTokens: res.usage?.prompt_tokens ?? null, completionTokens: res.usage?.completion_tokens ?? null, latencyMs: Date.now() - t0 });
     return res.choices[0]?.message?.content ?? "";
+  }
+
+  /**
+   * One step of a tool-calling conversation. Returns the assistant's text and the calls it wants made.
+   * Works with any OpenAI-compatible provider that supports `tools`; one that does not throws, and the caller falls back.
+   */
+  async chatWithTools(messages: ToolChatMessage[], tools: ToolDef[], opts: { temperature?: number } = {}): Promise<{ content: string; toolCalls: ToolCall[] }> {
+    const client = this.requireClient();
+    const t0 = Date.now();
+    const wire = messages.map((m) => {
+      if (m.role === "tool") return { role: "tool" as const, tool_call_id: m.toolCallId, content: m.content };
+      if (m.role === "assistant") {
+        return {
+          role: "assistant" as const,
+          content: m.content,
+          ...(m.toolCalls?.length ? { tool_calls: m.toolCalls.map((c) => ({ id: c.id, type: "function" as const, function: { name: c.name, arguments: c.arguments } })) } : {}),
+        };
+      }
+      return { role: m.role, content: m.content };
+    });
+    const res = await this.withRetry(() =>
+      client.chat.completions.create({
+        model: this.settings.chatModel,
+        messages: wire,
+        tools: tools.map((t) => ({ type: "function" as const, function: { name: t.name, description: t.description, parameters: t.parameters } })),
+        tool_choice: "auto",
+        temperature: opts.temperature ?? 0.7,
+        ...(this.settings.reasoningEffort ? ({ reasoning_effort: this.settings.reasoningEffort } as object) : {}),
+      }),
+    );
+    this.report({ kind: "ai_chat", model: this.settings.chatModel, promptTokens: res.usage?.prompt_tokens ?? null, completionTokens: res.usage?.completion_tokens ?? null, latencyMs: Date.now() - t0 });
+    const msg = res.choices[0]?.message;
+    const calls = (msg?.tool_calls ?? []).flatMap((c) => (c.type === "function" ? [{ id: c.id, name: c.function.name, arguments: c.function.arguments }] : []));
+    return { content: msg?.content ?? "", toolCalls: calls };
   }
 
   /** Embeds texts in batches; returns one vector per input, in order. */
