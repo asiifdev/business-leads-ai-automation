@@ -3,6 +3,7 @@
   <p><strong>Open-source AI sales and marketing automation for local businesses.</strong></p>
 <p>Discover business leads, enrich business information, draft personalized outreach with AI, review every message before sending, and manage follow-ups in one workflow.</p>
   <p><a href="https://alatpintar.id">🚀 Try Prospex</a> · <a href="#quickstart">⚙️ Self-host</a> · <a href="docs/whatsapp-outbox.md">📨 How sending works</a> · <a href="#roadmap">🗺️ Roadmap</a> · <a href="COMMERCIAL-LICENSE.md">📄 Commercial license</a></p>
+  <p><sub>Built and maintained by <a href="https://asiifdev.com/">PT Asiifdev Digital Agency</a> · <a href="https://asiifdev.com/en/services/">AI engineering & custom business software</a></sub></p>
 
   [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
   [![GitHub stars](https://img.shields.io/github/stars/asiifdev/business-leads-ai-automation?style=social)](https://github.com/asiifdev/business-leads-ai-automation/stargazers)
