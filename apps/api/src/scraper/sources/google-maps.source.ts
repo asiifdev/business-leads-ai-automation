@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { planAreas, splitAreas, stripPlaces } from "../areas";
+import { areaQuota, askFor, planAreas, splitAreas, stripPlaces } from "../areas";
 import { DEFAULT_COUNTRY } from "../../common/country";
 import { GoogleMapsScraperService } from "../google-maps.scraper";
 import { leadKey } from "../lead-key";
@@ -67,17 +67,39 @@ export class GoogleMapsSource implements LeadSource {
       return unique.size;
     };
 
+    // A fixed list of places gets an even share of the target each, filled greedily: every search asks Maps for what the place still needs
+    // (not a thin slice of it), and the place's remaining searches are skipped once its share is in. Before, the target was cut into equal
+    // slices of two or three per search, so each search threw away most of the cards it had loaded, and overlapping queries ("toko fashion",
+    // "toko pakaian") left the campaign short of its target.
+    let currentArea = "";
+    let areaQuotaN = Number.POSITIVE_INFINITY;
+    let areaStart = 0;
     for (let i = 0; i < combos.length; i++) {
       const combo = combos[i];
       if (!fixtures && countNew(results) >= req.maxResults) {
         this.logger.log(`Target of ${req.maxResults} reached after ${i} of ${combos.length} searches`);
         break;
       }
+      let ask = perQuery;
+      if (!fixtures && !plan.nationwide) {
+        if (combo.area !== currentArea) {
+          currentArea = combo.area;
+          areaStart = unique.size;
+          areaQuotaN = areaQuota(req.maxResults, unique.size, plan.areas.length - plan.areas.indexOf(combo.area));
+        }
+        const added = unique.size - areaStart;
+        if (added >= areaQuotaN) {
+          this.logger.log(`"${combo.area}": ${added} found (share ${areaQuotaN}), skipping "${combo.query}"`);
+          await req.onProgress?.(Math.round(((i + 1) / combos.length) * 100));
+          continue;
+        }
+        ask = askFor(areaQuotaN - added, perQuery);
+      }
       if (fixtures) {
         results.push(...this.fixtureLeads(req, combo.query, combo.area, perQuery));
       } else {
         try {
-          const raw = await this.maps.scrape(combo.query, perQuery, { area: combo.area, country: req.country });
+          const raw = await this.maps.scrape(combo.query, ask, { area: combo.area, country: req.country });
           const normalized = raw.map((b) => this.normalize(b, req.industry));
           results.push(...normalized);
           for (const lead of normalized) {

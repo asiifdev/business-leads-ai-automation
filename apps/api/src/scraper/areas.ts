@@ -40,6 +40,19 @@ export interface AreaPlan {
  * A comma-separated list stays as typed. "Seluruh Indonesia" becomes enough cities to reach `maxResults` with room for
  * duplicates, never fewer than 8 and never more than the list holds.
  */
+/**
+ * How many NEW businesses the next area should add: what is still wanted, shared evenly over the areas not done yet. A short area hands
+ * what it could not find on to the later ones, so the target is still met when the businesses exist.
+ */
+export function areaQuota(wanted: number, found: number, areasLeft: number): number {
+  return Math.max(1, Math.ceil(Math.max(0, wanted - found) / Math.max(1, areasLeft)));
+}
+
+/** How many results to ask Maps for in one search of an area that still needs `needed` more: never fewer than `floor`, never more than Maps lists. */
+export function askFor(needed: number, floor: number): number {
+  return Math.min(MAX_PER_SEARCH, Math.max(floor, needed));
+}
+
 export function planAreas(location: string, queryCount: number, maxResults: number): AreaPlan {
   const typed = splitAreas(location);
   if (!isNationwide(location)) {

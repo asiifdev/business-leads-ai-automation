@@ -86,3 +86,15 @@ test("results from another city are dropped, however Google ranked them", () => 
   assert.deepEqual(kept.map((r) => r.name), ["in Medan", "Binjai, still the metro", "no coordinates, names the city"]);
   assert.equal(dropped, 2);
 });
+
+test("an area's share of the target is what is still wanted over the areas left, and a short area hands its gap on", async () => {
+  const { areaQuota, askFor } = await import("./areas");
+  assert.equal(areaQuota(100, 0, 6), 17);
+  assert.equal(areaQuota(100, 17, 5), 17);
+  assert.equal(areaQuota(100, 40, 5), 12); // the first areas found more than their share: the rest need less
+  assert.equal(areaQuota(100, 10, 1), 90); // the last area takes what is left
+  assert.equal(areaQuota(100, 150, 2), 1); // never below one
+  assert.equal(askFor(17, 2), 17);
+  assert.equal(askFor(1, 2), 2);
+  assert.equal(askFor(500, 2), 100); // never more than Maps lists
+});
