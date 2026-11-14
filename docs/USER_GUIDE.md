@@ -52,6 +52,7 @@ Edit `apps/api/.env` minimal dengan:
 ```env
 DATABASE_URL="postgresql://prospex:prospex@localhost:5432/prospex"
 OPENAI_API_KEY=sk-your-key-here   # boleh dikosongkan: fitur AI mati, scraping dan scoring tetap jalan
+OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
 EMBEDDING_MODEL=text-embedding-3-small   # untuk Gaya AI dan basis pengetahuan
 ```
@@ -96,6 +97,7 @@ Prospex mendukung penyedia AI mana pun yang kompatibel dengan API OpenAI. Draf p
 
 ```env
 OPENAI_API_KEY=sk-proj-...
+OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
 EMBEDDING_MODEL=text-embedding-3-small
 ```

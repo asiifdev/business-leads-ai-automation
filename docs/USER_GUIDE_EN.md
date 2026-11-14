@@ -51,7 +51,8 @@ Edit `apps/api/.env` with at least:
 
 ```env
 DATABASE_URL="postgresql://prospex:prospex@localhost:5432/prospex"
-OPENAI_API_KEY=sk-your-key-here   # may be left empty: AI features are off, scraping and scoring still work
+OPENAI_API_KEY=sk-your-key-here   # may be left empty: AI features are off. If set, BASE_URL, MODEL and EMBEDDING_MODEL below are required (the API refuses to start without them)
+OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
 EMBEDDING_MODEL=text-embedding-3-small   # for AI Style and the knowledge base
 ```
@@ -98,6 +99,7 @@ Prospex works with any provider that is compatible with the OpenAI API. Message 
 
 ```env
 OPENAI_API_KEY=sk-proj-...
+OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
 EMBEDDING_MODEL=text-embedding-3-small
 ```

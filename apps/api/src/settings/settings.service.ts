@@ -3,7 +3,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { encryptSecret, decryptSecret } from "./encryption.util";
-import { AiClientService, assertAllowedBaseUrl } from "../ai/ai-client.service";
+import { AiClientService, assertAllowedBaseUrl, missingAiFields } from "../ai/ai-client.service";
 import { KnowledgeService } from "../ai/knowledge.service";
 import { friendlyAiError, mergeAiConfig, type SaveAiInput } from "./ai-settings";
 import { assertOwnerOrAdmin } from "../auth/roles";
@@ -153,6 +153,12 @@ export class SettingsService {
       current ? { ...current, ...(current.apiKey ? { apiKey: decryptSecret(current.apiKey, this.encryptionKey) } : {}) } : null,
       input,
     );
+    // No defaults exist: a saved key must come with its endpoint and both models, or AI would stay off for this business.
+    const missing = missingAiFields({ baseURL: merged.baseURL, chatModel: merged.model, embeddingModel: merged.embeddingModel });
+    if (merged.apiKey && missing.length) {
+      const label = { baseURL: "base URL", chatModel: "model", embeddingModel: "embedding model" } as const;
+      throw new BadRequestException(`Fill in the ${missing.map((k) => label[k]).join(", ")} too. Prospex has no built-in values.`);
+    }
     const config = this.encryptConfig(merged);
     if (existing) await this.prisma.integration.update({ where: { id: existing.id }, data: { config, enabled: true } });
     else await this.prisma.integration.create({ data: { type: "openai", name: "OpenAI / Compatible API", config, workspaceId } });

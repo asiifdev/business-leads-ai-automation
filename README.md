@@ -166,11 +166,12 @@ The full walkthrough is in [docs/USER_GUIDE_EN.md](docs/USER_GUIDE_EN.md) (Engli
 
 ### Choosing an AI provider
 
-Any OpenAI-compatible endpoint works. Drafts need a chat model, and the style and knowledge features need an embedding model (`EMBEDDING_MODEL`). Switching the embedding model later means re-importing your chats and re-indexing your sources, because vectors from different models cannot be compared.
+Any OpenAI-compatible endpoint works. Prospex has no built-in base URL or model names: with `OPENAI_API_KEY` set, `OPENAI_BASE_URL`, `OPENAI_MODEL` and `EMBEDDING_MODEL` are required, and the API refuses to start (naming what is missing) if one is blank. The same goes for a key saved under Settings → AI: it must come with base URL, model and embedding model, or the save is refused and AI stays off for that business. Drafts need a chat model, and the style and knowledge features need an embedding model (`EMBEDDING_MODEL`). Switching the embedding model later means re-importing your chats and re-indexing your sources, because vectors from different models cannot be compared.
 
 ```env
 # OpenAI
 OPENAI_API_KEY=sk-...
+OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
 EMBEDDING_MODEL=text-embedding-3-small
 
@@ -186,7 +187,7 @@ OPENAI_MODEL=gemma4
 EMBEDDING_MODEL=qwen3-embedding
 ```
 
-With `OPENAI_API_KEY` empty, scraping and rule-based scoring still work, and the AI features (drafts, AI Style, knowledge base) are off. Prospex does not fill the gap with canned text. A local model can take around 40 seconds per draft, so drafting runs in the background and the Outbox shows progress. Writing the Marketing Brief with a local model takes several minutes. For Ollama, a context length of 16,384 is enough (our biggest prompt is about 7,000 tokens) and uses far less memory than the 131,072 some installs default to; if it is sometimes slow or answers with a 500 error, check that nothing else is using the model at the same time, because Ollama serves one request at a time by default.
+With `OPENAI_API_KEY` empty, scraping and rule-based scoring still work, and the AI features (drafts, AI Style, knowledge base) are off. Prospex does not fill the gap with canned text. If indexing a source fails with a 502 or 504 from a slow embedding model, lower `EMBEDDING_BATCH_SIZE` (default 16; a failing batch is also split in half automatically). A local model can take around 40 seconds per draft, so drafting runs in the background and the Outbox shows progress. Writing the Marketing Brief with a local model takes several minutes. For Ollama, a context length of 16,384 is enough (our biggest prompt is about 7,000 tokens) and uses far less memory than the 131,072 some installs default to; if it is sometimes slow or answers with a 500 error, check that nothing else is using the model at the same time, because Ollama serves one request at a time by default.
 
 ### Other settings
 

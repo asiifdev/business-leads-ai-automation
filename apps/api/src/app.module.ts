@@ -18,6 +18,7 @@ import { MessagingModule } from "./messaging/messaging.module";
 import { MarketingModule } from "./marketing/marketing.module";
 import { EmailModule } from "./email/email.module";
 import { EntitlementsModule } from "./entitlements/entitlements.module";
+import { aiEnvProblems, aiEnvMessage } from "./ai/ai-env";
 
 @Module({
   imports: [
@@ -31,10 +32,11 @@ import { EntitlementsModule } from "./entitlements/entitlements.module";
         PORT: Joi.number().default(3001),
         NODE_ENV: Joi.string().valid("development", "production", "test").default("development"),
         OPENAI_API_KEY: Joi.string().allow("").default(""),
-        OPENAI_MODEL: Joi.string().default("gpt-4o-mini"),
+        OPENAI_MODEL: Joi.string().allow("").default(""),
         OPENAI_BASE_URL: Joi.string().allow("").default(""),
         OPENAI_REASONING_EFFORT: Joi.string().allow("").default(""),
-        EMBEDDING_MODEL: Joi.string().default("text-embedding-3-small"),
+        EMBEDDING_MODEL: Joi.string().allow("").default(""),
+        EMBEDDING_BATCH_SIZE: Joi.number().integer().min(1).max(256).default(16),
         PUBLIC_API_URL: Joi.string().uri().allow("").optional(), // .env.example ships it empty
         EMAIL_DISABLED: Joi.string().valid("true", "false").optional(),
         ALLOW_LOCAL_UNSUBSCRIBE: Joi.string().valid("true", "false").optional(),
@@ -63,6 +65,10 @@ import { EntitlementsModule } from "./entitlements/entitlements.module";
         OVERTURE_PLACES_URL: Joi.string().optional(),
         OVERTURE_MIN_CONFIDENCE: Joi.number().min(0).max(1).optional(),
         OVERTURE_MEMORY_LIMIT: Joi.string().pattern(/^[0-9]{1,2}(\.[0-9])?GB$/).optional(),
+      }).custom((env, helpers) => {
+        // No built-in base URL or model names: an incomplete AI setup stops the API here, with a message that says what to write.
+        const problems = aiEnvProblems(env);
+        return problems.length ? helpers.message({ custom: aiEnvMessage(problems) }) : env;
       }),
       validationOptions: { abortEarly: true },
     }),

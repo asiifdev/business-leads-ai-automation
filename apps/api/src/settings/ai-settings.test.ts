@@ -2,20 +2,37 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { friendlyAiError, mergeAiConfig } from "./ai-settings";
 import { pickAiSettings, assertAllowedBaseUrl } from "../ai/ai-client.service";
+import { aiEnvProblems } from "../ai/ai-env";
 
 const server = { apiKey: "sk-server", baseURL: "http://localhost:11434/v1", chatModel: "gemma3", embeddingModel: "nomic-embed-text" };
 
-test("a workspace key wins and never inherits the server's endpoint or model names", () => {
+test("a workspace key never inherits the server's endpoint or model names, and has no built-in ones", () => {
   const s = pickAiSettings({ apiKey: "sk-ws" }, true, server);
-  assert.equal(s.source, "workspace");
-  assert.equal(s.apiKey, "sk-ws");
+  assert.equal(s.source, "none");
+  assert.equal(s.apiKey, "");
   assert.equal(s.baseURL, undefined);
-  assert.equal(s.chatModel, "gpt-4o-mini");
-  assert.equal(s.embeddingModel, "text-embedding-3-small");
+  assert.equal(s.chatModel, "");
+  assert.equal(s.embeddingModel, "");
+  assert.deepEqual(s.missing, ["baseURL", "chatModel", "embeddingModel"]);
+});
+
+test("a server key with a blank model or endpoint turns AI off instead of guessing", () => {
+  const s = pickAiSettings(null, false, { apiKey: "k", baseURL: "https://x/v1", chatModel: "", embeddingModel: "e" });
+  assert.equal(s.source, "none");
+  assert.deepEqual(s.missing, ["chatModel"]);
+});
+
+test("boot check: a key without endpoint and models is refused, no key is fine", () => {
+  assert.deepEqual(aiEnvProblems({}), []);
+  assert.deepEqual(aiEnvProblems({ OPENAI_API_KEY: " " }), []);
+  assert.equal(aiEnvProblems({ OPENAI_API_KEY: "k" }).length, 3);
+  assert.deepEqual(aiEnvProblems({ OPENAI_API_KEY: "k", OPENAI_BASE_URL: "https://x/v1", OPENAI_MODEL: "m", EMBEDDING_MODEL: "e" }), []);
+  assert.match(aiEnvProblems({ OPENAI_API_KEY: "k", OPENAI_BASE_URL: "https://x/v1", OPENAI_MODEL: "m" })[0], /EMBEDDING_MODEL/);
 });
 
 test("a workspace key keeps its own base URL and models", () => {
   const s = pickAiSettings({ apiKey: "k", baseURL: "https://openrouter.ai/api/v1", model: "x/y", embeddingModel: "emb" }, true, server);
+  assert.equal(s.source, "workspace");
   assert.deepEqual([s.baseURL, s.chatModel, s.embeddingModel], ["https://openrouter.ai/api/v1", "x/y", "emb"]);
 });
 

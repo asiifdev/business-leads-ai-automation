@@ -36,7 +36,12 @@ const OFFERS = [
 ];
 const NICHES = ["Toko kue", "Bengkel motor", "Butik fashion", "Percetakan", "Konveksi", "Warung makan", "Toko bangunan", "Hotel kecil"];
 
-const ai = new WorkspaceAi({ source: "server", apiKey: process.env.OPENAI_API_KEY ?? "", baseURL: process.env.OPENAI_BASE_URL, chatModel: process.env.OPENAI_MODEL ?? "gpt-4o-mini", embeddingModel: "", reasoningEffort: process.env.OPENAI_REASONING_EFFORT });
+function need(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`${name} must be set: Prospex has no default model.`);
+  return v;
+}
+const ai = new WorkspaceAi({ source: "server", apiKey: process.env.OPENAI_API_KEY ?? "", baseURL: process.env.OPENAI_BASE_URL, chatModel: need("OPENAI_MODEL"), embeddingModel: "", reasoningEffort: process.env.OPENAI_REASONING_EFFORT });
 
 const words = (s: string) => s.toLowerCase().split(/\W+/).filter((w) => w.length >= 4);
 

@@ -39,6 +39,8 @@ export interface AiSettings {
   chatModel: string;
   embeddingModel: string;
   reasoningEffort?: string;
+  /** Set when a key exists but required settings are blank: AI stays off for this business instead of guessing. */
+  missing?: RequiredAiField[];
 }
 
 export interface ServerAiDefaults {
@@ -57,8 +59,14 @@ export interface StoredAiConfig {
   baseURL?: string;
 }
 
-export const DEFAULT_WORKSPACE_CHAT_MODEL = "gpt-4o-mini";
-export const DEFAULT_WORKSPACE_EMBEDDING_MODEL = "text-embedding-3-small";
+/** The settings that must always be written down by the operator or the owner. Prospex ships no default for any of them. */
+export const REQUIRED_AI_FIELDS = ["baseURL", "chatModel", "embeddingModel"] as const;
+export type RequiredAiField = (typeof REQUIRED_AI_FIELDS)[number];
+
+/** Which of the required settings are blank. Pure, used at boot, when saving and when resolving a workspace. */
+export function missingAiFields(c: { baseURL?: string; chatModel?: string; embeddingModel?: string }): RequiredAiField[] {
+  return REQUIRED_AI_FIELDS.filter((k) => !c[k]?.trim());
+}
 
 /**
  * Decides which provider a workspace uses. Pure, so the rules are unit tested.
@@ -66,20 +74,21 @@ export const DEFAULT_WORKSPACE_EMBEDDING_MODEL = "text-embedding-3-small";
  * - A workspace key wins over the server key, and brings its own base URL, models and nothing else from the server:
  *   a customer's key must never be sent to the operator's private endpoint, and a server model name such as a local
  *   Ollama tag would be meaningless to the customer's provider.
+ * - There are no built-in defaults: a key without base URL, chat model and embedding model turns AI off (`missing`
+ *   lists what is blank) rather than silently calling some provider with some model.
  * - With no workspace key the server `.env` applies. With neither, AI is off.
  */
 export function pickAiSettings(stored: StoredAiConfig | null, integrationEnabled: boolean, server: ServerAiDefaults): AiSettings {
   const key = stored?.apiKey?.trim();
   if (integrationEnabled && key) {
-    return {
-      source: "workspace",
-      apiKey: key,
-      baseURL: stored?.baseURL?.trim() || undefined,
-      chatModel: stored?.model?.trim() || DEFAULT_WORKSPACE_CHAT_MODEL,
-      embeddingModel: stored?.embeddingModel?.trim() || DEFAULT_WORKSPACE_EMBEDDING_MODEL,
-    };
+    const own = { baseURL: stored?.baseURL?.trim() || undefined, chatModel: stored?.model?.trim() ?? "", embeddingModel: stored?.embeddingModel?.trim() ?? "" };
+    const missing = missingAiFields(own);
+    if (missing.length) return { source: "none", apiKey: "", ...own, missing };
+    return { source: "workspace", apiKey: key, ...own };
   }
   if (server.apiKey) {
+    const missing = missingAiFields(server);
+    if (missing.length) return { source: "none", apiKey: "", baseURL: server.baseURL, chatModel: server.chatModel, embeddingModel: server.embeddingModel, missing };
     return {
       source: "server",
       apiKey: server.apiKey,
@@ -172,7 +181,7 @@ export class WorkspaceAi {
    * `publicOnly` is set for workspace-supplied endpoints on a shared server: connections go through
    * `publicOnlyLookup`. The server's own endpoint is the operator's choice and is left alone.
    */
-  constructor(readonly settings: AiSettings, private readonly opts: { publicOnly?: boolean; onUsage?: (u: AiUsage) => void } = {}) {
+  constructor(readonly settings: AiSettings, private readonly opts: { publicOnly?: boolean; embedBatchSize?: number; onUsage?: (u: AiUsage) => void } = {}) {
     this.client = settings.apiKey
       ? new OpenAI({
           apiKey: settings.apiKey,
@@ -245,23 +254,39 @@ export class WorkspaceAi {
     return { content: msg?.content ?? "", toolCalls: calls };
   }
 
-  /** Embeds texts in batches; returns one vector per input, in order. */
+  /**
+   * Embeds texts in batches; returns one vector per input, in order. A slow provider (a local Ollama model behind a
+   * gateway) can time out on a big batch, and retrying the same batch fails the same way, so a batch that keeps
+   * failing with a server error is split in half and each half is tried again.
+   */
   async embed(texts: string[]): Promise<number[][]> {
     if (texts.length === 0) return [];
     const client = this.requireClient();
+    const size = Math.max(1, this.opts.embedBatchSize ?? 16);
     const out: number[][] = [];
-    for (let i = 0; i < texts.length; i += 64) {
-      const batch = texts.slice(i, i + 64);
-      const t0 = Date.now();
-      const res = await this.withRetry(() => client.embeddings.create({ model: this.settings.embeddingModel, input: batch }));
-      this.report({ kind: "ai_embed", model: this.settings.embeddingModel, promptTokens: res.usage?.prompt_tokens ?? null, completionTokens: null, latencyMs: Date.now() - t0 });
-      if (res.data.length !== batch.length) throw new Error(`Embedding provider returned ${res.data.length} vectors for ${batch.length} inputs`);
-      out.push(...res.data.sort((a, b) => a.index - b.index).map((d) => d.embedding));
-    }
+    for (let i = 0; i < texts.length; i += size) out.push(...(await this.embedBatch(client, texts.slice(i, i + size))));
     return out;
   }
 
-  /** Usage accounting must never break the call it measures. */
+  private async embedBatch(client: OpenAI, batch: string[]): Promise<number[][]> {
+    const t0 = Date.now();
+    let res;
+    try {
+      res = await this.withRetry(() => client.embeddings.create({ model: this.settings.embeddingModel, input: batch }), batch.length > 1 ? 1 : 3);
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (batch.length > 1 && status !== undefined && status >= 500) {
+        this.logger.warn(`Embedding batch of ${batch.length} failed with ${status}; splitting it in half`);
+        const mid = Math.ceil(batch.length / 2);
+        return [...(await this.embedBatch(client, batch.slice(0, mid))), ...(await this.embedBatch(client, batch.slice(mid)))];
+      }
+      throw err;
+    }
+    this.report({ kind: "ai_embed", model: this.settings.embeddingModel, promptTokens: res.usage?.prompt_tokens ?? null, completionTokens: null, latencyMs: Date.now() - t0 });
+    if (res.data.length !== batch.length) throw new Error(`Embedding provider returned ${res.data.length} vectors for ${batch.length} inputs`);
+    return res.data.sort((a, b) => a.index - b.index).map((d) => d.embedding);
+  }
+
   private report(u: Omit<AiUsage, "source">): void {
     try {
       this.opts.onUsage?.({ ...u, source: this.settings.source });
@@ -310,8 +335,8 @@ export class AiClientService {
     this.server = {
       apiKey: config.get<string>("OPENAI_API_KEY") || undefined,
       baseURL: config.get<string>("OPENAI_BASE_URL") || undefined,
-      chatModel: config.get<string>("OPENAI_MODEL") || "gpt-4o-mini",
-      embeddingModel: config.get<string>("EMBEDDING_MODEL") || "text-embedding-3-small",
+      chatModel: config.get<string>("OPENAI_MODEL") || "",
+      embeddingModel: config.get<string>("EMBEDDING_MODEL") || "",
       reasoningEffort: config.get<string>("OPENAI_REASONING_EFFORT") || undefined,
     };
     this.allowPrivateBaseUrl = config.get<string>("EDITION") !== "hosted" || config.get<string>("AI_ALLOW_PRIVATE_BASE_URL") === "true";
@@ -339,6 +364,7 @@ export class AiClientService {
     const settings = await this.resolve(workspaceId);
     const ai = new WorkspaceAi(settings, {
       publicOnly: settings.source === "workspace" && !this.allowPrivateBaseUrl,
+      embedBatchSize: Number(this.config.get("EMBEDDING_BATCH_SIZE")) || 16,
       onUsage: (u) => void this.logUsage(workspaceId, u),
     });
     this.cache.set(workspaceId, { at: Date.now(), ai });
@@ -376,6 +402,7 @@ export class AiClientService {
       }
     }
     const picked = pickAiSettings(stored, row?.enabled ?? false, this.server);
+    if (picked.missing?.length) this.logger.warn(`Workspace ${workspaceId}: AI is off because these settings are blank: ${picked.missing.join(", ")}. Fill them in Settings → AI.`);
     if (picked.source === "workspace" && picked.baseURL) {
       try {
         await assertAllowedBaseUrl(picked.baseURL, { allowPrivate: this.allowPrivateBaseUrl });

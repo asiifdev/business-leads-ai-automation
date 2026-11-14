@@ -17,12 +17,13 @@ import { parseWhatsAppExport } from "../src/ai/chat-import/whatsapp-export-parse
 
 const dir = process.env.EXPORT_DIR!;
 const me = process.env.ME!;
-const base = (process.env.OPENAI_BASE_URL ?? "http://localhost:11434/v1").replace(/\/$/, "");
+if (!process.env.OPENAI_BASE_URL) throw new Error("OPENAI_BASE_URL must be set: Prospex has no default endpoint.");
+const base = process.env.OPENAI_BASE_URL.replace(/\/$/, "");
 const chatModel = process.env.CHAT_MODEL ?? "gemma4:latest";
 const embModel = process.env.EMBEDDING_MODEL ?? "qwen3-embedding:latest";
 const N = Number(process.env.SAMPLES ?? 30);
 const out = process.env.OUT ?? "/tmp/eval-style-samples.json";
-const headers = { "content-type": "application/json", authorization: `Bearer ${process.env.OPENAI_API_KEY ?? "ollama"}` };
+const headers = { "content-type": "application/json", authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}` };
 
 async function post(path: string, body: unknown) {
   const res = await fetch(base + path, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(300_000) });
