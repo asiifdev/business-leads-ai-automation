@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Param, Body, Query, UseGuards } from "@nestjs/common";
+import { Controller, Delete, Get, HttpCode, HttpStatus, Patch, Post, Param, Body, Query, UseGuards } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from "@nestjs/swagger";
 import { LeadsService } from "./leads.service";
@@ -48,6 +48,13 @@ export class LeadsController {
       page: page ? parseInt(page, 10) : 1,
       limit: limit ? parseInt(limit, 10) : 50,
     });
+  }
+
+  @Delete(":id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: "Delete a lead with its activities, follow-ups and messages (opt-outs are kept)" })
+  remove(@Param("id") id: string, @WorkspaceId() workspaceId: string) {
+    return this.leadsService.remove(id, workspaceId);
   }
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })

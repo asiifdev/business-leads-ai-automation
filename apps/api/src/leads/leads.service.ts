@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { createDuplicateIndex, type DedupeCandidate } from "./dedupe";
 import { qualityColumns, withSource, type FieldMeta } from "./validation";
+import { leadKey } from "../scraper/lead-key";
 import { normalizePhone } from "../messaging/phone";
 import { PrismaService } from "../prisma/prisma.service";
 import { UpdateCrmDto } from "./dto/update-crm.dto";
@@ -139,6 +140,23 @@ export class LeadsService {
     return { created: true, leadId: lead.id };
   }
 
+  /**
+   * Deletes a lead and what hangs off it: activities, follow-ups and every message sent to or received from it (the database cascades).
+   * Opt-outs stay. Repeats and branches that pointed at it become standalone leads. Refused while a message to it is being sent.
+   * The campaign's totals are counted again.
+   */
+  async remove(id: string, workspaceId: string) {
+    const lead = await this.prisma.lead.findFirst({ where: { id, workspaceId }, select: { id: true, campaignId: true } });
+    if (!lead) throw new NotFoundException("Lead not found");
+    if (await this.prisma.outboundMessage.count({ where: { workspaceId, leadId: id, status: "sending" } })) throw new ConflictException("A message to this lead is being sent right now. Try again in a minute.");
+    await this.prisma.lead.delete({ where: { id } });
+    const [totalLeads, priorityLeads] = await Promise.all([
+      this.prisma.lead.count({ where: { campaignId: lead.campaignId } }),
+      this.prisma.lead.count({ where: { campaignId: lead.campaignId, priority: "HIGH" } }),
+    ]);
+    await this.prisma.campaign.update({ where: { id: lead.campaignId }, data: { totalLeads, priorityLeads } });
+  }
+
   async findOne(id: string, workspaceId = DEFAULT_WORKSPACE_ID) {
     const lead = await this.prisma.lead.findFirst({
       where: { id, workspaceId },
@@ -200,22 +218,26 @@ export class LeadsService {
       const writes: Prisma.PrismaPromise<unknown>[] = [];
       for (const r of rows) {
         out.checked++;
-        const dup = r.source === "fixture" ? null : index.find(r);
+        const found = r.source === "fixture" ? null : index.find(r);
+        const branch = found?.reason === "branch" ? found.match : null;
+        const dup = found && !branch ? found : null;
         if (!dup && r.source !== "fixture") index.add(r);
         const duplicateOfId = dup?.match.id ?? null;
-        const state = { ...r, duplicateOfId };
+        const branchOfId = branch?.id ?? null;
+        const state = { ...r, duplicateOfId, branchOfId };
         const q = qualityColumns(state, now);
         out[q.dataQuality as "low" | "medium" | "high"]++;
         if (duplicateOfId) out.duplicates++;
         const sameIssues = r.qualityIssues.length === q.qualityIssues.length && r.qualityIssues.every((x, i) => x === q.qualityIssues[i]);
         const needsMeta = !r.fieldMeta;
-        if (r.dataQuality === q.dataQuality && sameIssues && r.duplicateOfId === duplicateOfId && !needsMeta) continue;
+        if (r.dataQuality === q.dataQuality && sameIssues && r.duplicateOfId === duplicateOfId && r.branchOfId === branchOfId && !needsMeta) continue;
         out.updated++;
         writes.push(this.prisma.lead.update({
           where: { id: r.id },
           data: {
             ...q,
             duplicateOfId,
+            branchOfId,
             ...(needsMeta ? { fieldMeta: withSource(null, ["name", "address", "phone", "website", "category"].filter((f) => !!(r as Record<string, unknown>)[f]), r.source, r.scrapedAt) } : {}),
           },
         }));
@@ -267,15 +289,17 @@ export class LeadsService {
       indexes.set(workspaceId, createDuplicateIndex(existing));
     }
     const now = new Date();
-    return this.prisma.lead.createMany({
-      data: leads.map((l) => {
+    const rows = leads.map((l) => {
         const phoneE164 = normalizePhone(l.phone);
         const id = randomUUID();
         const index = l.source === "fixture" ? undefined : indexes.get(l.workspaceId);
-        const dup = index?.find({ ...l, phoneE164 }) ?? null;
-        // A lead of this same batch can be the original of a later one, so each new original joins the index at once.
+        const found = index?.find({ ...l, phoneE164 }) ?? null;
+        // Same phone or website at a clearly different place: another outlet of the business, kept as its own lead and marked, not a repeat.
+        const branch = found?.reason === "branch" ? found.match : null;
+        const dup = found && !branch ? found : null;
+        // A lead of this same batch can be the original of a later one, so each new original (and each branch) joins the index at once.
         if (index && !dup) index.add({ id, name: l.name, phone: l.phone, phoneE164, website: l.website, lat: l.lat, lng: l.lng });
-        const known = { phone: l.phone, email: l.email, phoneE164, businessStatus: l.businessStatus ?? null, duplicateOfId: dup?.match.id ?? null, scrapedAt: now };
+        const known = { phone: l.phone, email: l.email, phoneE164, businessStatus: l.businessStatus ?? null, duplicateOfId: dup?.match.id ?? null, branchOfId: branch?.id ?? null, scrapedAt: now };
         const origin = l.source ?? "google_maps";
         const { fieldSources, social, ...columns } = l;
         const meta: FieldMeta = {};
@@ -289,11 +313,56 @@ export class LeadsService {
           phoneE164,
           businessStatus: l.businessStatus ?? null,
           duplicateOfId: known.duplicateOfId,
+          branchOfId: known.branchOfId,
           fieldMeta: meta,
           ...qualityColumns(known, now),
         };
-      }),
-      skipDuplicates: true,
     });
+    const result = await this.prisma.lead.createMany({ data: rows, skipDuplicates: true });
+    return { ...result, ids: rows.map((r) => r.id) };
+  }
+
+  /** Keys (see scraper/lead-key.ts) of what this campaign already stores, with the stored id, so a run that starts again after a restart does not save the same leads twice. */
+  async campaignLeadKeys(campaignId: string): Promise<Map<string, string>> {
+    const rows = await this.prisma.lead.findMany({ where: { campaignId }, select: { id: true, name: true, address: true, phone: true } });
+    return new Map(rows.map((r) => [leadKey({ name: r.name, address: r.address ?? "", phone: r.phone ?? "" }), r.id]));
+  }
+
+  /**
+   * A later source knew something an earlier one left empty about a lead that was already saved: write it, only where the stored value is empty,
+   * and record which source it came from. A value that is there is never replaced.
+   */
+  async applyFills(fills: Array<{ id: string; values: Partial<Record<"phone" | "email" | "address" | "category" | "website" | "referenceUrl" | "rating", string>> & { lat?: number; lng?: number; reviewCount?: number }; sources: Record<string, string>; social?: Record<string, string> }>) {
+    const now = new Date();
+    let filled = 0;
+    for (const f of fills) {
+      const row = await this.prisma.lead.findUnique({ where: { id: f.id } });
+      if (!row) continue;
+      const data: Record<string, unknown> = {};
+      const changed: string[] = [];
+      for (const [key, value] of Object.entries(f.values)) {
+        const current = (row as Record<string, unknown>)[key];
+        if (value === undefined || value === null || value === "" || (current !== null && current !== undefined && current !== "" && current !== "N/A")) continue;
+        data[key] = value;
+        changed.push(key);
+      }
+      if (data.website) data.hasWebsite = true;
+      if (f.social && Object.keys(f.social).length) {
+        const prev = (row.enrichment && typeof row.enrichment === "object" ? row.enrichment : {}) as { social?: Record<string, string> };
+        const merged = { ...f.social, ...(prev.social ?? {}) };
+        if (JSON.stringify(merged) !== JSON.stringify(prev.social ?? {})) data.enrichment = { ...(row.enrichment as object | null), status: (row.enrichment as { status?: string } | null)?.status ?? "from_source", social: merged };
+      }
+      if (!changed.length && !data.enrichment) continue;
+      const phone = (data.phone as string | undefined) ?? row.phone;
+      const phoneE164 = data.phone ? normalizePhone(data.phone as string) : row.phoneE164;
+      let meta: FieldMeta = row.fieldMeta && typeof row.fieldMeta === "object" ? (row.fieldMeta as FieldMeta) : {};
+      for (const k of changed) if (["phone", "email", "address", "website", "category"].includes(k)) meta = withSource(meta, [k], f.sources[k] ?? "unknown", now);
+      await this.prisma.lead.update({
+        where: { id: f.id },
+        data: { ...data, ...(data.phone ? { phoneE164 } : {}), fieldMeta: meta, ...qualityColumns({ ...row, phone, phoneE164, email: (data.email as string | undefined) ?? row.email }, now) } as Prisma.LeadUpdateInput,
+      });
+      filled++;
+    }
+    return { filled };
   }
 }

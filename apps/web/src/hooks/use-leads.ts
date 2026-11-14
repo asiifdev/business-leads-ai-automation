@@ -28,6 +28,8 @@ export interface Lead {
   qualityIssues?: string[];
   businessStatus?: string | null;
   duplicateOfId?: string | null;
+  /** Another outlet of a business already in the leads (same phone or website, a different place). */
+  branchOfId?: string | null;
   validation?: { waRegistered?: boolean | null; emailMx?: boolean | null; websiteLive?: boolean | null; checkedAt?: string } | null;
   enrichment?: {
     status: "enriched" | "unreachable" | "from_source";

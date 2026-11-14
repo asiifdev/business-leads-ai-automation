@@ -217,7 +217,16 @@ export class WorkspaceAi {
       }),
     );
     this.report({ kind: "ai_chat", model: this.settings.chatModel, promptTokens: res.usage?.prompt_tokens ?? null, completionTokens: res.usage?.completion_tokens ?? null, latencyMs: Date.now() - t0 });
-    return res.choices[0]?.message?.content ?? "";
+    return this.firstChoice(res)?.message?.content ?? "";
+  }
+
+  /** Some providers answer an overload, a rate limit or a timeout with a body that has no `choices`; say so instead of "reading '0' of undefined". */
+  private firstChoice<T extends { choices?: { message?: unknown }[] | null }>(res: T): NonNullable<T["choices"]>[number] | undefined {
+    if (!Array.isArray(res.choices) || res.choices.length === 0) {
+      const detail = (res as { error?: { message?: string } }).error?.message;
+      throw new Error(`The AI provider returned no answer${detail ? `: ${String(detail).slice(0, 160)}` : " (it may be overloaded or the request timed out)"}`);
+    }
+    return res.choices[0];
   }
 
   /**
@@ -249,7 +258,7 @@ export class WorkspaceAi {
       }),
     );
     this.report({ kind: "ai_chat", model: this.settings.chatModel, promptTokens: res.usage?.prompt_tokens ?? null, completionTokens: res.usage?.completion_tokens ?? null, latencyMs: Date.now() - t0 });
-    const msg = res.choices[0]?.message;
+    const msg = this.firstChoice(res)?.message;
     const calls = (msg?.tool_calls ?? []).flatMap((c) => (c.type === "function" ? [{ id: c.id, name: c.function.name, arguments: c.function.arguments }] : []));
     return { content: msg?.content ?? "", toolCalls: calls };
   }

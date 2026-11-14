@@ -1,3 +1,4 @@
+import { extractJsonObject } from "./json-extract";
 import { languageName } from "../common/language";
 import { Injectable, Logger } from "@nestjs/common";
 import { AiClientService, WorkspaceAi } from "./ai-client.service";
@@ -74,8 +75,12 @@ Respond ONLY with valid JSON:
   "coldCall": { "opening": "..." }
 }`;
 
-    const reply = await ai.chat([{ role: "user", content: prompt }], { json: true, temperature: 0.7 });
-    const parsed = JSON.parse(reply) as Omit<MarketingContent, "source">;
-    return { ...parsed, source: "llm" };
+    // A local model sometimes cuts the JSON off or adds text after it: read what is there, and ask once more if nothing usable came back.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const reply = await ai.chat([{ role: "user", content: prompt }], { json: true, temperature: attempt ? 0.4 : 0.7 });
+      const parsed = extractJsonObject(reply) as Partial<Omit<MarketingContent, "source">> | null;
+      if (parsed?.email?.body && parsed.linkedin?.connectionNote && parsed.coldCall?.opening) return { ...(parsed as Omit<MarketingContent, "source">), source: "llm" };
+    }
+    throw new Error("The model did not return the notes as complete JSON twice");
   }
 }

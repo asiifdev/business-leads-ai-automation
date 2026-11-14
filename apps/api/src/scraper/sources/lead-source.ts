@@ -36,6 +36,12 @@ export interface SourceRequest {
   maxResults: number;
   /** Called with 0..100 as the source works through its searches. */
   onProgress?: (pct: number) => void | Promise<void>;
+  /**
+   * Called with leads found so far that nothing has stored yet, so a long run keeps what it found when the server stops. Returns the stored
+   * ids, in the same order. Optional: a source may ignore it and simply return everything at the end. The same lead objects must be
+   * in the list the source returns, so later sources can fill what they left empty.
+   */
+  onBatch?: (leads: RawSourceLead[]) => Promise<string[]>;
 }
 
 export interface LeadSource {

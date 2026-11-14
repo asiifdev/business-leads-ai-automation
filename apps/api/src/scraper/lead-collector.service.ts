@@ -11,8 +11,27 @@ export interface CollectRequest extends Omit<SourceRequest, "onProgress"> {
   onProgress?: (pct: number) => void | Promise<void>;
 }
 
+/** What a later source added to a lead that was already stored: written only where the stored value is empty. */
+export interface LeadFill {
+  id: string;
+  values: Record<string, string | number>;
+  sources: Record<string, string>;
+  social?: Record<string, string>;
+}
+
+const FILL_FIELDS = ["phone", "email", "address", "category", "website", "referenceUrl", "rating", "lat", "lng", "reviewCount"] as const;
+const present = (v: unknown) => v !== "" && v !== null && v !== undefined && v !== "N/A";
+const snapshot = (l: RawSourceLead) => JSON.stringify([FILL_FIELDS.map((k) => (l as unknown as Record<string, unknown>)[k] ?? null), l.social ?? null]);
+
 export interface CollectResult {
+  /** Every lead found, merged across sources (stored ones included). */
   leads: RawSourceLead[];
+  /** The leads in `leads` that no batch stored yet; the pipeline stores these at the end. */
+  unsaved: RawSourceLead[];
+  /** How many leads were already stored by batches while the run was going. */
+  savedEarly: number;
+  /** Details a later source filled in for leads that were already stored. */
+  fills: LeadFill[];
   /** How many each source returned before the same business found twice was merged. */
   perSource: Record<string, number>;
   /** Sources that failed while others still produced leads. */
@@ -45,6 +64,15 @@ export class LeadCollectorService {
     let leads: RawSourceLead[] = [];
     const perSource: Record<string, number> = {};
     const failures: { id: string; message: string }[] = [];
+    // Leads a batch has stored, with what they looked like then, so a later source's additions to them can be written afterwards.
+    const stored = new Map<RawSourceLead, { id: string; before: string }>();
+    const onBatch = req.onBatch
+      ? async (batch: RawSourceLead[]) => {
+          const ids = await req.onBatch!(batch);
+          batch.forEach((l, i) => { if (ids[i]) stored.set(l, { id: ids[i], before: snapshot(l) }); });
+          return ids;
+        }
+      : undefined;
 
     for (let i = 0; i < ids.length; i++) {
       const id = ids[i];
@@ -59,6 +87,7 @@ export class LeadCollectorService {
           country: req.country,
           industry: req.industry,
           maxResults: remaining,
+          onBatch,
           onProgress: (pct) => req.onProgress?.(Math.round(((i + pct / 100) / ids.length) * 100)),
         });
         perSource[id] = found.length;
@@ -74,6 +103,13 @@ export class LeadCollectorService {
     if (leads.length === 0 && failures.length > 0) {
       throw new Error(failures.length === 1 ? failures[0].message : failures.map((f) => `${f.id}: ${f.message}`).join(" | "));
     }
-    return { leads, perSource, warnings: failures.map((f) => `${f.id}: ${f.message}`) };
+    const fills: LeadFill[] = [];
+    for (const [lead, s] of stored) {
+      if (snapshot(lead) === s.before) continue;
+      const values: Record<string, string | number> = {};
+      for (const k of FILL_FIELDS) { const v = (lead as unknown as Record<string, unknown>)[k]; if (present(v)) values[k] = v as string | number; }
+      fills.push({ id: s.id, values, sources: lead.fieldSources ?? {}, social: lead.social as Record<string, string> | undefined });
+    }
+    return { leads, unsaved: leads.filter((l) => !stored.has(l)), savedEarly: leads.length - leads.filter((l) => !stored.has(l)).length, fills, perSource, warnings: failures.map((f) => `${f.id}: ${f.message}`) };
   }
 }

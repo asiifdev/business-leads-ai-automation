@@ -8,6 +8,7 @@ export type QualityIssue =
   | "permanently_closed"
   | "temporarily_closed"
   | "duplicate"
+  | "branch"
   | "no_contact"
   | "phone_not_on_whatsapp"
   | "email_domain_invalid"
@@ -21,6 +22,8 @@ export interface QualityInput {
   email?: string | null;
   businessStatus?: string | null;
   duplicateOfId?: string | null;
+  /** Set when this lead is another outlet of a business already in the leads (same phone or website, a different place). */
+  branchOfId?: string | null;
   enrichedAt?: Date | null;
   scrapedAt?: Date | null;
   /** The stored JSON of free checks (see validation.ts); anything that is not an object counts as no checks. */
@@ -46,6 +49,7 @@ export function assessQuality(lead: QualityInput, now: Date = new Date()): { lev
   if (lead.businessStatus === "permanently_closed") issues.push("permanently_closed");
   if (lead.businessStatus === "temporarily_closed") issues.push("temporarily_closed");
   if (lead.duplicateOfId) issues.push("duplicate");
+  else if (lead.branchOfId) issues.push("branch"); // information only: it never lowers the level
   if (!lead.phoneE164 && !lead.phone && !lead.email) issues.push("no_contact");
   // A phone that is not on WhatsApp only blocks when it is the only way in.
   if (v.waRegistered === false) issues.push("phone_not_on_whatsapp");
@@ -57,7 +61,7 @@ export function assessQuality(lead: QualityInput, now: Date = new Date()): { lev
 
   const blocking = issues.some((i) => BLOCKING.has(i) && !(i === "phone_not_on_whatsapp" && lead.email && v.emailMx !== false));
   if (blocking) return { level: "low", issues };
-  return { level: issues.length ? "medium" : "high", issues };
+  return { level: issues.some((i) => i !== "branch") ? "medium" : "high", issues };
 }
 
 /** Whether bulk drafting should leave this lead out. */
@@ -79,6 +83,7 @@ const RISK_LABEL: Record<QualityIssue, string> = {
   permanently_closed: "permanently-closed",
   temporarily_closed: "temporarily-closed",
   duplicate: "duplicate-lead",
+  branch: "chain-branch",
   no_contact: "no-contact",
   phone_not_on_whatsapp: "not-on-whatsapp",
   email_domain_invalid: "email-domain-invalid",
@@ -89,5 +94,5 @@ const RISK_LABEL: Record<QualityIssue, string> = {
 
 /** Labels for a draft's risk flags: everything wrong with the lead's data, so a draft written for one lead by hand still warns the reviewer. */
 export function qualityRiskLabels(lead: QualityInput, now: Date = new Date()): string[] {
-  return assessQuality(lead, now).issues.map((i) => RISK_LABEL[i]);
+  return assessQuality(lead, now).issues.filter((i) => i !== "branch").map((i) => RISK_LABEL[i]);
 }

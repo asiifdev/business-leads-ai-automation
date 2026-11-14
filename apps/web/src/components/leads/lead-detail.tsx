@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Phone, Search, Globe, MapPin, Star, Mail, Loader2, Copy, MessageSquare } from "lucide-react";
+import { ArrowLeft, Trash2, Phone, Search, Globe, MapPin, Star, Mail, Loader2, Copy, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { useLead } from "@/hooks/use-leads";
 import { api } from "@/lib/api";
@@ -29,6 +31,20 @@ export function LeadDetail({ id }: { id: string }) {
   const crmLabel = (v: string) => (`leads.crm.${v}` in leadsEn ? t(`leads.crm.${v}` as keyof typeof leadsEn) : v);
   const { lead, loading, refresh } = useLead(id);
   const canRead = !!lead?.website || !!lead?.enrichment?.social?.instagram || !!lead?.enrichment?.social?.facebook;
+  const router = useRouter();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const deleteLead = async () => {
+    setDeleting(true);
+    try {
+      await api.delete(`/leads/${id}`);
+      toast.success(t("leads.delete.done"));
+      router.push("/leads");
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : t("leads.delete.failed"));
+      setDeleting(false);
+    }
+  };
   const [crmStatus, setCrmStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deal, setDeal] = useState<{ value: string; lost: string; follow: string } | null>(null);
@@ -147,7 +163,25 @@ export function LeadDetail({ id }: { id: string }) {
           <div className="text-2xl font-bold text-primary">{lead.score}</div>
           <div className="text-xs text-muted-foreground">{t("leads.detail.aiScore")}</div>
         </div>
+        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setConfirmDelete(true)} aria-label={t("leads.delete.button")} title={t("leads.delete.button")}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
       </motion.div>
+
+      <Dialog open={confirmDelete} onOpenChange={(o) => { if (!deleting) setConfirmDelete(o); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("leads.delete.title")}</DialogTitle>
+            <DialogDescription>{t("leads.delete.desc", { name: lead.name })}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" disabled={deleting} onClick={() => setConfirmDelete(false)}>{t("leads.delete.cancel")}</Button>
+            <Button variant="destructive" disabled={deleting} onClick={deleteLead}>
+              {deleting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("leads.delete.working")}</> : t("leads.delete.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <motion.div variants={item} className="lg:col-span-2 space-y-4">

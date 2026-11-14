@@ -8,6 +8,8 @@ export function normalizeRating(raw: string | null | undefined): string {
 }
 
 const NOT_CATEGORY = /^(\d[.,]\d|\(?\d[\d.,]*\)?$|buka|tutup|open|closed|opens|closes|sementara tutup|permanently|buka 24|24 jam|sponsor|iklan)/i;
+/** The rating row of a place nobody has reviewed ("No reviews", "Tidak ada ulasan") sits where the category usually is; it is not a category. */
+const NO_REVIEWS = /^(no\s+reviews?|tidak\s+ada\s+(ulasan|review)|belum\s+ada\s+(ulasan|review)|ulasan\s+belum\s+ada|sin\s+(reseñas|opiniones)|aucun\s+avis|keine\s+rezensionen|nessuna\s+recensione|sem\s+avaliações|нет\s+отзывов|暂无评价|没有评价|无评价|レビューなし|리뷰\s*없음|لا\s+توجد\s+(مراجعات|تقييمات))/i;
 const ADDRESS_LIKE = /^(jl\.?|jalan|gg\.?|gang|street|st\.|rd\.|road|ruko|komplek|no\.?\s*\d)/i;
 
 /**
@@ -17,9 +19,9 @@ const ADDRESS_LIKE = /^(jl\.?|jalan|gg\.?|gang|street|st\.|rd\.|road|ruko|komple
 export function pickCategory(rows: string[]): string {
   for (const row of rows) {
     const t = row.trim();
-    if (!t || NOT_CATEGORY.test(t)) continue;
+    if (!t || NOT_CATEGORY.test(t) || NO_REVIEWS.test(t)) continue;
     const first = t.split("·")[0].trim();
-    if (!first || first.length > 60 || NOT_CATEGORY.test(first) || ADDRESS_LIKE.test(first) || /\d{3,}/.test(first)) continue;
+    if (!first || first.length > 60 || NOT_CATEGORY.test(first) || NO_REVIEWS.test(first) || ADDRESS_LIKE.test(first) || /\d{3,}/.test(first)) continue;
     return first;
   }
   return "";

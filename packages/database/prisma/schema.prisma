@@ -220,6 +220,10 @@ model Lead {
   duplicateOfId String?
   duplicateOf   Lead?  @relation("LeadDuplicate", fields: [duplicateOfId], references: [id], onDelete: SetNull)
   duplicates    Lead[] @relation("LeadDuplicate")
+  // The lead this one is a BRANCH of: same phone or website, a clearly different place. Kept as its own lead, never a repeat.
+  branchOfId String?
+  branchOf   Lead?  @relation("LeadBranch", fields: [branchOfId], references: [id], onDelete: SetNull)
+  branches   Lead[] @relation("LeadBranch")
 
   scrapedAt DateTime @default(now())
   createdAt DateTime @default(now())
@@ -241,6 +245,7 @@ model Lead {
   @@index([workspaceId, needsReply])
   @@index([workspaceId, province, regency])
   @@index([workspaceId, duplicateOfId])
+  @@index([workspaceId, branchOfId])
   @@map("leads")
 }
 
@@ -485,7 +490,8 @@ model OutboundMessage {
 
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId String
-  lead        Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  // Deleting a lead deletes the messages sent to it and received from it. Opt-outs (message_opt_outs, email_opt_outs) are kept on purpose.
+  lead        Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
   leadId      String?
 
   @@index([workspaceId, status, createdAt])
@@ -550,7 +556,7 @@ model InboundMessage {
 
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId String
-  lead        Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  lead        Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
   leadId      String?
 
   @@unique([workspaceId, providerMessageId])

@@ -55,3 +55,12 @@ test("branches that share a website but have their own numbers stay separate lea
   assert.equal(leads.length, 3);
   assert.equal(merged, 0);
 });
+
+test("another outlet of a business found by a later source is its own lead, not merged into the first", () => {
+  const base = { address: "", website: "https://contoh-mart.example.com", rating: "N/A", reviewCount: null, category: "", hasWebsite: true, referenceUrl: "", businessStatus: null } as const;
+  const a = { ...base, name: "Contoh Mart", phone: "0812-3456-7890", lat: -6.2, lng: 106.8, source: "google_maps" };
+  const b = { ...base, name: "Contoh Mart Bandung", phone: "+62 812 3456 7890", lat: -6.9, lng: 107.6, source: "overture" };
+  const r = mergeSourceLeads([a], [b]);
+  assert.equal(r.leads.length, 2);
+  assert.equal(r.merged, 0);
+});

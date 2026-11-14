@@ -58,6 +58,8 @@ export class ScraperProcessor extends WorkerHost {
         industry: data.industry,
         maxResults: data.maxResults,
         onProgress: (pct) => this.campaigns.updateStatus(campaignId, "running", Math.min(28, Math.round(pct * 0.28))).then(() => undefined),
+        // what is found is stored as the search goes: hours of searching are not lost to a restart
+        onBatch: (batch) => this.pipeline.saveBatch(data, batch),
       });
       if (found.leads.length === 0) {
         await this.campaigns.updateStatus(campaignId, "failed", 0, "No leads found");
@@ -65,7 +67,8 @@ export class ScraperProcessor extends WorkerHost {
       }
 
       // A source that failed while another produced leads is shown with the finished campaign.
-      await this.pipeline.ingest(data, found.leads, { from: 30, note: found.warnings.length ? `Some sources failed: ${found.warnings.join("; ")}` : undefined });
+      await this.pipeline.applyFills(found.fills);
+      await this.pipeline.ingest(data, found.unsaved, { from: 30, savedEarly: found.savedEarly, note: found.warnings.length ? `Some sources failed: ${found.warnings.join("; ")}` : undefined });
     } catch (err) {
       this.logger.error(`Campaign ${campaignId} failed: ${err}`);
       await this.campaigns.updateStatus(campaignId, "failed", undefined, (err as Error).message ?? String(err));

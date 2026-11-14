@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { defaultLanguageFor } from "../common/language";
 import { CreateCampaignDto } from "./dto/create-campaign.dto";
@@ -49,9 +49,18 @@ export class CampaignsService {
     return this.prisma.campaign.update({ where: { id }, data: dto });
   }
 
+  /**
+   * Deletes a campaign and everything that hangs off it: its leads and, with them, their activities, follow-ups and every message sent
+   * to or received from them (the database cascades; see the `onDelete` of each relation). Opt-outs are kept on purpose, so a number that
+   * said STOP is still never messaged if the same business is found again. A running campaign is refused, because its worker would keep saving
+   * leads into a campaign that no longer exists, and so is one with a message being sent right now.
+   */
   async remove(id: string, workspaceId = DEFAULT_WORKSPACE_ID) {
-    await this.findOne(id, workspaceId);
-    return this.prisma.campaign.delete({ where: { id } });
+    const campaign = await this.findOne(id, workspaceId);
+    if (campaign.status === "running") throw new ConflictException("This campaign is still running. Wait until it finishes before deleting it.");
+    const sending = await this.prisma.outboundMessage.count({ where: { workspaceId, status: "sending", lead: { campaignId: id } } });
+    if (sending) throw new ConflictException("A message to one of its leads is being sent right now. Try again in a minute.");
+    await this.prisma.campaign.delete({ where: { id } });
   }
 
   async updateStatus(id: string, status: string, progress?: number, error?: string) {

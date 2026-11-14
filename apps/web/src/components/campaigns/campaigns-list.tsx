@@ -14,7 +14,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Search, Megaphone, MapPin, Users, Star, MoreHorizontal, Loader2, ChevronRight, Download, Eye } from "lucide-react";
+import { Plus, Search, Megaphone, MapPin, Users, Star, MoreHorizontal, Loader2, ChevronRight, Download, Eye, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useCampaigns, type Campaign } from "@/hooks/use-campaigns";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -44,8 +46,25 @@ function StatusBadge({ campaign }: { campaign: Campaign }) {
 
 export function CampaignsList() {
   const { t, lang } = useI18n();
-  const { campaigns, loading } = useCampaigns();
+  const { campaigns, loading, refresh } = useCampaigns();
   const [search, setSearch] = useState("");
+  const [toDelete, setToDelete] = useState<Campaign | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function confirmDelete() {
+    if (!toDelete) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/campaigns/${toDelete.id}`);
+      toast.success(t("camp.delete.done"));
+      setToDelete(null);
+      await refresh();
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : t("camp.delete.failed"));
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const filtered = campaigns.filter(
     (c) =>
@@ -141,6 +160,9 @@ export function CampaignsList() {
                           <DropdownMenuItem onClick={() => api.download(`/export/leads/csv?campaignId=${c.id}`, `leads-${c.id}.csv`)}>
                             <Download className="w-3.5 h-3.5 mr-1" />{t("camp.list.exportCsv")}
                           </DropdownMenuItem>
+                          <DropdownMenuItem disabled={c.status === "running"} onClick={() => setToDelete(c)} className="text-destructive focus:text-destructive">
+                            <Trash2 className="w-3.5 h-3.5 mr-1" />{c.status === "running" ? t("camp.list.deleteRunning") : t("camp.list.delete")}
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                       <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
@@ -154,6 +176,21 @@ export function CampaignsList() {
           ))}
         </motion.div>
       )}
+
+      <Dialog open={!!toDelete} onOpenChange={(o) => { if (!o && !deleting) setToDelete(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("camp.delete.title")}</DialogTitle>
+            <DialogDescription>{toDelete ? t("camp.delete.desc", { name: toDelete.name, n: toDelete.totalLeads }) : ""}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" disabled={deleting} onClick={() => setToDelete(null)}>{t("camp.delete.cancel")}</Button>
+            <Button variant="destructive" disabled={deleting} onClick={confirmDelete}>
+              {deleting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("camp.delete.working")}</> : t("camp.delete.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

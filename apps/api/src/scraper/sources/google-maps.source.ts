@@ -13,6 +13,9 @@ export function explainScrapeError(message: string): string {
   return `Google Maps scraping failed: ${message.split("\n")[0].slice(0, 200)}`;
 }
 
+/** Leads are stored in batches of about this many while a run is going. */
+const BATCH_SIZE = 100;
+
 /** Google Maps through a headless browser: one search per query and area. */
 @Injectable()
 export class GoogleMapsSource implements LeadSource {
@@ -49,6 +52,15 @@ export class GoogleMapsSource implements LeadSource {
     const errors: string[] = [];
     const fixtures = process.env.SCRAPER_MODE === "fixture";
 
+    // Leads are handed over in batches as the run goes, so hours of searching are not lost to a restart.
+    const batched = new Set<string>();
+    const pending: RawSourceLead[] = [];
+    const flush = async (force = false) => {
+      if (!req.onBatch || !pending.length || (!force && pending.length < BATCH_SIZE)) return;
+      const batch = pending.splice(0, pending.length);
+      await req.onBatch(batch);
+    };
+
     const unique = new Set<string>();
     const countNew = (list: { name: string; address: string; phone: string }[]) => {
       for (const b of list) unique.add(leadKey(b));
@@ -66,7 +78,13 @@ export class GoogleMapsSource implements LeadSource {
       } else {
         try {
           const raw = await this.maps.scrape(combo.query, perQuery, { area: combo.area, country: req.country });
-          results.push(...raw.map((b) => this.normalize(b, req.industry)));
+          const normalized = raw.map((b) => this.normalize(b, req.industry));
+          results.push(...normalized);
+          for (const lead of normalized) {
+            const key = leadKey(lead);
+            if (!batched.has(key)) { batched.add(key); pending.push(lead); }
+          }
+          await flush();
           this.logger.log(`Query "${combo.query}": ${raw.length} results`);
           // A short random pause between searches: hundreds of searches in a row from one address look like a robot.
           if (plan.nationwide && i < combos.length - 1) await new Promise((r) => setTimeout(r, 2500 + Math.random() * 3500));
@@ -79,6 +97,7 @@ export class GoogleMapsSource implements LeadSource {
       await req.onProgress?.(Math.round(((i + 1) / combos.length) * 100));
     }
 
+    await flush(true);
     if (results.length === 0 && errors.length > 0) throw new Error(explainScrapeError(errors[0]));
 
     // Deduplicate: the same listing can come up under several cities and queries.

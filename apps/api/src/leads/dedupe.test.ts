@@ -68,3 +68,24 @@ test("an index can learn leads one by one, so later ones are compared with earli
   index.add({ id: "a", name: "Contoh Studio", phone: "081234567890" });
   assert.equal(index.find({ name: "Salinan", phone: "+6281234567890" })?.match.id, "a");
 });
+
+test("the same number or website at a clearly different place is a branch, not a repeat", () => {
+  const hq = { id: "a", name: "Contoh Mart", phone: "0812-3456-7890", website: "https://contoh-mart.example.com", lat: -6.2, lng: 106.8 };
+  const far = { name: "Contoh Mart Bandung", phone: "+62 812 3456 7890", website: "https://contoh-mart.example.com", lat: -6.9, lng: 107.6 };
+  assert.equal(findDuplicate(far, [hq])?.reason, "branch");
+  assert.equal(findDuplicate(far, [hq])?.match.id, "a");
+  // the same listing twice (a few metres apart) is still a repeat
+  assert.equal(findDuplicate({ ...far, lat: -6.2003, lng: 106.8002 }, [hq])?.reason, "phone");
+  // without coordinates nothing can be told apart: the same number stays a repeat
+  assert.equal(findDuplicate({ name: "x", phone: "081234567890" }, [hq])?.reason, "phone");
+  // same website, no phone on either side, far apart: a branch
+  assert.equal(findDuplicate({ name: "Contoh Mart Medan", website: "contoh-mart.example.com", lat: 3.6, lng: 98.7 }, [{ id: "b", name: "Contoh Mart", website: "https://contoh-mart.example.com", lat: -6.2, lng: 106.8 }])?.reason, "branch");
+});
+
+test("a third outlet that repeats the second is a repeat of it, not a branch of the first", () => {
+  const first = { id: "a", name: "Contoh Mart", phone: "081234567890", lat: -6.2, lng: 106.8 };
+  const second = { id: "b", name: "Contoh Mart Bandung", phone: "081234567890", lat: -6.9, lng: 107.6 };
+  const r = findDuplicate({ name: "Contoh Mart Bandung", phone: "081234567890", lat: -6.9001, lng: 107.6001 }, [first, second]);
+  assert.equal(r?.reason, "phone");
+  assert.equal(r?.match.id, "b");
+});

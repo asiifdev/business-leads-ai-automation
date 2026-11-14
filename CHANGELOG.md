@@ -15,6 +15,27 @@
 - **Replies lead the conversation.** The prospect-facing reply prompt asks for a confident, courteous peer instead of a humble one, adds how an expert answers a price question, a price objection and interest (one concrete step, two options), and `checkReply` no longer rejects "siap", "oke" or "aja".
 - **Thank-you and goodbye replies are written by the model** for declines and "not now" so each reads like a person; the fixed line is the fallback. Referral and "will check internally" replies keep fixed wording in Indonesian and English.
 
+### Added (deleting campaigns and leads)
+- **Delete a campaign** (Campaigns list, "…" menu, with a confirmation) and **delete a lead** (lead page, with a confirmation). Both remove everything derived from them: the leads, activities, follow-ups and every message sent to or received from them, whatever its status. A STOP from a number is kept (opt-outs are not deleted), and messages from numbers that never matched a lead stay. A running campaign, and anything with a message being sent right now, is refused. The campaign's totals are counted again after a lead is deleted. New API: `DELETE /leads/:id`; `DELETE /campaigns/:id` and `PATCH /campaigns/:id` now act on the caller's workspace (they used the default workspace and found nothing for any other). Needs the migration `20261115010000_lead_delete_cascades_messages`. Known consequence: the hourly and daily sending caps count sent messages, so deleting them lowers the count; `scripts/delete-check.ts` covers the rest.
+
+### Fixed (interface)
+- **A delete showed "Unexpected end of JSON input" although it worked.** The server answers a delete with 204 No Content; the web client tried to read JSON from the empty body, so the dialog stayed open, an error appeared and the list was not refreshed. A successful answer with no body is now success (`lib/api.ts`).
+
+### Added (progressive saving and branches)
+- **Leads are stored while the search runs.** The Maps source hands over what it has found about every 100 leads (`SourceRequest.onBatch`); each batch is scored and stored, and the campaign shows its leads and totals as it goes. Before, everything was held in memory until every search of every source had finished, so a restart after hours of searching lost it all and the campaign page showed 0 leads. Details that a later source (Overture, OpenStreetMap) knows about a lead that was already stored are written afterwards, only into empty fields, with their source recorded (`LeadsService.applyFills`). A run that starts again for the same campaign skips what it already stored. If a source fails after batches were stored, those leads stay.
+- **A business with several outlets stays several leads.** The same phone number or website at a place more than 300 m away is another outlet: its own lead, marked `branchOfId` and the informational `branch` issue (shown on the lead; it never lowers the data-quality level) instead of being merged or flagged as a repeat. Before, the scrape's key was the phone number alone, so a chain with one central line was reduced to a single lead and the outlets in other cities were dropped. Bulk drafting still messages a shared number once. Needs the migration `20261115000000_lead_branch` (`pnpm --filter @prospex/database db:deploy`, or `db:push` in development).
+- `scripts/progressive-save-check.ts`: checks the above against a real database.
+
+### Fixed (AI notes after scraping)
+- **Notes for top leads failed in bulk** ("Cannot read properties of undefined (reading '0')", JSON errors). They were requested for every top lead at once, which overloads a local or rate-limited provider; they are now written four at a time. A provider answer with no `choices` now says "returned no answer (it may be overloaded...)", and the notes' JSON is read tolerantly (text after the object, a code fence) with one retry (`ai/json-extract.ts`). A failed note still never fails the campaign.
+- The Maps scraper logs at debug level why it stopped scrolling a results list (wanted number reached, Google reached the end, or no new results after three scrolls).
+
+### Added (campaign evaluation)
+- **`scripts/campaign-report.ts <campaignId>`**: a read-only report on one campaign with four parts: repeats (flagged, shared phone, shared website, same name), relevance (share of names or categories containing the campaign's own search words, top categories, a sample with no match to judge by eye), contact details (phone, website, email, social, reachable, nothing at all) and geography (places asked versus where the leads are). It prints counts and never decides relevance by itself.
+
+### Fixed (scraping)
+- **"No reviews" was stored as the category.** The rating row of a place nobody has reviewed ("Tidak ada ulasan", "No reviews" and equivalents in other languages) was read as its category, so about 5% of Indonesian leads and most leads from places with few reviews carried it, and it reached the draft prompt as the recipient's kind of business. `pickCategory` now skips those rows. Leads stored before this fix keep the wrong value until re-scraped.
+
 ### Fixed (other countries and languages)
 - **Other scripts were damaged by Indonesian and English rules.** Capitalisation and full stops were added to every non-Indonesian draft. `normalizeDraft` now takes `language: "other"` and only tidies spaces and names.
 - **Honorific rewriting corrupted other languages** ("Mas", "Bu" and "Pak" became "Kakak" or "Anda", for example the Portuguese "Mas" meaning "but"). It now runs only on Indonesian text.

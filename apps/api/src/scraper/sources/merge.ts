@@ -14,7 +14,8 @@ export function mergeSourceLeads(leads: RawSourceLead[], incoming: RawSourceLead
   let merged = 0;
   for (const lead of incoming) {
     const hit = index.find(lead);
-    if (!hit) {
+    if (!hit || hit.reason === "branch") {
+      // another outlet of a business already found (same phone or website, a different place) is its own lead
       out.push(lead);
       index.add(lead);
       continue;

@@ -198,11 +198,11 @@ export class GoogleMapsScraperService {
 
       await page.waitForTimeout(1600);
       const count = await cardCount();
-      if (count >= maxResults) break;
-      if (await reachedEnd()) break; // Google has no more for this search
+      if (count >= maxResults) { this.logger.debug(`Results list: wanted ${maxResults} reached (${count})`); break; }
+      if (await reachedEnd()) { this.logger.debug(`Results list: Google reached the end of this search at ${count}`); break; } // Google has no more for this search
       if (count === prev) {
         stale++;
-        if (stale >= 3) break;
+        if (stale >= 3) { this.logger.debug(`Results list: no new results after ${stale} scrolls, stopped at ${count} (the list may load slowly)`); break; }
       } else {
         stale = 0;
       }

@@ -62,3 +62,11 @@ test("a card's number is read for the campaign's country", () => {
   assert.equal(cardPhone("123 456 789", "EG"), ""); // not valid there: dropped, never stored
   assert.equal(cardPhone("", "EG"), "");
 });
+
+test("a place with no reviews does not get its rating row as category", async () => {
+  const { pickCategory } = await import("./maps-parse");
+  for (const noReviews of ["No reviews", "Tidak ada ulasan", "Belum ada ulasan", "Sin reseñas", "暂无评价", "لا توجد مراجعات"]) {
+    assert.equal(pickCategory([noReviews, "Toko Sepatu · Jl. Contoh 1"]), "Toko Sepatu", noReviews);
+    assert.equal(pickCategory([noReviews]), "", noReviews);
+  }
+});

@@ -56,20 +56,27 @@ export function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng
 }
 
 const SAME_PLACE_M = 150;
+/** The same phone or website at a place farther than this is another outlet of the business (a branch), not the same listing twice. */
+export const BRANCH_MIN_M = 300;
 
-export type DuplicateReason = "phone" | "website" | "name_place";
+/** "branch": same phone or website but a clearly different place. It is its own lead; callers must not treat it as a repeat. */
+export type DuplicateReason = "phone" | "website" | "name_place" | "branch";
+
+const hasPoint = (x: DedupeCandidate): x is DedupeCandidate & { lat: number; lng: number } => typeof x.lat === "number" && typeof x.lng === "number";
+/** Both places are known and far apart. Unknown places never count as far: without coordinates the same number is a repeat. */
+const farApart = (a: DedupeCandidate, b: DedupeCandidate) => hasPoint(a) && hasPoint(b) && distanceM(a, b) > BRANCH_MIN_M;
 
 /**
  * Lookup tables over the leads already stored, so checking a batch of new leads does not compare every pair.
  * `find` returns the first stored lead that is the same business, with why. Branches with their own number are not duplicates.
  */
 export function createDuplicateIndex<T extends DedupeCandidate>(existing: T[]) {
-  const byPhone = new Map<string, T>();
+  const byPhone = new Map<string, T[]>();
   const byDomain = new Map<string, T[]>();
   const byName = new Map<string, T[]>();
   const add = (e: T) => {
     const phone = e.phoneE164 || normalizePhone(e.phone);
-    if (phone && !byPhone.has(phone)) byPhone.set(phone, e);
+    if (phone) byPhone.set(phone, [...(byPhone.get(phone) ?? []), e]);
     const domain = websiteDomain(e.website);
     if (domain) byDomain.set(domain, [...(byDomain.get(domain) ?? []), e]);
     const key = nameKey(e.name);
@@ -81,15 +88,23 @@ export function createDuplicateIndex<T extends DedupeCandidate>(existing: T[]) {
     add,
     find(lead: DedupeCandidate): { match: T; reason: DuplicateReason } | null {
       const phone = lead.phoneE164 || normalizePhone(lead.phone);
-      const byNumber = phone ? byPhone.get(phone) : undefined;
-      if (byNumber) return { match: byNumber, reason: "phone" };
+      const sameNumber = phone ? byPhone.get(phone) ?? [] : [];
+      if (sameNumber.length) {
+        // one of them at the same place (or place unknown) is the same listing; all of them far away means another outlet
+        const near = sameNumber.find((e) => !farApart(lead, e));
+        return near ? { match: near, reason: "phone" } : { match: sameNumber[0], reason: "branch" };
+      }
       const domain = websiteDomain(lead.website);
       // A chain's branches share one website but each has its own number: two different numbers mean two outlets, not one business.
       const bySite = domain ? (byDomain.get(domain) ?? []).find((e) => {
         const ePhone = e.phoneE164 || normalizePhone(e.phone);
         return !(phone && ePhone && phone !== ePhone);
       }) : undefined;
-      if (bySite) return { match: bySite, reason: "website" };
+      if (bySite) {
+        const sameSite = (byDomain.get(domain!) ?? []).filter((e) => { const ePhone = e.phoneE164 || normalizePhone(e.phone); return !(phone && ePhone && phone !== ePhone); });
+        const near = sameSite.find((e) => !farApart(lead, e));
+        return near ? { match: near, reason: "website" } : { match: sameSite[0], reason: "branch" };
+      }
       const key = nameKey(lead.name);
       if (key.length < 4 || typeof lead.lat !== "number" || typeof lead.lng !== "number") return null;
       for (const e of byName.get(key) ?? []) {

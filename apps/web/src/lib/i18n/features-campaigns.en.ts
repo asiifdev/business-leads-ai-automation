@@ -127,4 +127,13 @@ export const campaignsEn = {
   "camp.group.offer": "What you offer",
   "camp.group.how": "How it writes and how many",
   "camp.form.removeQuery": "Remove search query",
+  "camp.list.delete": "Delete campaign",
+  "camp.list.deleteRunning": "Wait until it finishes to delete",
+  "camp.delete.title": "Delete this campaign?",
+  "camp.delete.desc": "\"{name}\" and its {n} leads will be removed, with their activity, follow-ups and every message sent to them or received from them. A STOP from a number is remembered, so it is still never contacted. This cannot be undone.",
+  "camp.delete.confirm": "Delete campaign",
+  "camp.delete.cancel": "Cancel",
+  "camp.delete.working": "Deleting…",
+  "camp.delete.done": "Campaign deleted.",
+  "camp.delete.failed": "Could not delete the campaign.",
 } as const;

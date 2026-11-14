@@ -29,7 +29,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const error = await res.json().catch(() => ({ message: "Request failed" }));
     throw new Error(error.message || `HTTP ${res.status}`);
   }
-  return res.json();
+  // A successful answer may have no body at all (204 No Content, as a delete gives): that is success, not a JSON error.
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export const api = {
