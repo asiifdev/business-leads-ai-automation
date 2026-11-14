@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased (2026-11-15)
+
+### Added (sales playbook)
+- **An expert sales writer for any niche and any country.** New `messaging/sales-playbook.ts`: a persona (a veteran marketing and sales expert; it shapes thinking and never appears in a message), the craft of a message that gets answered (hook from the recipient's world, one outcome-focused bridge, at most one sourced proof, one easy question, no length limit), market wording from the campaign's country and language (taken from `Intl`, no country list in code), and a follow-up craft where every follow-up brings something new. See `docs/sales-playbook.md`.
+- **Sales judge.** After the fact audit passes, a second model reads the message as the prospect would and scores hook, value, ask and human voice; a clearly weak message goes back to the writer with one concrete fix. An unreadable answer never blocks a draft.
+- **Objection handling.** "We already have one" in the first exchange gets one respectful question (new reply action `objection`); a flat no, or the same objection later, gets a thank-you only.
+- `salesProblems`: language-independent checks (a missing ask in any script, shouting). No length check.
+
+### Changed (writing quality)
+- **No length limits.** Prompts no longer give word counts or "short" targets, and `checkReply` no longer rejects a long answer. Only storage ceilings remain.
+- **Hard facts need a source, plausible situations do not.** A situation typical of the recipient's kind of business, put as a question, is allowed and encouraged. The agent is no longer told to fall back to "an honest introduction and a question about relevance" when sources are thin.
+- **The agent prompt is one English text for every language** (the message is written in the campaign's language), replacing the Indonesian and English copies; the opening variant (pain / observation / outcome) now reaches the agent writer too (before, only the fallback writer used it, although the trace recorded it).
+- **Replies lead the conversation.** The prospect-facing reply prompt asks for a confident, courteous peer instead of a humble one, adds how an expert answers a price question, a price objection and interest (one concrete step, two options), and `checkReply` no longer rejects "siap", "oke" or "aja".
+- **Thank-you and goodbye replies are written by the model** for declines and "not now" so each reads like a person; the fixed line is the fallback. Referral and "will check internally" replies keep fixed wording in Indonesian and English.
+
+### Fixed (other countries and languages)
+- **Other scripts were damaged by Indonesian and English rules.** Capitalisation and full stops were added to every non-Indonesian draft. `normalizeDraft` now takes `language: "other"` and only tidies spaces and names.
+- **Honorific rewriting corrupted other languages** ("Mas", "Bu" and "Pak" became "Kakak" or "Anda", for example the Portuguese "Mas" meaning "but"). It now runs only on Indonesian text.
+- **Replies in other languages got Indonesian or English fixed wording.** They are now always written by the model; if two attempts fail the checks the last text is kept and flagged `check`.
+- **The "reply STOP" line is translated** once per language by the AI provider and cached (English if that fails).
+- **A prospect's reply produced no draft without a trained AI Style** (the writer threw "No style profile yet" and the error was only logged). A reply is now written in a plain, warm voice when no style exists.
+
 ## Unreleased (2026-10-14)
 
 ### Added (agent writer)

@@ -1,5 +1,6 @@
 import type { StyleStats, ReplyPair } from "./style-stats";
 import { normalizeDraft } from "../orthography";
+import { SALES_PERSONA, followUpCraft, salesCraft } from "../../messaging/sales-playbook";
 
 export function cosine(a: number[], b: number[]): number {
   let dot = 0, na = 0, nb = 0;
@@ -31,9 +32,12 @@ const SPELLING_RULE =
 const SPELLING_RULE_EN =
   "SPELLING: use standard written English. Start sentences and names with a capital letter, end every sentence with punctuation, write words in full (no chat abbreviations like \"u\", \"r\", \"tbh\"). Chat habits from examples (lowercase, no punctuation) must NOT be copied — imitate only length, word choice, warmth and emoji.";
 
+const SPELLING_RULE_OTHER =
+  "SPELLING: write in the language's standard orthography, with correct punctuation and capitalisation where the script has them. Chat habits from examples (missing punctuation, abbreviations) must NOT be copied; imitate only length, word choice, warmth and emoji.";
+
 /** Human-readable description of measured writing habits, fed to the model as a style guide. */
-export function describeStyle(s: StyleStats, lang: "indonesian" | "english" = "indonesian"): string {
-  const en = lang === "english";
+export function describeStyle(s: StyleStats, lang: "indonesian" | "english" | "other" = "indonesian"): string {
+  const en = lang !== "indonesian";
   const lines = en
     ? [
         `In their chats, replies average ${s.avgChars} characters (median ${s.medianChars}), about ${s.avgWords} words. That is a guide, not a limit — write as long as needed to be clear and useful.`,
@@ -47,7 +51,7 @@ export function describeStyle(s: StyleStats, lang: "indonesian" | "english" = "i
         `Tanda seru di ${pct(s.exclamationRate)} pesan.`,
         `Pesan multi-baris hanya ${pct(s.multiLineRate)}.`,
       ];
-  lines.push(en ? SPELLING_RULE_EN : SPELLING_RULE);
+  lines.push(lang === "other" ? SPELLING_RULE_OTHER : en ? SPELLING_RULE_EN : SPELLING_RULE);
   if (s.topOpeners.length) lines.push(en ? `Common opening words: ${s.topOpeners.slice(0, 5).map((o) => o.word).join(", ")}.` : `Kata pembuka yang sering dipakai: ${s.topOpeners.slice(0, 5).map((o) => o.word).join(", ")}.`);
   if (s.topClosers.length) lines.push(en ? `Common closing words: ${s.topClosers.slice(0, 5).map((o) => o.word).join(", ")}.` : `Kata penutup yang sering dipakai: ${s.topClosers.slice(0, 5).map((o) => o.word).join(", ")}.`);
   return lines.join("\n");
@@ -57,7 +61,8 @@ export interface DraftPromptInput {
   /** A finished product can be demoed; a custom service has nothing to show yet. Defaults to product. */
   offerKind?: "product" | "service";
   businessDescription: string;
-  style: StyleStats;
+  /** Absent when the owner has not trained a style: the reply is then plain and neutral. */
+  style?: StyleStats;
   examples: ReplyPair[];
   /** Facts retrieved from the knowledge base; the model may only state facts found here. */
   knowledge?: string[];
@@ -67,25 +72,52 @@ export interface DraftPromptInput {
   /** The writer is replying to a business we approached, not to a customer of the owner. */
   prospect?: boolean;
   /** What this reply must do (decided in code). */
-  action?: "answer" | "next_step";
+  action?: DraftAction;
   /** We already said who we are in the first message. */
   alreadyIntroduced?: boolean;
   /** Why the previous attempt was rejected, so the model can fix it. */
   retryNote?: string;
   /** Ask for MAKSUD then BALASAN; the caller must keep only the BALASAN part. */
   reason?: boolean;
+  /** Language name to write in when it is neither Indonesian nor English. */
+  writeIn?: string | null;
+  /** Campaign country (ISO 3166-1 alpha-2), so the reply sounds native to that market. */
+  country?: string | null;
 }
+
+/** What a reply must do, decided in code before any model writes. */
+export type DraftAction = "answer" | "next_step" | "objection" | "thanks_referral" | "ask_contact" | "thanks_close" | "thanks_wait" | "thanks_later";
+
+const ACTION_TASK: Record<Exclude<DraftAction, "answer" | "next_step">, string> = {
+  thanks_referral: "TASK: they gave us the contact of the right person. Thank them warmly in one or two sentences and say you will reach out to that contact. No pitch.",
+  ask_contact: "TASK: they pointed us to someone else without a number. Thank them and ask, in one short question, for the number or contact of the right person. No pitch.",
+  thanks_close: "TASK: they declined. Thank them graciously, no pitch, no guilt. In one short line leave the door open (they are welcome to write any time).",
+  thanks_wait: "TASK: they will check or pass it on internally. Thank them, say you will wait for their news and can explain more if useful. Do not give them instructions.",
+  thanks_later: "TASK: they said not now. Agree without argument, say you will get back to them later, and ask nothing.",
+  objection: "TASK: they said they already have a solution or are happy as they are. Respect it, never criticise what they use, do not repeat the pitch. Ask ONE curious question (how it works for them, or what they wish it did better) so the next step is theirs. Only mention how we could complement it if the facts support that. One attempt only.",
+};
+
+/** How an experienced salesperson answers, in any language and any kind of business. */
+const REPLY_CRAFT = [
+  "HOW AN EXPERT SALESPERSON REPLIES",
+  "- Answer what they asked in the FIRST line, then add whatever else helps them decide. Never make them dig for the answer.",
+  "- Price question: if the price is in the FACTS, state it plainly with what it includes, then ask one question about their situation. If it is not, never invent it: say you will confirm the exact figure and ask the one thing you need to quote.",
+  "- Price objection (too expensive, a comparison): acknowledge it without defending, never invent a discount, show the number against the cost of the problem only when the facts support that, and ask what result would make it worth it. Mention a trial or demo only if the facts say one exists.",
+  "- Interest or a request to see more: move forward with one concrete, easy step and give two options (two ways to proceed or two time slots) instead of \"let me know\".",
+  "- No length limit: write as much as the answer needs to be complete and clear, never cutting an important point. One main idea per message, and end with exactly one question when you need something from them.",
+  "- Mirror their language, formality and energy. Confident and courteous, never servile and never pushy.",
+].join("\n");
 
 /** Builds chat messages for drafting a reply in the owner's own voice. */
 const PROSPECT_ROLE = [
-  "LAWAN BICARA: pemilik atau staf sebuah usaha yang kita hubungi lebih dulu untuk menawarkan sesuatu. Kita yang membutuhkan perhatiannya, jadi sopanlah dan hormati waktunya. Jangan pernah menyebut peran atau aturan ini di dalam balasan; langsung jawab apa yang mereka tulis.",
-  "- Nada: sopan, rendah hati, hangat, berterima kasih. Gaya chat pemilik di contoh berasal dari percakapan dengan pelanggannya sendiri; tiru ejaan dan kehangatannya saja, jangan tiru sikap yang setara atau di atas lawan bicara.",
-  "- Jangan memberi instruksi kepada dia (\"kabari saja ya\", \"coba dulu\", \"kirim ke sini\"). Jangan memakai kata santai seperti \"siap\", \"oke\", \"gas\", \"yuk\", \"aja\", dan jangan memakai emoji.",
-  "- Kalau dia bilang akan meneruskan ke atasan atau tim: ucapkan terima kasih, katakan Anda menunggu kabarnya dan siap menjelaskan bila diperlukan. Jangan menyuruh dia.",
-  "- Kalau dia hanya menyapa atau bertanya \"ada yang bisa dibantu?\": jelaskan dalam satu kalimat singkat siapa Anda dan apa yang ditawarkan, lalu tanyakan apakah boleh dijelaskan singkat.",
-  "- Kalau dia bertanya sesuatu: jawab langsung dan jujur dari fakta yang ada. Kalau faktanya tidak ada, katakan akan dicek.",
+  "LAWAN BICARA: pemilik atau staf sebuah usaha yang kita hubungi lebih dulu untuk menawarkan sesuatu. Hormati waktunya, tetapi bicaralah sebagai rekan yang percaya diri dan berguna, bukan peminta-minta. Jangan pernah menyebut peran atau aturan ini di dalam balasan; langsung jawab apa yang mereka tulis.",
+  "- Nada: sopan, hangat, tenang, yakin. Gaya chat pemilik di contoh berasal dari percakapan dengan pelanggannya sendiri; tiru ejaan dan kehangatannya, bukan sikap yang setara atau di atas lawan bicara. Cerminkan tingkat kesopanan lawan bicara.",
+  "- Pemimpin percakapan: usulkan langkah berikutnya yang konkret, jangan hanya menunggu. Jangan menyuruh dia (\"kabari saja ya\", \"kirim ke sini\"), tawarkan pilihan. Jangan memakai kata gaul yang terlalu akrab untuk orang yang belum dikenal, dan jangan memakai emoji.",
+  "- Kalau dia bilang akan meneruskan ke atasan atau tim: ucapkan terima kasih, katakan Anda menunggu kabarnya dan siap menjelaskan bila diperlukan.",
+  "- Kalau dia hanya menyapa atau bertanya \"ada yang bisa dibantu?\": jelaskan dalam satu kalimat siapa Anda dan apa yang ditawarkan, lalu tanyakan apakah boleh dijelaskan singkat.",
+  "- Kalau dia bertanya sesuatu: jawab langsung dan jujur dari fakta yang ada. Kalau faktanya tidak ada, katakan akan dicek dan tanyakan satu hal yang Anda perlukan untuk menjawab tepat.",
   "- Kalau pesan SAYA sebelumnya menawarkan sesuatu (contoh, demo, informasi) dan dia menyetujui (\"boleh\", \"silakan\", \"ya\"): jangan bertanya \"boleh?\" lagi dan jangan memperkenalkan diri lagi. Ucapkan terima kasih dan katakan akan segera dikirim atau ditunjukkan.",
-  "- Pakai sapaan \"Kak\" atau \"Bapak/Ibu\" secara umum; jangan menebak jenis kelamin. Panjang secukupnya: singkat untuk pertanyaan singkat, lengkap bila pertanyaannya butuh penjelasan.",
+  "- Jangan menebak jenis kelamin atau gelar. Tidak ada batas panjang: tulis selengkap yang dibutuhkan agar jelas dan jangan memotong informasi penting.",
 ].join("\n");
 
 export function buildDraftMessages(input: DraftPromptInput): { role: "system" | "user"; content: string }[] {
@@ -96,18 +128,22 @@ export function buildDraftMessages(input: DraftPromptInput): { role: "system" | 
     ? `\nFAKTA YANG BOLEH DIPAKAI (jangan menyebut harga, jadwal, atau kebijakan yang tidak ada di sini):\n${input.knowledge.map((k) => `- ${k}`).join("\n")}\n`
     : "\nTidak ada fakta bisnis yang diberikan: jangan menyebut harga, jadwal, atau kebijakan; tanyakan atau katakan akan dicek.\n";
   const system = [
+    ...(input.prospect ? [SALES_PERSONA, ""] : []),
     `Kamu menulis balasan WhatsApp atas nama pemilik bisnis ini: ${input.businessDescription}`,
     "Tirulah cara menulis pemilik, bukan gaya asisten AI. Jangan memakai kalimat basa-basi yang tidak ada di contoh.",
-    ...(input.prospect ? ["", PROSPECT_ROLE] : []),
+    ...(input.prospect ? ["", PROSPECT_ROLE, "", REPLY_CRAFT] : []),
+    ...(input.writeIn ? [`LANGUAGE: write the whole reply in ${input.writeIn}, the way a native speaker${input.country ? ` in that market` : ""} writes to a business contact. The labels MAKSUD and BALASAN stay as they are; the instructions above are only wording for you, do not copy them or mix in Indonesian or English.`] : []),
     ...(input.alreadyIntroduced ? ["- Anda SUDAH memperkenalkan diri di pesan pertama (lihat percakapan). Jangan memperkenalkan diri lagi dan jangan mengulang isi pesan pertama."] : []),
-    ...(input.action === "answer" ? ["TUGAS: jawab apa yang mereka tanyakan atau minta, langsung dan singkat, hanya dari fakta di bawah. Kalau faktanya tidak ada, katakan Anda akan mengirim rinciannya dan tanyakan bagian mana yang ingin diketahui lebih dulu. Jangan menambah penawaran baru."] : []),
+    ...(input.action === "answer" ? ["TUGAS: jawab apa yang mereka tanyakan atau minta, langsung, hanya dari fakta di bawah. Kalau faktanya tidak ada, katakan Anda akan mengirim rinciannya dan tanyakan bagian mana yang ingin diketahui lebih dulu. Jangan menambah penawaran baru."] : []),
     ...(input.action === "next_step" ? [input.offerKind === "service"
       ? "TUGAS: mereka tertarik atau terbuka untuk bicara. Ini jasa pembuatan sesuai kebutuhan, belum ada aplikasi jadi, jadi JANGAN menawarkan contoh tampilan atau demo. Ajukan SATU langkah kecil: tanyakan kebutuhan atau kendala apa yang ingin dibereskan di usaha mereka, atau tawarkan ngobrol singkat (chat atau telepon) kapan mereka senggang. Jangan menjelaskan semua layanan lagi."
-      : "TUGAS: mereka tertarik atau ingin bertemu. Ajukan SATU langkah berikutnya yang kecil (contoh tampilan atau demo singkat, hanya bila ada di fakta) dan tanyakan apakah boleh. Jangan menjelaskan semuanya lagi."] : []),
+      : "TUGAS: mereka tertarik atau ingin bertemu. Ajukan SATU langkah berikutnya yang konkret dan mudah, dengan dua pilihan (contoh tampilan atau demo singkat, hanya bila ada di fakta), lalu tanyakan mana yang cocok. Jangan menjelaskan semuanya lagi."] : []),
+    ...(input.action && input.action !== "answer" && input.action !== "next_step" ? [ACTION_TASK[input.action]] : []),
     ...(input.retryNote ? [`Balasan sebelumnya ditolak: ${input.retryNote}. Perbaiki.`] : []),
     "",
-    "GAYA MENULIS PEMILIK (diukur dari chat aslinya):",
-    describeStyle(input.style),
+    ...(input.style
+      ? ["GAYA MENULIS PEMILIK (diukur dari chat aslinya):", describeStyle(input.style, input.writeIn ? "other" : "indonesian")]
+      : ["Gaya: sopan, hangat, jelas, seperti orang sungguhan.", input.writeIn ? SPELLING_RULE_OTHER : SPELLING_RULE]),
     facts,
     "CONTOH BALASAN ASLI PEMILIK pada situasi serupa:",
     `<data_contoh>\n${shots || "(belum ada contoh)"}\n</data_contoh>`,
@@ -149,6 +185,10 @@ export interface OutreachPromptInput {
   /** What the owner offers to this lead. */
   offer: string;
   language: "indonesian" | "english";
+  /** The campaign language as stored (legacy value or ISO 639-1 code); decides the market wording. */
+  languageCode?: string | null;
+  /** Campaign country (ISO 3166-1 alpha-2). */
+  country?: string | null;
   /** The language to write in when it is neither: the wording of this prompt stays English and the model is told to answer in it. */
   writeIn?: string | null;
   lead: LeadFacts;
@@ -198,6 +238,11 @@ const OPENING_EN: Record<OutreachVariant, string> = {
   outcome: "An opening angle you may use: an outcome the recipient feels day to day, taken from the brief and knowledge below, written in plain business owner language, not feature language.",
 };
 
+/** The opening angle for a variant, worded in the prompt's own language. */
+export function openingAngle(variant: OutreachVariant, language: "indonesian" | "english"): string {
+  return (language === "indonesian" ? OPENING : OPENING_EN)[variant];
+}
+
 export function leadLines(l: LeadFacts, en = false): string {
   const rows: [string, string | null | undefined][] = en
     ? [
@@ -226,45 +271,25 @@ export function leadLines(l: LeadFacts, en = false): string {
 const WA_FORMAT = "FORMAT WHATSAPP (pakai sintaks asli WhatsApp, bukan Markdown): pisahkan bagian pesan (salam, isi, ajakan, penutup) dengan SATU baris kosong supaya rapi dibaca di ponsel. *teks* untuk TEBAL (satu bintang, bukan dua), _teks_ untuk miring, ~teks~ untuk coret. Tebalkan secukupnya: nama usaha kita sekali dan paling banyak dua frasa kunci, bukan satu kalimat penuh. Bila menyebut dua sampai empat layanan atau poin, tulis sebagai daftar dengan awalan \"- \", satu butir per baris. Tanpa judul (#), tanpa tabel, tanpa emoji.";
 const WA_FORMAT_EN = "WHATSAPP FORMAT (use WhatsApp's own syntax, not Markdown): separate sections (greeting, body, call-to-action, close) with ONE blank line so it reads well on a phone. *text* for BOLD (one asterisk, not two), _text_ for italic, ~text~ for strikethrough. Bold sparingly: our business name once and at most two key phrases, never a whole sentence. If mentioning two to four services or points, use a list with \"- \" prefix, one item per line. No headings (#), no tables, no emoji.";
 
-/** The first message: a goal and the principles of a message that sells, not a script. The model decides the angle, content and order. */
+/** The first message: a goal and the craft of a message that gets answered, not a script. The model decides the angle, content and order. */
 function firstMessageTask(input: OutreachPromptInput, id: boolean, email: boolean, angle: string): string {
-  const service = input.offerKind === "service";
   const link = input.link;
-  if (id) {
-    return [
-      `Penerima belum mengenal pemilik dan tidak pernah meminta pesan ini. Tugasmu: menulis ${email ? "email" : "pesan WhatsApp"} pertama yang membuat pemilik usaha ini mau membalas. Baca BRIEF/PROFIL, FAKTA, dan DATA di bawah, lalu putuskan sendiri sudut, isi, dan susunan yang paling meyakinkan untuk jenis bisnis penerima. Tidak ada templat, tidak ada urutan wajib, tidak ada batas panjang.`,
-      "Pesan yang menjual:",
-      "- Mulai dari dunia penerima (pekerjaan sehari-hari dan hal yang mereka urus), bukan dari kita.",
-      "- Sebut satu atau dua manfaat yang paling kuat untuk jenis bisnis ini, diambil dari brief, dalam bahasa pemilik usaha (waktu, pelanggan, uang, kerepotan), bukan daftar fitur.",
-      `- Sejak kalimat pertama harus jelas siapa yang menulis (${input.businessDescription}) dan bahwa ini penawaran, bukan pertanyaan pelanggan.`,
-      "- Tutup dengan satu langkah kecil yang mudah dijawab.",
-      "- Bahasa Indonesia sehari-hari yang jelas, kalimat pendek, satu gagasan per kalimat. Tidak seperti iklan atau tulisan AI; hindari kata brosur (terintegrasi, efisien, optimal, komprehensif, revolusioner).",
-      angle,
-      service
-        ? "Penawaran ini jasa pembuatan sesuai kebutuhan: jangan mengaku sudah punya produk jadi, dan jangan menawarkan demo atau uji coba kecuali tertulis di brief."
-        : "Demo, uji coba, harga, atau promo hanya boleh disebut bila tertulis di brief atau fakta.",
-      link ? `TAUTAN milik pemilik: ${link}\nBoleh dipasang satu kali di tempat yang wajar bila membantu penerima melihat lebih jauh (tulis persis seperti itu, jangan mengubahnya). Tautan lain dilarang.` : "Jangan menulis tautan atau alamat web.",
-      email
-        ? `Email: teks biasa tanpa markdown dan emoji. Nama usaha persis seperti tertulis ("${input.businessDescription}"). Salam cukup "Halo," (tanpa "Kak") dan penutup "Salam," tanpa nama; tanda tangan, alamat, dan tautan berhenti berlangganan ditambahkan sistem.`
-        : `${WA_FORMAT} Sapaan "Halo, Kak." boleh dipakai; jangan menyapa dengan nama bisnis penerima.`,
-    ].join("\n");
-  }
+  const channel = email ? "email" : "whatsapp";
   return [
-    `The recipient does not know the sender and never asked for this message. Your task: write the first ${email ? "email" : "WhatsApp message"} that makes this business owner want to reply. Read the BRIEF/PROFILE, FACTS and DATA below, then decide the angle, content and structure that will be most convincing for this type of business. No template, no required order, no length limit.`,
-    "A message that sells:",
-    "- Start from the recipient's world (their daily work and what they deal with), not from us.",
-    "- State one or two of the strongest benefits for this type of business, taken from the brief, in the owner's language (time, customers, money, hassle), not a feature list.",
-    `- From the first sentence it must be clear who is writing (${input.businessDescription}) and that this is an offer, not a customer enquiry.`,
-    "- Close with one small step that is easy to answer.",
-    "- Plain, clear everyday English, short sentences, one idea per sentence. Not like an ad or AI writing; avoid brochure words (integrated, efficient, optimal, comprehensive, revolutionary).",
+    SALES_PERSONA,
+    `The recipient does not know the sender and never asked for this message. Write the first ${email ? "email" : "WhatsApp message"} for ${input.businessDescription} that makes this business owner want to reply. Read the BRIEF/PROFILE, FACTS and DATA below and choose the angle, content and order yourself.`,
+    salesCraft({ language: input.languageCode ?? input.language, country: input.country, channel, offerKind: input.offerKind ?? "product" }),
     angle,
-    service
-      ? "This offer is a custom-built service: do not claim a finished product, and do not offer a demo or trial unless the brief says so."
-      : "A demo, trial, price or promotion may only be mentioned if it is written in the brief or facts.",
-    link ? `LINK owned by the sender: ${link}\nYou may place it once, where natural, if it helps the recipient see more (write it exactly as given). Any other link is forbidden.` : "Do not write any link or web address.",
+    link
+      ? (id ? `TAUTAN milik pemilik: ${link}\nBoleh dipasang satu kali di tempat yang wajar bila membantu (tulis persis seperti itu). Tautan lain dilarang.` : `LINK owned by the sender: ${link}\nYou may place it once, where natural, if it helps (write it exactly as given). Any other link is forbidden.`)
+      : (id ? "Jangan menulis tautan atau alamat web." : "Do not write any link or web address."),
     email
-      ? `Email: plain text, no Markdown, no emoji. The exact business name as written ("${input.businessDescription}"). Open with "Hi," and close with "Best regards," without a name; the signature, address and unsubscribe link are added by the system.`
-      : `${WA_FORMAT_EN} A "Hi," greeting is fine; do not greet the recipient by their business name.`,
+      ? (id
+          ? `Email: teks biasa tanpa markdown dan emoji. Nama usaha persis seperti tertulis ("${input.businessDescription}"). Salam cukup "Halo," (tanpa "Kak") dan penutup "Salam," tanpa nama; tanda tangan, alamat, dan tautan berhenti berlangganan ditambahkan sistem.`
+          : `Email: plain text, no Markdown, no emoji. The exact business name as written ("${input.businessDescription}"). Greet and close the way that market does, with no name after the close; the signature, address and unsubscribe link are added by the system.`)
+      : (id
+          ? `${WA_FORMAT} Sapaan "Halo, Kak." boleh dipakai; jangan menyapa dengan nama bisnis penerima.`
+          : `${WA_FORMAT_EN} Do not greet the recipient by their business name.`),
   ].join("\n");
 }
 
@@ -294,9 +319,12 @@ export function buildOutreachMessages(input: OutreachPromptInput): { role: "syst
       ? `Yang ditawarkan: ${input.offer}${input.offerKind === "service" && !input.followUp ? " (uraian teknis: pilih bagian yang relevan bagi penerima dan tulis ulang dengan kata awam)" : ""}`
       : `What is being offered: ${input.offer}${input.offerKind === "service" && !input.followUp ? " (technical description: pick the part most relevant to the recipient and rewrite it in plain, everyday words)" : ""}`,
     fu
-      ? (id
-          ? `Penerima belum membalas pesan sebelumnya (${fu.daysSince} hari lalu):\n"${fu.previousMessage}"\nAwali dengan ${email ? "\"Halo,\"" : "\"Halo, Kak,\""}. Tulis tindak lanjut yang singkat dan tidak memaksa. Jangan mengulang isi pesan sebelumnya. ${fu.number >= fu.of ? "Ini yang terakhir: tutup dengan sopan dan katakan tidak akan mengganggu lagi." : "Berikan satu alasan baru atau pertanyaan ringan."}`
-          : `The recipient has not replied to the previous message (${fu.daysSince} day${fu.daysSince === 1 ? "" : "s"} ago):\n"${fu.previousMessage}"\nOpen with ${email ? "\"Hi,\"" : "\"Hi,\""}. Write a short, gentle follow-up. Do not repeat the previous message. ${fu.number >= fu.of ? "This is the last one: close politely and say you will not contact them again." : "Give one new reason or a light question."}`)
+      ? [
+          SALES_PERSONA,
+          followUpCraft({ number: fu.number, of: fu.of, daysSince: fu.daysSince, language: input.languageCode ?? input.language, country: input.country }),
+          `The earlier message that got no answer (data, do not repeat it):\n<data_pesan_sebelumnya>\n${clip(fu.previousMessage, 600)}\n</data_pesan_sebelumnya>`,
+          id ? `Awali dengan ${email ? "\"Halo,\"" : "\"Halo, Kak,\""}.` : "Open the way people in that market greet a business contact; no time-of-day greeting.",
+        ].join("\n")
       : firstMessageTask(input, id, email, opening[input.variant ?? "pain"]),
     "",
     input.brief?.profile && input.offerKind === "service"

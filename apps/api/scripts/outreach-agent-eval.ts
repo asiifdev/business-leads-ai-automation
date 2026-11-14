@@ -65,7 +65,7 @@ async function one(offer: (typeof OFFERS)[number], niche: string) {
   const t0 = Date.now();
   const r = await runOutreachAgent({
     chat: (m, t) => ai.chatWithTools(m, t, { temperature: 0.8 }),
-    system: agentSystemPrompt({ language: "indonesian", channel: "whatsapp", business: offer.name, offer: offer.summary, recipientKind: niche, generic: true, offerKind: offer.kind }),
+    system: agentSystemPrompt({ languageCode: "indonesian", channel: "whatsapp", business: offer.name, offer: offer.summary, recipientKind: niche, generic: true, offerKind: offer.kind }),
     backend,
   });
   console.log(`\n=== ${offer.name} -> ${niche} | ${r ? `${r.steps} langkah` : "GAGAL"} | ${Math.round((Date.now() - t0) / 1000)}s\n${r?.trace.join(" | ") ?? ""}\n${r?.message ?? "(tidak ada pesan lolos)"}`);

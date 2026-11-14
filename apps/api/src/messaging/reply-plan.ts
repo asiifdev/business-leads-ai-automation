@@ -5,18 +5,27 @@ import type { ReplyIntent } from "./reply-intent";
  * Small local models invent a different "plan" every time (introducing themselves again, answering a question nobody asked);
  * choosing the action in code and checking the result afterwards removes most of that.
  */
-export type ReplyAction = "none" | "thanks_referral" | "ask_contact" | "thanks_close" | "thanks_wait" | "thanks_later" | "answer" | "next_step";
+export type ReplyAction = "none" | "thanks_referral" | "ask_contact" | "thanks_close" | "thanks_wait" | "thanks_later" | "answer" | "next_step" | "objection";
 
 const FORWARDED = /\b(teruskan|diteruskan|info(kan)?\s+(ke|kepada)\s+(atas|pimpinan|owner|manager|tim)|keatasan|ke\s*atasan|atasan|pimpinan|owner|tim\s+kami|kami\s+(cek|diskusi|bahas|konsultasikan)|nanti\s+kami\s+(kabari|hubungi))\b/i;
 
 /** A number or a shared contact card in the text: they told us where to go, not just that we should go elsewhere. */
 const HAS_CONTACT = /\[kontak:|\+?\d[\d\s-]{7,}\d/i;
 
-export function planReplyAction(intent: ReplyIntent, text: string): ReplyAction {
+/** "We already have one": a polite objection, not a refusal. The most common opening of a real sales conversation. */
+const SOFT_OBJECTION = /\b(sudah\s+(punya|pakai|ada|menggunakan)|we\s+(already\s+)?(have|use)|already\s+(have|use|using|work\s+with))\b/i;
+/** A flat no that must be respected as it is. */
+const HARD_NO = /\b(tidak|nggak|gak|ga)\s+(tertarik|berminat|minat|usah|perlu)\b|\bnot\s+interested\b|\bno\s+thanks?\b|\bsalah\s+(orang|nomor|alamat)\b|\bjangan\s+(di)?(hubungi|ganggu|kirim)\b|\bstop\b/i;
+
+/**
+ * `allowPushback`: one respectful question after "we already have one" is worth asking once, in the first exchange only; after that, or after
+ * a flat no, the right move is to thank them and stop.
+ */
+export function planReplyAction(intent: ReplyIntent, text: string, o: { allowPushback?: boolean } = {}): ReplyAction {
   if (intent === "auto_reply") return "none";
   if (intent === "ack") return "none"; // nothing to answer, and a "thanks" to a "thanks" would never end
   if (intent === "referral") return HAS_CONTACT.test(text) ? "thanks_referral" : "ask_contact";
-  if (intent === "not_interested") return "thanks_close";
+  if (intent === "not_interested") return o.allowPushback && SOFT_OBJECTION.test(text) && !HARD_NO.test(text) ? "objection" : "thanks_close";
   if (intent === "not_now") return "thanks_later";
   if (FORWARDED.test(text)) return "thanks_wait";
   if (intent === "price" || intent === "question") return "answer";
@@ -51,7 +60,7 @@ export function fallbackReply(action: ReplyAction, language: "indonesian" | "eng
   return id ? "Terima kasih sudah membalas, Kak. Saya kirimkan rincian yang Kakak butuhkan ya. Mohon beri tahu bagian mana yang ingin diketahui lebih dulu." : "Thank you for replying. I will send the details you need. Please tell me which part you would like to know first.";
 }
 
-const COMMANDING = /\b(siap+|oke+|gas|yuk|aja|kabari\s+saja|kabarin|coba\s+dulu|kirim\s+ke\s+sini|langsung\s+aja)\b/i;
+const COMMANDING = /\b(gas|yuk|kabari\s+saja|kabarin|coba\s+dulu|kirim\s+ke\s+sini|langsung\s+aja)\b/i;
 const EMOJI = /\p{Extended_Pictographic}/u;
 const META = /\b(bukan\s+(pelanggan|penyewa|calon\s+pelanggan)|peran\s+(saya|kita)|sebagai\s+asisten|instruksi|saya\s+pemilik\s+bisnis\s+yang)\b/i;
 const INTRO = /\b(saya|kami)\s+dari\b|\bperkenalkan\b/i;
@@ -61,7 +70,6 @@ export function checkReply(text: string, o: { alreadyIntroduced: boolean; knownT
   const problems: string[] = [];
   const t = text.trim();
   if (t.length < 8) problems.push("too short");
-  if (t.length > 2000) problems.push("too long"); // only catches a runaway answer; length is otherwise the writer's call
   if (EMOJI.test(t)) problems.push("emoji");
   if (COMMANDING.test(t)) problems.push("commanding tone");
   if (META.test(t)) problems.push("talks about roles or instructions instead of answering");

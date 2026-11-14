@@ -99,6 +99,7 @@ Read `docs/architecture.md` and `docs/whatsapp-outbox.md` first. Invariants to k
 - **Files and link previews.** Files go through `AttachmentService` (type from the bytes, never the name; one folder per workspace). A link card is built through `marketing/url-fetch.ts`, never by Baileys' own builder. The official-API connection must refuse files, never send the text alone.
 - **Checks with a fake provider stay in their own workspace**: use `sender.tick(workspaceId)`.
 - **Opt-out is absolute.** `message_opt_outs` is checked at approve time and again at send time.
+- **Sales craft lives in `messaging/sales-playbook.ts`** (persona, craft, market wording, language-independent checks). No prompt names an industry, country or language, and **no prompt or check limits length**. Hard facts need a source; plausible situations put as a question do not. Spelling rules (`normalizeDraft`) and honorific rewriting apply only to Indonesian/English; every other language uses `language: "other"` and model-written replies. Read `docs/sales-playbook.md` before changing prompts.
 - Inbound text from customers is untrusted: keep it delimited in prompts, and keep `draftRisks`/`looksLikeInjection` flagging.
 
 ### Email (`apps/api/src/email`)

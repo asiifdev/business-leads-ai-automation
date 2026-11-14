@@ -187,7 +187,9 @@ export class InboundService implements OnModuleInit {
     if (!conv.incoming.trim()) return "nothing";
     const lastMine = (await this.prisma.outboundMessage.findFirst({ where: { workspaceId, leadId, channel: "whatsapp", status: "sent" }, orderBy: { sentAt: "desc" }, select: { body: true } }))?.body ?? "";
     const intent = (lead.lastIntent as ReplyIntent | null) ?? classifyReply(conv.incoming, { lastMine });
-    const action = planReplyAction(intent, conv.incoming);
+    // one respectful question after "we already have one" is allowed in the first exchange only
+    const ours = (conv.history.match(/^Saya:/gm) ?? []).length;
+    const action = planReplyAction(intent, conv.incoming, { allowPushback: ours <= 1 });
     const w = await this.writer.reply(workspaceId, lead, conv.incoming.slice(0, 1000), conv.history, action);
     if (!w) return "nothing"; // nothing to answer
     // the model took a while: the owner may have answered in the meantime

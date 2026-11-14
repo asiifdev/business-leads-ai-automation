@@ -1,4 +1,4 @@
-import { promptLanguage, writeInLanguage } from "../common/language";
+import { languageName, promptLanguage, writeInLanguage } from "../common/language";
 import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
 import type { Campaign, Lead } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -6,7 +6,8 @@ import { LimitsService } from "../entitlements/limits.service";
 import { AiClientService } from "../ai/ai-client.service";
 import { KnowledgeService } from "../ai/knowledge.service";
 import { StyleService } from "../ai/style.service";
-import { describeStyle, leadLines, type OutreachVariant } from "../ai/chat-import/style-prompt";
+import { describeStyle, leadLines, openingAngle, type DraftAction, type OutreachVariant } from "../ai/chat-import/style-prompt";
+import { parseSalesJudge, salesJudgeMessages, salesProblems } from "./sales-playbook";
 import { runOutreachAgent, type AgentBackend, type AgentSource } from "./outreach-agent";
 import { agentSystemPrompt, briefSectionSource } from "./outreach-agent-prompt";
 import { checkReply, fallbackReply, judgeMessages, parseJudge, templateReply, type ReplyAction } from "./reply-plan";
@@ -85,7 +86,7 @@ export class MessageWriterService {
    * support, or it could not produce a message that passes; the caller then uses the single-prompt writer.
    */
   private async agentDraft(workspaceId: string, o: {
-    language: "indonesian" | "english"; channel: "whatsapp" | "email"; business: string; offer: string; offerKind: "product" | "service";
+    language: "indonesian" | "english"; languageCode?: string | null; country?: string | null; channel: "whatsapp" | "email"; business: string; offer: string; offerKind: "product" | "service";
     generic: boolean; recipientKind: string; recipientText: string; lead: { name: string; category?: string | null };
     briefRow?: { summary: string; content: unknown } | null; style?: StyleStats; link?: string; angle?: string;
     angles: BriefContent["angles"]; offerTexts: (string | null | undefined)[]; caseStudies: string[]; kind: string; seed: string;
@@ -95,7 +96,7 @@ export class MessageWriterService {
     if (!ai.enabled) return null;
     const content = o.briefRow?.content as unknown as BriefContent | undefined;
     const whatsapp = o.channel === "whatsapp";
-    const norm = { language: o.language, names: [o.lead.name, o.business], whatsapp };
+    const norm = { language: (o.languageCode && writeInLanguage(o.languageCode) ? "other" : o.language) as "indonesian" | "english" | "other", names: [o.lead.name, o.business], whatsapp };
     const backend: AgentBackend = {
       searchKnowledge: async (q) => {
         let hits: AgentSource[] = [];
@@ -113,6 +114,7 @@ export class MessageWriterService {
         if (risks.length) problems.push(`menyebut hal yang tidak ada di sumber (${risks.join(", ")})`);
         const foreign = foreignVerticalWords(message, o.lead, o.angles, o.offerTexts);
         if (foreign.length) problems.push(`menyebut jenis usaha lain yang tidak relevan bagi penerima: ${foreign.join(", ")}`);
+        problems.push(...salesProblems(message, { channel: o.channel }));
         return problems;
       },
       audit: async (message, sources) => {
@@ -125,9 +127,16 @@ export class MessageWriterService {
           ].join("\n") },
           { role: "user", content: `<sumber>\n${sources.map((s) => `[${s.id}]\n${s.text.slice(0, 2500)}`).join("\n\n")}\n</sumber>\n<pesan>\n${message}\n</pesan>` },
         ], { temperature: 0, json: true });
+        let unsupported: string[] = [];
         try {
           const j = JSON.parse(raw) as { unsupported?: unknown };
-          return (Array.isArray(j.unsupported) ? j.unsupported : []).filter((x): x is string => typeof x === "string").slice(0, 5).map((x) => `auditor: ${x}`);
+          unsupported = (Array.isArray(j.unsupported) ? j.unsupported : []).filter((x): x is string => typeof x === "string").slice(0, 5).map((x) => `auditor: ${x}`);
+        } catch { /* an unreadable audit adds nothing */ }
+        if (unsupported.length) return unsupported;
+        // facts are fine: now read it as the prospect would, and send it back if nobody would answer this
+        try {
+          const verdict = parseSalesJudge(await ai.chat(salesJudgeMessages({ message, recipientKind: o.recipientKind, offer: o.offer }), { temperature: 0, json: true }));
+          return verdict ? [verdict] : [];
         } catch { return []; }
       },
     };
@@ -136,7 +145,7 @@ export class MessageWriterService {
     try {
       result = await runOutreachAgent({
         chat: (messages, tools) => ai.chatWithTools(messages, tools, { temperature: 0.8 }),
-        system: agentSystemPrompt({ language: o.language, channel: o.channel, business: o.business, offer: o.offer, recipientKind: o.recipientKind, generic: o.generic, style: o.style ? describeStyle(o.style, o.language) : undefined, link: o.link, offerKind: o.offerKind, angle: o.angle }),
+        system: agentSystemPrompt({ languageCode: o.languageCode ?? o.language, country: o.country, channel: o.channel, business: o.business, offer: o.offer, recipientKind: o.recipientKind, generic: o.generic, style: o.style ? describeStyle(o.style, o.language) : undefined, link: o.link, offerKind: o.offerKind, angle: o.angle }),
         backend,
         link: o.link,
       });
@@ -148,7 +157,7 @@ export class MessageWriterService {
     let text = "";
     if (result) {
       text = keepOnlyLink(normalizeDraft(neutralGreeting(clean(result.message, whatsapp)), norm), o.link);
-      if (whatsapp) text = keepOnlyLink(tidyWhatsappOutreach(text), o.link);
+      if (whatsapp && o.language === "indonesian") text = keepOnlyLink(tidyWhatsappOutreach(text), o.link);
       if (!text || PLACEHOLDER.test(text)) { error = "agent output unusable after cleanup"; text = ""; }
     }
     await this.prisma.aiRun.create({
@@ -195,6 +204,7 @@ export class MessageWriterService {
     const started = Date.now();
     const language = promptLanguage(lead.campaign.language);
     const writeIn = writeInLanguage(lead.campaign.language);
+    const country = (await this.prisma.campaign.findUnique({ where: { id: lead.campaignId }, select: { country: true } }))?.country ?? null;
     const profile = await this.prisma.styleProfile.findUnique({ where: { workspaceId } });
     const stats = profile ? (profile.stats as unknown as StyleStats) : undefined;
 
@@ -223,6 +233,8 @@ export class MessageWriterService {
       businessDescription: business,
       offer: lead.campaign.yourService,
       language,
+      languageCode: lead.campaign.language,
+      country,
       writeIn,
       lead: {
         name: lead.name, category: lead.category, address: lead.address, rating: lead.rating, reviewCount: lead.reviewCount,
@@ -240,15 +252,15 @@ export class MessageWriterService {
       link,
       retryNote: note,
     });
-    const normOpts = { language: language as "indonesian" | "english", names: [lead.name, business], whatsapp: channel === "whatsapp" };
-    const tidy = (b: { text: string }) => ({ text: keepOnlyLink(channel === "whatsapp" && !followUp ? tidyWhatsappOutreach(b.text) : b.text, link) });
+    const normOpts = { language: (writeIn ? "other" : language) as "indonesian" | "english" | "other", names: [lead.name, business], whatsapp: channel === "whatsapp" };
+    const tidy = (b: { text: string }) => ({ text: keepOnlyLink(channel === "whatsapp" && !followUp && language === "indonesian" && !writeIn ? tidyWhatsappOutreach(b.text) : b.text, link) });
     const agent = followUp ? null : await this.agentDraft(workspaceId, {
-      language: language as "indonesian" | "english", channel, business, offer: lead.campaign.yourService || briefRow?.summary || business, offerKind, generic: false,
+      language: language as "indonesian" | "english", languageCode: lead.campaign.language, country, channel, business, offer: lead.campaign.yourService || briefRow?.summary || business, offerKind, generic: false,
       recipientKind: lead.category ?? lead.name, recipientText: leadLines({
         name: lead.name, category: lead.category, address: lead.address, rating: lead.rating, reviewCount: lead.reviewCount,
         website: lead.website, hasWebsite: lead.hasWebsite, recommendation: analysis?.recommendation ?? null, about: aboutLine(lead.enrichment),
       }, language === "english"),
-      lead: { name: lead.name, category: lead.category }, briefRow, style: stats, link, angle: undefined,
+      lead: { name: lead.name, category: lead.category }, briefRow, style: stats, link, angle: variant ? openingAngle(variant, language) : undefined,
       angles: (briefRow?.content as unknown as BriefContent | undefined)?.angles ?? [], offerTexts: [briefRow?.summary, lead.campaign.yourService],
       caseStudies: (briefRow?.content as unknown as BriefContent | undefined)?.proof?.customers ?? [], kind: "outreach", seed: lead.id,
     });
@@ -257,7 +269,7 @@ export class MessageWriterService {
     const offerTexts = [briefRow?.summary, lead.campaign.yourService];
     const foreignIn = (text: string) => (followUp ? [] : foreignVerticalWords(text, lead, angles, offerTexts));
     const caseStudies = (briefRow?.content as unknown as BriefContent | undefined)?.proof?.customers ?? [];
-    const check = (text: string) => ({ foreign: foreignIn(text), issues: followUp ? [] : outreachProblems(text, { service: offerKind === "service", category: lead.category, caseStudies }) });
+    const check = (text: string) => ({ foreign: foreignIn(text), issues: [...(followUp ? [] : outreachProblems(text, { service: offerKind === "service", category: lead.category, caseStudies })), ...salesProblems(text, { channel, followUp: !!followUp })] });
     let c = check(body.text);
     const banned = new Set<string>();
     for (let retry = 0; !agent && retry < 2 && (c.foreign.length || c.issues.length); retry++) {
@@ -266,9 +278,9 @@ export class MessageWriterService {
       c = check(body.text);
     }
     const foreign = c.foreign;
-    const hint = language === "english" ? OPT_OUT_HINT_EN : OPT_OUT_HINT_ID;
+    const hint = writeIn ? await this.optOutHint(workspaceId, writeIn) : language === "english" ? OPT_OUT_HINT_EN : OPT_OUT_HINT_ID;
     // Email carries an unsubscribe link in its footer instead of a "reply STOP" line.
-    let emailText = channel === "email" ? neutralHonorific(body.text) : body.text;
+    let emailText = channel === "email" && language === "indonesian" && !writeIn ? neutralHonorific(body.text) : body.text;
     if (channel === "email" && !followUp && link && !emailText.includes(link)) emailText = withLink(emailText, link, language);
     return {
       text: channel === "email" ? emailText : `${body.text}\n\n${hint}`,
@@ -310,11 +322,11 @@ export class MessageWriterService {
         retryNote: note,
       });
       const normOpts = { language: o.language, names: [business], whatsapp: o.channel === "whatsapp" };
-      const tidy = (b: { text: string }) => ({ text: keepOnlyLink(o.channel === "whatsapp" ? tidyWhatsappOutreach(b.text) : b.text, link) });
+      const tidy = (b: { text: string }) => ({ text: keepOnlyLink(o.channel === "whatsapp" && o.language === "indonesian" ? tidyWhatsappOutreach(b.text) : b.text, link) });
       const agent = await this.agentDraft(workspaceId, {
         language: o.language, channel: o.channel, business, offer: o.offer?.trim() || briefRow?.summary || business, offerKind: kind, generic: true,
         recipientKind: o.segment, recipientText: `Jenis bisnis penerima: ${o.segment}\n(Satu pesan untuk banyak bisnis sejenis: tidak ada fakta tentang satu bisnis tertentu.)`,
-        lead: { name: o.segment, category: o.segment }, briefRow, style: stats, link, angle: undefined,
+        lead: { name: o.segment, category: o.segment }, briefRow, style: stats, link, angle: openingAngle(genericVariant, o.language),
         angles: (briefRow?.content as unknown as BriefContent | undefined)?.angles ?? [], offerTexts: [briefRow?.summary, o.offer],
         caseStudies: (briefRow?.content as unknown as BriefContent | undefined)?.proof?.customers ?? [], kind: "template", seed: o.segment,
       });
@@ -325,12 +337,40 @@ export class MessageWriterService {
         body = tidy(await this.generate(workspaceId, "outreach", `template:${o.segment}`, build(issues.join("; ")), facts.hits.map((h) => h.sourceId), facts.confidence, normOpts));
         issues = outreachProblems(body.text, { service: kind === "service", category: o.segment, caseStudies });
       }
-      const text = o.channel === "email" ? neutralHonorific(body.text) : body.text;
+      const text = o.channel === "email" && o.language === "indonesian" ? neutralHonorific(body.text) : body.text;
       return { text, risks: [...draftRisks(link ? text.split(link).join("") : text, agent?.sourceTexts ?? facts.hits.map((h) => h.content)), ...(issues.length ? ["style"] : [])] };
     } catch (e) {
       await release();
       throw e;
     }
+  }
+
+  private readonly optOutHints = new Map<string, string>();
+
+  /**
+   * The "reply STOP" line in the recipient's language. Indonesian and English are fixed; for any other language the model translates the
+   * English line once (the word STOP stays in Latin letters because that is the word the opt-out check listens for) and the result is cached.
+   * If translating fails the English line is used: a way out in English beats no way out.
+   */
+  private async optOutHint(workspaceId: string, language: string): Promise<string> {
+    // keyed by workspace: the line is written by that business's own AI provider, so it is never shared with another business
+    const key = `${workspaceId}:${language}`;
+    const hit = this.optOutHints.get(key);
+    if (hit) return hit;
+    let hint = OPT_OUT_HINT_EN;
+    try {
+      const ai = await this.ai.forWorkspace(workspaceId);
+      const out = (await ai.chat([
+        { role: "system", content: `Translate the line into ${language}, polite and natural for a message to a business contact. Keep the word STOP exactly as written, in Latin letters. Output only the translated line, no quotes.` },
+        { role: "user", content: OPT_OUT_HINT_EN },
+      ], { temperature: 0 })).trim();
+      // a line that goes to every recipient must be one plain sentence: no links, digits, extra lines or markup
+      const plain = out.length > 0 && out.length <= 160 && !/[\n\r]|https?:|www\.|\d|[<>@*_`]/i.test(out);
+      if (plain && /\bSTOP\b/.test(out)) { hint = out; this.optOutHints.set(key, hint); }
+    } catch (e) {
+      this.logger.warn(`Opt-out line not translated to ${language}: ${(e as Error).message}`);
+    }
+    return hint;
   }
 
   /** Subject line for an email body: specific, plain, no clickbait. Throws when the model cannot produce a usable one. */
@@ -357,34 +397,41 @@ export class MessageWriterService {
   async reply(workspaceId: string, lead: LeadWithCampaign | null, incoming: string, history: string, action: ReplyAction = "answer"): Promise<WrittenMessage | null> {
     if (action === "none") return null;
     const language = promptLanguage(lead?.campaign.language);
-    // fixed wording for thanks and goodbyes: no model, no allowance used, nothing to go wrong
-    const fixed = templateReply(action, language);
-    if (fixed) return { text: fixed, risks: [], trace: { styled: false, examples: 0, knowledge: "none", model: "template", latencyMs: 0 } };
+    const writeIn = writeInLanguage(lead?.campaign.language);
+    // Administrative replies (a number was given, they will check internally) keep fixed wording in Indonesian and English: no model, no
+    // allowance used, nothing to go wrong. Declines and "not now" are written by the model so each one reads like a person, with the fixed
+    // line as the fallback. Every other language is always written by the model: a fixed English line to a Spanish speaker is worse than none.
+    const fixed = writeIn ? null : templateReply(action, language);
+    const FIXED_ONLY: ReplyAction[] = ["thanks_referral", "ask_contact", "thanks_wait"];
+    if (fixed && FIXED_ONLY.includes(action)) return { text: fixed, risks: [], trace: { styled: false, examples: 0, knowledge: "none", model: "template", latencyMs: 0 } };
     const release = await this.limits.reserveDraft(workspaceId);
     try {
-      return await this.writeReply(workspaceId, lead, incoming, history, action === "next_step" ? "next_step" : "answer");
+      return await this.writeReply(workspaceId, lead, incoming, history, action as DraftAction);
     } catch (e) {
       await release();
+      if (fixed) return { text: fixed, risks: ["fallback"], trace: { styled: false, examples: 0, knowledge: "none", model: "template", latencyMs: 0 } };
       throw e;
     }
   }
 
-  private async writeReply(workspaceId: string, lead: LeadWithCampaign | null, incoming: string, history: string, action: "answer" | "next_step"): Promise<WrittenMessage> {
+  private async writeReply(workspaceId: string, lead: LeadWithCampaign | null, incoming: string, history: string, action: DraftAction): Promise<WrittenMessage> {
     const ai = await this.ai.forWorkspace(workspaceId);
     if (!ai.enabled) throw new ServiceUnavailableException("AI provider is not configured");
     const started = Date.now();
+    // a style profile makes the reply sound like the owner, but a prospect who answers must never go unanswered because none was trained
     const profile = await this.prisma.styleProfile.findUnique({ where: { workspaceId } });
-    if (!profile) throw new BadRequestException("No style profile yet");
+    const country = lead ? (await this.prisma.campaign.findUnique({ where: { id: lead.campaignId }, select: { country: true } }))?.country ?? null : null;
     // "boleh" or "iya" alone say nothing about the topic: search with what we last said as well
     const lastMine = history.split("\n").reverse().find((l) => l.startsWith("Saya:"))?.slice(5).trim() ?? "";
     const topicQuery = `${lastMine.slice(0, 300)} ${incoming}`.trim();
     let examples: { incoming: string; reply: string; similarity: number }[] = [];
     try {
-      examples = await this.style.retrieveExamples(workspaceId, profile, topicQuery);
+      if (profile) examples = await this.style.retrieveExamples(workspaceId, profile, topicQuery);
     } catch (e) {
       this.logger.warn(`Style examples skipped: ${(e as Error).message}`);
     }
-    const language = lead?.campaign.language === "english" ? "english" : "indonesian";
+    const language = promptLanguage(lead?.campaign.language);
+    const writeIn = writeInLanguage(lead?.campaign.language);
     const facts = await this.knowledge.search(workspaceId, topicQuery);
     const knownFacts = facts.confidence === "none" ? [] : facts.hits.map((h) => h.content);
     const alreadyIntroduced = /\b(saya|kami)\s+dari\b/i.test(history);
@@ -393,7 +440,9 @@ export class MessageWriterService {
     const names = [...(lead ? [lead.name] : []), await this.businessDescription(workspaceId)];
     const build = (retryNote?: string) => buildDraftMessages({
       businessDescription: `${names[names.length - 1]}${lead ? `, menawarkan ${lead.campaign.yourService} kepada ${lead.name}` : ""}`,
-      style: profile.stats as unknown as StyleStats,
+      style: profile ? (profile.stats as unknown as StyleStats) : undefined,
+      writeIn,
+      country,
       examples: examples.map((e) => ({ incoming: e.incoming, reply: e.reply, at: new Date() })),
       knowledge: knownFacts,
       incoming,
@@ -408,8 +457,8 @@ export class MessageWriterService {
     let text = "";
     let problems: string[] = [];
     for (let attempt = 0; attempt < 2; attempt++) {
-      const body = await this.generate(workspaceId, "reply", incoming, build(attempt ? problems.join(", ") : undefined), facts.hits.map((h) => h.sourceId), facts.confidence, { language: language === "english" ? "english" : "auto", names, whatsapp: true }, pickReply);
-      text = neutralHonorificChat(lead ? removeEmoji(body.text) : body.text);
+      const body = await this.generate(workspaceId, "reply", incoming, build(attempt ? problems.join(", ") : undefined), facts.hits.map((h) => h.sourceId), facts.confidence, { language: writeIn ? "other" : language === "english" ? "english" : "auto", names, whatsapp: true }, pickReply);
+      text = writeIn ? body.text : neutralHonorificChat(lead ? removeEmoji(body.text) : body.text);
       problems = checkReply(text, { alreadyIntroduced, knownText: [history, ...knownFacts].join("\n") });
       // a second reading catches what the rules cannot: a cut-off sentence, an answer to another question, an invented price
       if (problems.length === 0) {
@@ -420,8 +469,12 @@ export class MessageWriterService {
     }
     const risks = draftRisks(text, knownFacts);
     // two failed attempts: show safe wording instead of a reply that makes no sense, and say so
-    if (problems.length > 0) { text = fallbackReply(action, language, offerKind); risks.push("fallback"); }
-    return { text, risks, trace: { styled: true, examples: examples.length, knowledge: facts.confidence, model: ai.chatModel, latencyMs: Date.now() - started } };
+    // (another language keeps the last model text, flagged: an English fallback to a Spanish speaker would be worse)
+    if (problems.length > 0) {
+      risks.push(writeIn ? "check" : "fallback");
+      if (!writeIn) text = fallbackReply(action === "next_step" ? "next_step" : "answer", language, offerKind);
+    }
+    return { text, risks, trace: { styled: !!profile, examples: examples.length, knowledge: facts.confidence, model: ai.chatModel, latencyMs: Date.now() - started } };
   }
 
   /** null = the draft passes (or the check itself could not run: it only ever adds a retry, never blocks). */
@@ -435,7 +488,7 @@ export class MessageWriterService {
     }
   }
 
-  private async generate(workspaceId: string, kind: string, input: string, messages: { role: "system" | "user"; content: string }[], sourceIds: string[], confidence: string, norm: { language: "indonesian" | "english" | "auto"; names: string[]; whatsapp?: boolean }, pick: (raw: string) => string = (raw) => raw) {
+  private async generate(workspaceId: string, kind: string, input: string, messages: { role: "system" | "user"; content: string }[], sourceIds: string[], confidence: string, norm: { language: "indonesian" | "english" | "auto" | "other"; names: string[]; whatsapp?: boolean }, pick: (raw: string) => string = (raw) => raw) {
     const ai = await this.ai.forWorkspace(workspaceId);
     const started = Date.now();
     let output = "";

@@ -128,6 +128,10 @@ HIGH from 70, MEDIUM from 50
 
 ### Design decisions worth knowing
 
+- **Sales craft lives in one place.** `messaging/sales-playbook.ts` holds the persona, the craft, the market wording and the language-independent checks; the agent prompt, the single-prompt writer, follow-ups and replies all use it. Prompts name no industry, country or language. See [sales-playbook.md](sales-playbook.md).
+- **No length limits in prompts or checks.** Only storage ceilings remain. Length is the writer's call.
+- **Other languages are not run through Indonesian or English rules.** `normalizeDraft(..., { language: "other" })`, honorific rewriting only for Indonesian, opt-out line translated once, replies always model-written.
+
 - **Approval is the only way into the queue.** No code path sends a draft.
 - **The conversation is whole.** The owner's own phone messages are recorded (only for numbers that belong to a lead), so classification and drafts see both sides. A draft is never written for something already answered, and a newer draft replaces an older waiting one.
 - **Checks that use a fake provider stay in their own workspace.** `sender.tick(workspaceId)` exists for them; without it a fake provider is handed every workspace's queue.

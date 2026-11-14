@@ -7,7 +7,11 @@ test("planReplyAction picks the action in code", () => {
   assert.equal(planReplyAction("other", "Hallo kak, untuk itu akan kami info keatasan kami terlebih dahulu ya kak, terimakasih"), "thanks_wait");
   assert.equal(planReplyAction("price", "Berapa harganya?"), "answer");
   assert.equal(planReplyAction("interested", "Tertarik, kirim infonya"), "next_step");
-  assert.equal(planReplyAction("not_interested", "Kami sudah punya"), "thanks_close");
+  assert.equal(planReplyAction("not_interested", "Kami sudah punya"), "thanks_close"); // no pushback unless allowed
+  assert.equal(planReplyAction("not_interested", "Kami sudah punya", { allowPushback: true }), "objection");
+  assert.equal(planReplyAction("not_interested", "We already use one", { allowPushback: true }), "objection");
+  assert.equal(planReplyAction("not_interested", "Tidak tertarik, sudah punya", { allowPushback: true }), "thanks_close"); // a flat no is respected
+  assert.equal(planReplyAction("not_interested", "Salah nomor", { allowPushback: true }), "thanks_close");
   assert.equal(planReplyAction("not_now", "Bulan depan ya"), "thanks_later");
   assert.equal(planReplyAction("other", "ok"), "thanks_wait");
 });

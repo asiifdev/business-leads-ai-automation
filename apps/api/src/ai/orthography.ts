@@ -79,8 +79,8 @@ function indonesianRules(text: string): string {
 }
 
 export interface NormalizeOptions {
-  /** "indonesian" | "english" | "auto" (default: detect). */
-  language?: "indonesian" | "english" | "auto";
+  /** "indonesian" | "english" | "auto" (default: detect). "other" is any other language: only whitespace and names are tidied, because the capitalisation and punctuation rules here are Indonesian and English ones and would damage other scripts. */
+  language?: "indonesian" | "english" | "auto" | "other";
   /** Proper names (business, lead, owner) restored to their exact spelling wherever they appear in any casing. */
   names?: string[];
 }
@@ -88,10 +88,12 @@ export interface NormalizeOptions {
 export function normalizeDraft(raw: string, opts: NormalizeOptions = {}): string {
   let out = raw.replace(/[ \t]+/g, " ").replace(/ +([,.!?;:])/g, "$1").replace(/[ \t]+\n/g, "\n").trim();
   const lang = opts.language && opts.language !== "auto" ? opts.language : looksIndonesian(out) ? "indonesian" : "english";
-  if (lang === "indonesian") out = indonesianRules(out);
-  // list items and quotes are fragments, not sentences: no full stop is added to them
-  out = out.split("\n").map((l) => (/^(- |\d{1,2}\. |> )/.test(l.trimStart()) ? l : ensureTerminalPunctuation(l, lang === "english"))).join("\n");
-  out = capitalizeSentences(out);
+  if (lang !== "other") {
+    if (lang === "indonesian") out = indonesianRules(out);
+    // list items and quotes are fragments, not sentences: no full stop is added to them
+    out = out.split("\n").map((l) => (/^(- |\d{1,2}\. |> )/.test(l.trimStart()) ? l : ensureTerminalPunctuation(l, lang === "english"))).join("\n");
+    out = capitalizeSentences(out);
+  }
   for (const name of (opts.names ?? []).filter((n) => n && n.trim().length >= 3)) {
     const escaped = name.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     out = out.replace(new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "giu"), name.trim());
