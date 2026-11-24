@@ -72,9 +72,14 @@ test.describe("Settings", () => {
 
     if (await apiKeyInput.isVisible() && await saveBtn.isVisible()) {
       await apiKeyInput.fill("sk-test-placeholder-key");
+      // Prospex has no built-in defaults: a saved key must come with its endpoint and both models,
+      // otherwise the API refuses the save (400) and the workspace never gets its own provider.
+      await page.locator("#ai-model").fill("test-chat-model");
+      await page.locator("#ai-embed").fill("test-embedding-model");
+      await page.locator("#ai-base").fill("http://localhost:9/v1");
       await saveBtn.click();
       // Should not crash — success feedback or no error
-      await expect(page.locator("text=error").or(page.locator(".text-red-400"))).not.toBeVisible({ timeout: 3000 });
+      await expect(page.locator("text=error").or(page.locator(".text-red-400")).or(page.locator(".text-destructive"))).not.toBeVisible({ timeout: 3000 });
       // The key is now this workspace's own provider. Remove it so later specs run without a (fake) AI key.
       const useServer = page.getByRole("button", { name: /Use the server's key|Pakai kunci server/ });
       await expect(useServer).toBeVisible({ timeout: 5000 });
